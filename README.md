@@ -182,7 +182,7 @@ lib/
 
 ```bash
 # Cloner le repo
-git clone https://github.com/YOUR_USERNAME/gestore_project.git
+git clone https://github.com/Hiram-mandela/gestore_project.git
 cd gestore_project/gestore_backend
 
 # Créer un environnement virtuel
