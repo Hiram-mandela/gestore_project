@@ -14,11 +14,12 @@ router = DefaultRouter()
 router.register(r'users', views.UserViewSet, basename='user')
 router.register(r'roles', views.RoleViewSet, basename='role')
 router.register(r'profiles', views.UserProfileViewSet, basename='profile')
-router.register(r'logout', views.LogoutView, basename='logout')
+#router.register(r'logout', views.LogoutView, basename='logout')
 
 urlpatterns = [
     # Authentification JWT
     path('login/', views.LoginView.as_view(), name='login'),
+    path('logout/', views.LogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # ViewSets via router

@@ -2,6 +2,7 @@
 Vues pour l'application authentication - GESTORE
 ViewSets complets avec optimisations et actions personnalisées
 """
+import uuid
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -570,10 +571,13 @@ class LoginView(TokenObtainPairView):
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             
+            # ✅ CORRECTION : Générer un session_key unique pour chaque connexion API
+            api_session_key = f"api_session_{uuid.uuid4().hex[:16]}"
+            
             # Créer une session de tracking
             user_session = UserSession.objects.create(
                 user=user,
-                session_key=request.session.session_key or 'api_session',
+                session_key=api_session_key,  # ✅ Utiliser le session_key généré
                 ip_address=request.META.get('REMOTE_ADDR', ''),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
@@ -624,68 +628,46 @@ class LoginView(TokenObtainPairView):
             
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
 
-
-class LogoutView(viewsets.ViewSet):
+class LogoutView(APIView):
     """
-    Vue de déconnexion avec nettoyage des sessions
+    Vue de déconnexion simple avec nettoyage des sessions
     """
     permission_classes = [permissions.IsAuthenticated]
     
-    @action(detail=False, methods=['post'])
-    def logout(self, request):
+    def post(self, request):
         """
         Déconnexion avec nettoyage
         """
-        # Terminer la session de tracking
-        UserSession.objects.filter(
-            user=request.user,
-            session_key=request.session.session_key,
-            is_active=True
-        ).update(
-            is_active=False,
-            logout_at=timezone.now()
-        )
-        
-        # Logger la déconnexion
-        UserAuditLog.objects.create(
-            user=request.user,
-            action='logout',
-            model_name='User',
-            object_id=request.user.id,
-            object_repr=str(request.user),
-            ip_address=request.META.get('REMOTE_ADDR', ''),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
-        
-        # Nettoyer la session Django
-        logout(request)
-        
-        return Response({'message': 'Déconnexion réussie'})
-    
-    @action(detail=False, methods=['post'])
-    def logout_all(self, request):
-        """
-        Déconnexion de toutes les sessions
-        """
-        # Terminer toutes les sessions actives
-        UserSession.objects.filter(
-            user=request.user,
-            is_active=True
-        ).update(
-            is_active=False,
-            logout_at=timezone.now()
-        )
-        
-        # Logger l'action
-        UserAuditLog.objects.create(
-            user=request.user,
-            action='logout_all',
-            model_name='User',
-            object_id=request.user.id,
-            object_repr=str(request.user),
-            ip_address=request.META.get('REMOTE_ADDR', ''),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
-        
-        return Response({'message': 'Toutes les sessions ont été terminées'})
-    
+        try:
+            # Terminer toutes les sessions API actives de l'utilisateur
+            # (car on ne peut pas tracker le session_key exact en API)
+            UserSession.objects.filter(
+                user=request.user,
+                is_active=True
+            ).update(
+                is_active=False,
+                logout_at=timezone.now()
+            )
+            
+            # Logger la déconnexion
+            UserAuditLog.objects.create(
+                user=request.user,
+                action='logout',
+                model_name='User',
+                object_id=request.user.id,
+                object_repr=str(request.user),
+                ip_address=request.META.get('REMOTE_ADDR', ''),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            return Response({
+                'message': 'Déconnexion réussie',
+                'detail': 'Toutes les sessions ont été terminées'
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+   

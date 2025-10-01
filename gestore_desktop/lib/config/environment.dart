@@ -20,7 +20,7 @@ class AppEnvironment {
   /// Environnement de développement
   static const development = AppEnvironment(
     name: 'Development',
-    apiBaseUrl: 'http://localhost:8000/api',
+    apiBaseUrl: 'http://localhost:8080/api',
     enableLogging: true,
     enablePrettyJson: true,
   );
