@@ -50,7 +50,7 @@ gestore_backend/
 
 ```bash
 # Cloner le repository
-git clone https://github.com/YOUR_USERNAME/gestore-backend.git
+git clone https://github.com/Hiram-mandela/gestore-backend.git
 cd gestore-backend
 
 # Créer l'environnement virtuel
