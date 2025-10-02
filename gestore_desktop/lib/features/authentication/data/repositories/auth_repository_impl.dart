@@ -38,15 +38,6 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       logger.i('🔐 Tentative de login pour: $username');
 
-      // Vérifier la connexion réseau
-      final isConnected = await networkInfo.isConnected;
-      if (!isConnected) {
-        logger.w('⚠️ Pas de connexion réseau');
-        return left(const NetworkFailure(
-          message: 'Aucune connexion internet disponible.',
-        ));
-      }
-
       // Créer la requête
       final request = LoginRequestModel(
         username: username,
@@ -207,15 +198,6 @@ class AuthRepositoryImpl implements AuthRepository {
       if (cachedUser != null) {
         logger.i('ℹ️ Utilisateur depuis le cache');
         return right(cachedUser.toEntity());
-      }
-
-      // Sinon appeler l'API
-      final isConnected = await networkInfo.isConnected;
-      if (!isConnected) {
-        logger.w('⚠️ Pas de connexion pour getCurrentUser');
-        return left(const NetworkFailure(
-          message: 'Aucune connexion disponible.',
-        ));
       }
 
       final user = await remoteDataSource.getCurrentUser();

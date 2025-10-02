@@ -6,22 +6,35 @@ import '../errors/failures.dart';
 /// Left = Failure, Right = Success
 typedef Either<L, R> = ({L? left, R? right});
 
-/// Extension pour faciliter la création d'Either
+/// Extension pour faciliter l'utilisation d'Either
 extension EitherExtension<L, R> on Either<L, R> {
-  bool get isLeft => right == null;
-  bool get isRight => left == null;
+  /// ✅ CORRECTION: Vérifie que left est null ET que right n'est pas null
+  bool get isLeft => left != null;
+
+  /// ✅ CORRECTION: Vérifie que right est non-null ET que left est null
+  bool get isRight => right != null && left == null;
 
   T fold<T>(T Function(L) leftFn, T Function(R) rightFn) {
-    if (isLeft) return leftFn(left as L);
-    return rightFn(right as R);
+    if (left != null) {
+      return leftFn(left as L);
+    } else if (right != null) {
+      return rightFn(right as R);
+    } else {
+      // Cas invalide: les deux sont null
+      throw StateError('Either invalide: left et right sont tous les deux null');
+    }
   }
 }
 
-/// Helper pour créer un Left
-Either<L, R> left<L, R>(L value) => (left: value, right: null);
+/// Helper pour créer un Left (erreur)
+Either<L, R> left<L, R>(L value) {
+  return (left: value, right: null);
+}
 
-/// Helper pour créer un Right
-Either<L, R> right<L, R>(R value) => (left: null, right: value);
+/// Helper pour créer un Right (succès)
+Either<L, R> right<L, R>(R value) {
+  return (left: null, right: value);
+}
 
 /// Classe de base abstraite pour tous les use cases
 /// Un use case représente une action métier unique

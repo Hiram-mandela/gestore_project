@@ -1,6 +1,6 @@
 // ========================================
 // lib/features/authentication/presentation/providers/auth_provider.dart
-// VERSION ROBUSTE - Sans erreurs null check
+// VERSION ULTRA-ROBUSTE - Gestion correcte du Either
 // ========================================
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
@@ -50,10 +50,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final result = await checkAuthStatusUseCase(NoParams());
 
-      // Vérifier que le result n'est pas null
-      if (result.isRight) {
-        final isAuthenticated = result.right;
-        if (isAuthenticated != null && isAuthenticated) {
+      // ✅ CORRECTION: Vérifier d'abord left, puis right
+      if (result.left != null) {
+        final failure = result.left!;
+        logger.e('❌ Erreur vérification auth: ${failure.message}');
+        state = const AuthUnauthenticated();
+      } else if (result.right != null) {
+        final isAuthenticated = result.right!;
+        if (isAuthenticated) {
           logger.i('✅ Utilisateur authentifié, récupération du profil...');
           await _loadCurrentUser();
         } else {
@@ -61,8 +65,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
           state = const AuthUnauthenticated();
         }
       } else {
-        final failure = result.left;
-        logger.e('❌ Erreur vérification auth: ${failure?.message ?? "Unknown error"}');
+        // Either invalide (both null)
+        logger.e('❌ Either invalide dans checkAuthStatus');
         state = const AuthUnauthenticated();
       }
     } catch (e) {
@@ -76,18 +80,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final result = await getCurrentUserUseCase(NoParams());
 
-      if (result.isRight) {
-        final user = result.right;
-        if (user != null) {
-          logger.i('✅ Utilisateur chargé: ${user.username}');
-          state = AuthAuthenticated(user: user);
-        } else {
-          logger.e('❌ Utilisateur null après récupération');
-          state = const AuthUnauthenticated();
-        }
+      // ✅ CORRECTION: Vérifier d'abord left, puis right
+      if (result.left != null) {
+        final failure = result.left!;
+        logger.e('❌ Erreur chargement utilisateur: ${failure.message}');
+        state = const AuthUnauthenticated();
+      } else if (result.right != null) {
+        final user = result.right!;
+        logger.i('✅ Utilisateur chargé: ${user.username}');
+        state = AuthAuthenticated(user: user);
       } else {
-        final failure = result.left;
-        logger.e('❌ Erreur chargement utilisateur: ${failure?.message ?? "Unknown error"}');
+        logger.e('❌ Either invalide dans _loadCurrentUser');
         state = const AuthUnauthenticated();
       }
     } catch (e) {
@@ -110,38 +113,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
         LoginParams(username: username, password: password),
       );
 
-      if (result.isRight) {
-        // Succès
-        final user = result.right;
-        if (user != null) {
-          logger.i('✅ Connexion réussie: ${user.username}');
-          state = AuthAuthenticated(user: user);
-        } else {
-          logger.e('❌ Utilisateur null après login');
-          state = const AuthError(
-            message: 'Erreur lors de la connexion.',
-          );
-        }
-      } else {
-        // Échec
-        final failure = result.left;
-        logger.e('❌ Échec connexion: ${failure?.message ?? "Unknown error"}');
+      // ✅ CORRECTION CRITIQUE: Vérifier d'abord left (erreur), puis right (succès)
+      if (result.left != null) {
+        // Cas d'erreur
+        final failure = result.left!;
+        logger.e('❌ Échec connexion: ${failure.message}');
 
-        // Vérifier que failure n'est pas null
-        if (failure != null) {
-          if (failure is ValidationFailure && failure.fieldErrors != null) {
-            state = AuthError(
-              message: failure.message,
-              fieldErrors: failure.fieldErrors,
-            );
-          } else {
-            state = AuthError(message: failure.message);
-          }
-        } else {
-          state = const AuthError(
-            message: 'Une erreur est survenue lors de la connexion.',
+        if (failure is ValidationFailure && failure.fieldErrors != null) {
+          state = AuthError(
+            message: failure.message,
+            fieldErrors: failure.fieldErrors,
           );
+        } else {
+          state = AuthError(message: failure.message);
         }
+      } else if (result.right != null) {
+        // Cas de succès
+        final user = result.right!;
+        logger.i('✅ Connexion réussie: ${user.username}');
+        state = AuthAuthenticated(user: user);
+      } else {
+        // Either invalide (both null) - ne devrait jamais arriver
+        logger.e('❌ Either invalide dans login: left et right sont null');
+        state = const AuthError(
+          message: 'Erreur interne: résultat de connexion invalide.',
+        );
       }
     } catch (e, stackTrace) {
       logger.e('❌ Exception dans login: $e');
@@ -161,15 +157,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final result = await logoutUseCase(NoParams());
 
-      if (result.isRight) {
-        logger.i('✅ Déconnexion réussie');
-        state = const AuthUnauthenticated();
+      // Peu importe le résultat, on déconnecte localement
+      if (result.left != null) {
+        final failure = result.left!;
+        logger.e('❌ Erreur déconnexion serveur: ${failure.message}');
       } else {
-        final failure = result.left;
-        logger.e('❌ Erreur déconnexion: ${failure?.message ?? "Unknown error"}');
-        // Même en cas d'erreur, on déconnecte localement
-        state = const AuthUnauthenticated();
+        logger.i('✅ Déconnexion serveur réussie');
       }
+
+      state = const AuthUnauthenticated();
     } catch (e, stackTrace) {
       logger.e('❌ Exception dans logout: $e');
       logger.e('StackTrace: $stackTrace');
