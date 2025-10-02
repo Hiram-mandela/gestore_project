@@ -1,18 +1,24 @@
 // ========================================
-// config/routes.dart
+// lib/config/routes.dart
+// Configuration des routes avec GoRouter et AppLayout
 // ========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../features/authentication/presentation/providers/auth_provider.dart';
 import '../features/authentication/presentation/screens/login_screen.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
+import '../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../shared/widgets/app_layout.dart';
 
 /// Configuration des routes avec GoRouter
 final goRouter = GoRouter(
   initialLocation: '/',
   debugLogDiagnostics: true,
   routes: [
+    // ========================================
+    // ROUTES PUBLIQUES (sans layout)
+    // ========================================
+
     // Splash Screen (route initiale)
     GoRoute(
       path: '/',
@@ -27,14 +33,119 @@ final goRouter = GoRouter(
       builder: (context, state) => const LoginScreen(),
     ),
 
-    // Home Screen (temporaire - à remplacer par le vrai home)
+    // ========================================
+    // ROUTES PROTÉGÉES (avec layout)
+    // ========================================
+
+    // Home/Dashboard
     GoRoute(
       path: '/home',
       name: 'home',
-      builder: (context, state) => const HomeScreenPlaceholder(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const DashboardScreen(),
+      ),
     ),
 
-    // TODO: Ajouter les autres routes (inventory, sales, etc.)
+    // Inventory
+    GoRoute(
+      path: '/inventory',
+      name: 'inventory',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const _PlaceholderScreen(
+          title: 'Inventaire',
+          icon: Icons.inventory_2_rounded,
+          message: 'Module en développement',
+        ),
+      ),
+      routes: [
+        // Nouveau article
+        GoRoute(
+          path: 'new',
+          name: 'inventory_new',
+          builder: (context, state) => AppLayout(
+            currentRoute: '/inventory',
+            child: const _PlaceholderScreen(
+              title: 'Nouvel article',
+              icon: Icons.add_box_rounded,
+              message: 'Formulaire de création',
+            ),
+          ),
+        ),
+      ],
+    ),
+
+    // Point de vente (POS)
+    GoRoute(
+      path: '/pos',
+      name: 'pos',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const _PlaceholderScreen(
+          title: 'Point de vente',
+          icon: Icons.point_of_sale_rounded,
+          message: 'Interface POS en développement',
+        ),
+      ),
+    ),
+
+    // Clients
+    GoRoute(
+      path: '/customers',
+      name: 'customers',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const _PlaceholderScreen(
+          title: 'Clients',
+          icon: Icons.people_rounded,
+          message: 'Gestion des clients',
+        ),
+      ),
+      routes: [
+        // Nouveau client
+        GoRoute(
+          path: 'new',
+          name: 'customers_new',
+          builder: (context, state) => AppLayout(
+            currentRoute: '/customers',
+            child: const _PlaceholderScreen(
+              title: 'Nouveau client',
+              icon: Icons.person_add_rounded,
+              message: 'Formulaire d\'enregistrement',
+            ),
+          ),
+        ),
+      ],
+    ),
+
+    // Rapports
+    GoRoute(
+      path: '/reports',
+      name: 'reports',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const _PlaceholderScreen(
+          title: 'Rapports',
+          icon: Icons.analytics_rounded,
+          message: 'Analytics et statistiques',
+        ),
+      ),
+    ),
+
+    // Paramètres
+    GoRoute(
+      path: '/settings',
+      name: 'settings',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const _PlaceholderScreen(
+          title: 'Paramètres',
+          icon: Icons.settings_rounded,
+          message: 'Configuration de l\'application',
+        ),
+      ),
+    ),
   ],
 
   // Gestion des erreurs de navigation
@@ -43,18 +154,22 @@ final goRouter = GoRouter(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 24),
           Text(
             'Page non trouvée',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const SizedBox(height: 8),
-          Text('${state.uri}'),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.go('/'),
-            child: const Text('Retour à l\'accueil'),
+          const SizedBox(height: 12),
+          Text(
+            state.uri.toString(),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home),
+            label: const Text('Retour à l\'accueil'),
           ),
         ],
       ),
@@ -62,141 +177,74 @@ final goRouter = GoRouter(
   ),
 );
 
-/// Écran home temporaire (placeholder)
-class HomeScreenPlaceholder extends ConsumerWidget {
-  const HomeScreenPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('GESTORE - Accueil'),
-        actions: [
-          // Afficher l'utilisateur connecté
-          if (currentUser != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Center(
-                child: Text(
-                  currentUser.fullName,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Se déconnecter',
-              onPressed: () async {
-                // Afficher confirmation
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Déconnexion'),
-                    content: const Text('Voulez-vous vraiment vous déconnecter ?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Annuler'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Déconnexion'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (confirm == true && context.mounted) {
-                  await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) {
-                    context.go('/login');
-                  }
-                }
-              },
-            ),
-          ],
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle, size: 64, color: Colors.green),
-            const SizedBox(height: 16),
-            Text(
-              'Connexion réussie !',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            const Text('Écran d\'accueil temporaire'),
-            const SizedBox(height: 24),
-            const Text('Les modules seront ajoutés ici :'),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                _ModuleCard(
-                  icon: Icons.inventory,
-                  title: 'Inventory',
-                  subtitle: 'À venir',
-                ),
-                _ModuleCard(
-                  icon: Icons.shopping_cart,
-                  title: 'Sales',
-                  subtitle: 'À venir',
-                ),
-                _ModuleCard(
-                  icon: Icons.local_shipping,
-                  title: 'Suppliers',
-                  subtitle: 'À venir',
-                ),
-                _ModuleCard(
-                  icon: Icons.bar_chart,
-                  title: 'Reports',
-                  subtitle: 'À venir',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModuleCard extends StatelessWidget {
-  final IconData icon;
+/// Écran placeholder pour les modules en développement
+class _PlaceholderScreen extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final IconData icon;
+  final String message;
 
-  const _ModuleCard({
-    required this.icon,
+  const _PlaceholderScreen({
     required this.title,
-    required this.subtitle,
+    required this.icon,
+    required this.message,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, size: 48),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icône
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(
+                  icon,
+                  size: 80,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Titre
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Message
+              Text(
+                message,
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 32),
+
+              // Indicateur
+              const CircularProgressIndicator(),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'En cours de développement...',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,29 +1,32 @@
-
 // ========================================
-// main.dart (VERSION MISE À JOUR)
+// lib/main.dart
+// Point d'entrée de l'application GESTORE
+// VERSION MISE À JOUR avec nouveau thème
 // ========================================
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:logger/logger.dart';
-
 import 'config/dependencies.dart';
-import 'config/environment.dart';
 import 'config/routes.dart';
+import 'shared/themes/app_theme.dart';
 
 void main() async {
-  // S'assurer que les bindings Flutter sont initialisés
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurer l'injection de dépendances
+  // Initialiser les dépendances
   await configureDependencies();
 
-  // Logger pour le démarrage
-  final logger = getIt<Logger>();
-  logger.i('🚀 Démarrage de GESTORE Desktop');
-  logger.i('📡 Environnement: ${AppEnvironment.current.name}');
-  logger.i('🌐 API Base URL: ${AppEnvironment.current.apiBaseUrl}');
+  // Initialiser les locales pour formatage des dates
+  await initializeDateFormatting('fr_FR', null);
 
-  // Lancer l'application
+  // Logger de démarrage
+  final logger = Logger();
+  logger.i('🚀 GESTORE démarré avec succès');
+  logger.i('📱 Version: 1.0.0');
+  logger.i('🌍 Locale: fr_FR');
+
   runApp(
     const ProviderScope(
       child: GestoreApp(),
@@ -31,94 +34,39 @@ void main() async {
   );
 }
 
-/// Application principale GESTORE
+/// Widget racine de l'application
 class GestoreApp extends StatelessWidget {
   const GestoreApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'GESTORE Desktop',
+      // Configuration de base
+      title: 'GESTORE - Gestion Intégrée',
       debugShowCheckedModeBanner: false,
 
-      // Configuration du router
+      // Router
       routerConfig: goRouter,
 
-      // Thème clair
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-
-        // Personnalisation des composants
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          filled: true,
-          fillColor: Colors.grey[50],
-        ),
-
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 16,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-
-      // Thème sombre
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          filled: true,
-        ),
-
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 16,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-
+      // Thèmes
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+
+      // Localisation
+      locale: const Locale('fr', 'FR'),
+      supportedLocales: const [
+        Locale('fr', 'FR'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      // Titre de l'app dans la barre de titre (desktop)
+      onGenerateTitle: (context) => 'GESTORE - Gestion Intégrée',
     );
   }
 }
