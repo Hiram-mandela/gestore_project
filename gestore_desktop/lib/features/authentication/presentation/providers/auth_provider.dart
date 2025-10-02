@@ -1,6 +1,6 @@
 // ========================================
-// features/authentication/presentation/providers/auth_provider.dart
-// VERSION CORRIGÉE
+// lib/features/authentication/presentation/providers/auth_provider.dart
+// VERSION ROBUSTE - Sans erreurs null check
 // ========================================
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
@@ -47,37 +47,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     state = const AuthLoading();
 
-    final result = await checkAuthStatusUseCase(NoParams());
+    try {
+      final result = await checkAuthStatusUseCase(NoParams());
 
-    // Utiliser isLeft/isRight au lieu de fold
-    if (result.isLeft) {
-      final failure = result.left!;
-      logger.e('❌ Erreur vérification auth: ${failure.message}');
-      state = const AuthUnauthenticated();
-    } else {
-      final isAuthenticated = result.right!;
-      if (isAuthenticated) {
-        logger.i('✅ Utilisateur authentifié, récupération du profil...');
-        _loadCurrentUser();
+      // Vérifier que le result n'est pas null
+      if (result.isRight) {
+        final isAuthenticated = result.right;
+        if (isAuthenticated != null && isAuthenticated) {
+          logger.i('✅ Utilisateur authentifié, récupération du profil...');
+          await _loadCurrentUser();
+        } else {
+          logger.i('ℹ️ Utilisateur non authentifié');
+          state = const AuthUnauthenticated();
+        }
       } else {
-        logger.i('ℹ️ Utilisateur non authentifié');
+        final failure = result.left;
+        logger.e('❌ Erreur vérification auth: ${failure?.message ?? "Unknown error"}');
         state = const AuthUnauthenticated();
       }
+    } catch (e) {
+      logger.e('❌ Exception dans checkAuthStatus: $e');
+      state = const AuthUnauthenticated();
     }
   }
 
   /// Charger l'utilisateur actuel
   Future<void> _loadCurrentUser() async {
-    final result = await getCurrentUserUseCase(NoParams());
+    try {
+      final result = await getCurrentUserUseCase(NoParams());
 
-    if (result.isLeft) {
-      final failure = result.left!;
-      logger.e('❌ Erreur chargement utilisateur: ${failure.message}');
+      if (result.isRight) {
+        final user = result.right;
+        if (user != null) {
+          logger.i('✅ Utilisateur chargé: ${user.username}');
+          state = AuthAuthenticated(user: user);
+        } else {
+          logger.e('❌ Utilisateur null après récupération');
+          state = const AuthUnauthenticated();
+        }
+      } else {
+        final failure = result.left;
+        logger.e('❌ Erreur chargement utilisateur: ${failure?.message ?? "Unknown error"}');
+        state = const AuthUnauthenticated();
+      }
+    } catch (e) {
+      logger.e('❌ Exception dans _loadCurrentUser: $e');
       state = const AuthUnauthenticated();
-    } else {
-      final user = result.right!;
-      logger.i('✅ Utilisateur chargé: ${user.username}');
-      state = AuthAuthenticated(user: user);
     }
   }
 
@@ -90,26 +105,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     state = const AuthLoading();
 
-    final result = await loginUseCase(
-      LoginParams(username: username, password: password),
-    );
+    try {
+      final result = await loginUseCase(
+        LoginParams(username: username, password: password),
+      );
 
-    if (result.isLeft) {
-      final failure = result.left!;
-      logger.e('❌ Échec connexion: ${failure.message}');
-
-      if (failure is ValidationFailure && failure.fieldErrors != null) {
-        state = AuthError(
-          message: failure.message,
-          fieldErrors: failure.fieldErrors,
-        );
+      if (result.isRight) {
+        // Succès
+        final user = result.right;
+        if (user != null) {
+          logger.i('✅ Connexion réussie: ${user.username}');
+          state = AuthAuthenticated(user: user);
+        } else {
+          logger.e('❌ Utilisateur null après login');
+          state = const AuthError(
+            message: 'Erreur lors de la connexion.',
+          );
+        }
       } else {
-        state = AuthError(message: failure.message);
+        // Échec
+        final failure = result.left;
+        logger.e('❌ Échec connexion: ${failure?.message ?? "Unknown error"}');
+
+        // Vérifier que failure n'est pas null
+        if (failure != null) {
+          if (failure is ValidationFailure && failure.fieldErrors != null) {
+            state = AuthError(
+              message: failure.message,
+              fieldErrors: failure.fieldErrors,
+            );
+          } else {
+            state = AuthError(message: failure.message);
+          }
+        } else {
+          state = const AuthError(
+            message: 'Une erreur est survenue lors de la connexion.',
+          );
+        }
       }
-    } else {
-      final user = result.right!;
-      logger.i('✅ Connexion réussie: ${user.username}');
-      state = AuthAuthenticated(user: user);
+    } catch (e, stackTrace) {
+      logger.e('❌ Exception dans login: $e');
+      logger.e('StackTrace: $stackTrace');
+      state = const AuthError(
+        message: 'Une erreur inattendue est survenue.',
+      );
     }
   }
 
@@ -119,15 +158,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     state = const AuthLoading();
 
-    final result = await logoutUseCase(NoParams());
+    try {
+      final result = await logoutUseCase(NoParams());
 
-    if (result.isLeft) {
-      final failure = result.left!;
-      logger.e('❌ Erreur déconnexion: ${failure.message}');
+      if (result.isRight) {
+        logger.i('✅ Déconnexion réussie');
+        state = const AuthUnauthenticated();
+      } else {
+        final failure = result.left;
+        logger.e('❌ Erreur déconnexion: ${failure?.message ?? "Unknown error"}');
+        // Même en cas d'erreur, on déconnecte localement
+        state = const AuthUnauthenticated();
+      }
+    } catch (e, stackTrace) {
+      logger.e('❌ Exception dans logout: $e');
+      logger.e('StackTrace: $stackTrace');
       // Même en cas d'erreur, on déconnecte localement
-      state = const AuthUnauthenticated();
-    } else {
-      logger.i('✅ Déconnexion réussie');
       state = const AuthUnauthenticated();
     }
   }
@@ -135,14 +181,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Réinitialiser l'état d'erreur
   void clearError() {
     if (state is AuthError) {
+      logger.d('🧹 Nettoyage de l\'erreur');
       state = const AuthUnauthenticated();
     }
   }
 
   /// Obtenir l'utilisateur actuel (si authentifié)
   UserEntity? get currentUser {
-    if (state is AuthAuthenticated) {
-      return (state as AuthAuthenticated).user;
+    final currentState = state;
+    if (currentState is AuthAuthenticated) {
+      return currentState.user;
     }
     return null;
   }

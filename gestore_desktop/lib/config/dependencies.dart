@@ -1,6 +1,6 @@
 // ========================================
-// config/dependencies.dart
-// VERSION CORRIGÉE (sans import inutilisé)
+// lib/config/dependencies.dart
+// VERSION CORRIGÉE - ApiClient injecté dans AuthRepository
 // ========================================
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -66,7 +66,7 @@ Future<void> configureDependencies() async {
         () => NetworkInfoImpl(getIt<Connectivity>()),
   );
 
-  // API Client
+  // API Client (IMPORTANT: doit être créé AVANT le repository)
   getIt.registerLazySingleton<ApiClient>(
         () => ApiClient(
       secureStorage: getIt<FlutterSecureStorage>(),
@@ -89,13 +89,14 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  // Repository
+  // Repository (MODIFIÉ: injecter ApiClient)
   getIt.registerLazySingleton<AuthRepository>(
         () => AuthRepositoryImpl(
       getIt<AuthRemoteDataSource>(),
       getIt<AuthLocalDataSource>(),
       getIt<NetworkInfo>(),
       getIt<Logger>(),
+      getIt<ApiClient>(), // AJOUT: injection ApiClient pour synchroniser le cache
     ),
   );
 
@@ -119,4 +120,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<CheckAuthStatusUseCase>(
         () => CheckAuthStatusUseCase(getIt<AuthRepository>()),
   );
+
+  // Log de confirmation
+  getIt<Logger>().i('✅ Toutes les dépendances configurées avec succès');
 }
