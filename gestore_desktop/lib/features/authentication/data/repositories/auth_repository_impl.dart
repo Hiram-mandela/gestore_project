@@ -1,13 +1,11 @@
 // ========================================
-// lib/features/authentication/data/repositories/auth_repository_impl.dart
-// VERSION CORRIGÉE FINALE - Gestion d'erreurs complète
+// AUTH REPOSITORY IMPLEMENTATION - VERSION CORRIGÉE
+// Remplacer lib/features/authentication/data/repositories/auth_repository_impl.dart
 // ========================================
-import 'package:logger/logger.dart';
 
-import '../../../../core/errors/failures.dart';
+import 'package:logger/logger.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/network_info.dart';
-import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_datasource.dart';
@@ -15,6 +13,7 @@ import '../datasources/auth_remote_datasource.dart';
 import '../models/login_request_model.dart';
 
 /// Implémentation du repository d'authentification
+/// Utilise maintenant (Type?, String?) au lieu de Either<Failure, Type>
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final AuthLocalDataSource localDataSource;
@@ -31,23 +30,17 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
   @override
-  Future<Either<Failure, UserEntity>> login({
+  Future<(UserEntity?, String?)> login({
     required String username,
     required String password,
   }) async {
     try {
       logger.i('🔐 Tentative de login pour: $username');
 
-      // Créer la requête
-      final request = LoginRequestModel(
-        username: username,
-        password: password,
-      );
-
-      // Appeler l'API via le remote datasource
+      final request = LoginRequestModel(username: username, password: password);
       final response = await remoteDataSource.login(request);
 
-      // Sauvegarder les tokens dans le storage ET le cache ApiClient
+      // Sauvegarder les tokens
       await Future.wait([
         localDataSource.saveTokens(
           accessToken: response.accessToken,
@@ -59,58 +52,24 @@ class AuthRepositoryImpl implements AuthRepository {
         ),
       ]);
 
-      // Sauvegarder l'utilisateur et le statut
       await localDataSource.saveUser(response.user);
       await localDataSource.setAuthStatus(true);
 
       logger.i('✅ Login réussi pour ${response.user.username}');
-
-      return right(response.user.toEntity());
-    } on Failure catch (failure) {
-      // Les Failures sont déjà créés par ApiClient._handleDioError()
-      logger.e('❌ Erreur login (Failure): ${failure.message}');
-      return left(failure);
-    } on Exception catch (e) {
-      // Attraper toutes les autres exceptions
-      logger.e('❌ Erreur login (Exception): $e');
-
-      // Transformer en Failure approprié
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('NetworkException')) {
-        return left(const NetworkFailure(
-          message: 'Impossible de se connecter au serveur.',
-        ));
-      }
-
-      return left(UnknownFailure(
-        message: 'Une erreur inattendue est survenue.',
-        error: e,
-      ));
+      return (response.user.toEntity(), null);
     } catch (e) {
-      // Attraper absolument tout le reste
-      logger.e('❌ Erreur login (catch all): $e');
-      return left(UnknownFailure(
-        message: 'Une erreur inattendue est survenue.',
-        error: e,
-      ));
+      logger.e('❌ Erreur login: $e');
+      final errorMessage = _extractErrorMessage(e);
+      return (null, errorMessage);
     }
   }
 
   @override
-  Future<Either<Failure, void>> logout() async {
+  Future<(void, String?)> logout() async {
     try {
-      logger.i('🚪 Début logout...');
+      logger.i('🚪 Déconnexion...');
 
-      // Appeler l'API de logout (AVANT de supprimer les tokens)
-      try {
-        await remoteDataSource.logout();
-        logger.i('✅ Logout API réussi');
-      } catch (e) {
-        logger.w('⚠️ Logout API échoué (continuons localement): $e');
-        // On continue même si l'API échoue
-      }
-
-      // Nettoyer le storage ET le cache ApiClient
+      await remoteDataSource.logout();
       await Future.wait([
         localDataSource.clearTokens(),
         apiClient.clearTokens(),
@@ -118,52 +77,33 @@ class AuthRepositoryImpl implements AuthRepository {
         localDataSource.setAuthStatus(false),
       ]);
 
-      logger.i('✅ Logout réussi (storage + cache nettoyés)');
-      return right(null);
-    } on Failure catch (failure) {
-      logger.e('❌ Erreur logout (Failure): ${failure.message}');
-      // Même en cas d'erreur, on nettoie localement
-      await _forceLocalCleanup();
-      return left(failure);
+      logger.i('✅ Déconnexion réussie');
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur logout: $e');
-      // Même en cas d'erreur, on nettoie localement
-      await _forceLocalCleanup();
-      return left(UnknownFailure(message: e.toString()));
-    }
-  }
-
-  /// Nettoyage local forcé en cas d'erreur
-  Future<void> _forceLocalCleanup() async {
-    try {
+      // Même en cas d'erreur, nettoyer localement
       await Future.wait([
         localDataSource.clearTokens(),
         apiClient.clearTokens(),
         localDataSource.clearUser(),
         localDataSource.setAuthStatus(false),
       ]);
-      logger.i('✅ Nettoyage local forcé réussi');
-    } catch (e) {
-      logger.e('❌ Erreur nettoyage local forcé: $e');
+      return (null, null); // Pas d'erreur pour logout
     }
   }
 
   @override
-  Future<Either<Failure, void>> refreshToken() async {
+  Future<(void, String?)> refreshToken() async {
     try {
-      logger.i('🔄 Tentative de refresh token...');
+      logger.d('🔄 Rafraîchissement du token...');
 
       final refreshToken = await localDataSource.getRefreshToken();
       if (refreshToken == null) {
-        logger.w('⚠️ Aucun refresh token disponible');
-        return left(const AuthenticationFailure(
-          message: 'Aucun refresh token disponible.',
-        ));
+        return (null, 'Aucun refresh token disponible');
       }
 
       final tokens = await remoteDataSource.refreshToken(refreshToken);
 
-      // Sauvegarder dans le storage ET dans le cache
       await Future.wait([
         localDataSource.saveTokens(
           accessToken: tokens['access']!,
@@ -175,75 +115,61 @@ class AuthRepositoryImpl implements AuthRepository {
         ),
       ]);
 
-      logger.i('✅ Token rafraîchi (storage + cache)');
-      return right(null);
-    } on Failure catch (failure) {
-      logger.e('❌ Erreur refresh token (Failure): ${failure.message}');
-      return left(failure);
+      logger.i('✅ Token rafraîchi');
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur refresh token: $e');
-      return left(const AuthenticationFailure(
-        message: 'Impossible de rafraîchir le token.',
-      ));
+      return (null, _extractErrorMessage(e));
     }
   }
 
   @override
-  Future<Either<Failure, UserEntity>> getCurrentUser() async {
+  Future<(UserEntity?, String?)> getCurrentUser() async {
     try {
       logger.d('📥 Récupération utilisateur actuel...');
 
-      // D'abord essayer le cache
+      // Essayer le cache d'abord
       final cachedUser = await localDataSource.getCachedUser();
       if (cachedUser != null) {
         logger.i('ℹ️ Utilisateur depuis le cache');
-        return right(cachedUser.toEntity());
+        return (cachedUser.toEntity(), null);
       }
 
+      // Sinon, appeler l'API
       final user = await remoteDataSource.getCurrentUser();
       await localDataSource.saveUser(user);
 
       logger.i('✅ Utilisateur depuis l\'API');
-      return right(user.toEntity());
-    } on Failure catch (failure) {
-      logger.e('❌ Erreur getCurrentUser (Failure): ${failure.message}');
-      return left(failure);
+      return (user.toEntity(), null);
     } catch (e) {
       logger.e('❌ Erreur getCurrentUser: $e');
-      return left(UnknownFailure(message: e.toString()));
+      return (null, _extractErrorMessage(e));
     }
   }
 
   @override
-  Future<Either<Failure, bool>> isAuthenticated() async {
+  Future<(bool?, String?)> isAuthenticated() async {
     try {
-      // Vérifier dans le cache ApiClient D'ABORD (plus rapide)
       final hasTokenInCache = apiClient.accessToken != null;
-
-      // Vérifier aussi dans le storage
       final hasTokenInStorage = await localDataSource.getAccessToken() != null;
       final authStatus = await localDataSource.getAuthStatus();
 
       final isAuth = (hasTokenInCache || hasTokenInStorage) && authStatus;
+      logger.d('ℹ️ État authentification: $isAuth');
 
-      logger.d(
-        'ℹ️ État authentification: $isAuth (cache: $hasTokenInCache, storage: $hasTokenInStorage)',
-      );
-
-      return right(isAuth);
+      return (isAuth, null);
     } catch (e) {
       logger.e('❌ Erreur isAuthenticated: $e');
-      return right(false);
+      return (false, null); // Par défaut, pas authentifié
     }
   }
 
   @override
-  Future<Either<Failure, void>> saveTokens({
+  Future<(void, String?)> saveTokens({
     required String accessToken,
     required String refreshToken,
   }) async {
     try {
-      // Sauvegarder dans le storage ET dans le cache
       await Future.wait([
         localDataSource.saveTokens(
           accessToken: accessToken,
@@ -254,25 +180,52 @@ class AuthRepositoryImpl implements AuthRepository {
           refreshToken: refreshToken,
         ),
       ]);
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur saveTokens: $e');
-      return left(CacheFailure(message: e.toString()));
+      return (null, _extractErrorMessage(e));
     }
   }
 
   @override
-  Future<Either<Failure, void>> clearTokens() async {
+  Future<(void, String?)> clearTokens() async {
     try {
-      // Supprimer du storage ET du cache
       await Future.wait([
         localDataSource.clearTokens(),
         apiClient.clearTokens(),
       ]);
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur clearTokens: $e');
-      return left(CacheFailure(message: e.toString()));
+      return (null, _extractErrorMessage(e));
     }
+  }
+
+  /// Extrait un message d'erreur lisible d'une exception
+  String _extractErrorMessage(Object error) {
+    final errorString = error.toString();
+
+    if (errorString.contains('SocketException') ||
+        errorString.contains('NetworkException')) {
+      return 'Impossible de se connecter au serveur.';
+    }
+
+    if (errorString.contains('TimeoutException')) {
+      return 'Délai d\'attente dépassé.';
+    }
+
+    if (errorString.contains('401')) {
+      return 'Identifiants incorrects.';
+    }
+
+    if (errorString.contains('403')) {
+      return 'Accès refusé.';
+    }
+
+    if (errorString.contains('500')) {
+      return 'Erreur serveur. Réessayez plus tard.';
+    }
+
+    return 'Une erreur est survenue.';
   }
 }

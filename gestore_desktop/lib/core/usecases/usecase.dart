@@ -38,17 +38,19 @@ Either<L, R> right<L, R>(R value) {
   return (left: null, right: value);
 }
 
-/// Classe de base abstraite pour tous les use cases
-/// Un use case représente une action métier unique
-abstract class UseCase<T, Params> {
-  /// Exécuter le use case
-  Future<Either<Failure, T>> call(Params params);
+/// Classe de base pour tous les use cases
+/// Utilise des named records Dart 3 pour retourner soit une erreur soit des données
+abstract class UseCase<Type, Params> {
+  /// Exécute le use case avec les paramètres fournis
+  /// Retourne un named record avec :
+  /// - left: String? (message d'erreur si présent)
+  /// - right: Type? (données si présent)
+  Future<(Type?, String?)> call(Params params);
 }
 
-/// Classe pour les use cases sans paramètres
-class NoParams extends Equatable {
-  @override
-  List<Object?> get props => [];
+/// Paramètres vides pour les use cases sans paramètres
+class NoParams {
+  const NoParams();
 }
 
 /// Classe pour les use cases avec un seul paramètre ID

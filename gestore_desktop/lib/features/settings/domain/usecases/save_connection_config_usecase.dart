@@ -1,11 +1,7 @@
-// ========================================
-// lib/features/settings/domain/usecases/save_connection_config_usecase.dart
-// Use case pour sauvegarder et appliquer une configuration de connexion
-// ========================================
+// ==================== save_connection_config_usecase.dart ====================
+// Fichier: lib/features/settings/domain/usecases/save_connection_config_usecase.dart
 
 import 'package:equatable/equatable.dart';
-
-import '../../../../core/errors/failures.dart';
 import '../../../../core/network/connection_mode.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/settings_repository.dart';
@@ -17,25 +13,25 @@ class SaveConnectionConfigUseCase implements UseCase<void, SaveConnectionParams>
   SaveConnectionConfigUseCase(this.repository);
 
   @override
-  Future<Either<Failure, void>> call(SaveConnectionParams params) async {
+  Future<(void, String?)> call(SaveConnectionParams params) async {
     // 1. Sauvegarder la configuration
-    final saveResult = await repository.saveConnectionConfig(params.config);
+    final (_, saveError) = await repository.saveConnectionConfig(params.config);
+    if (saveError != null) {
+      return (null, saveError);
+    }
 
-    // Vérifier si la sauvegarde a échoué
-    return saveResult.fold(
-          (failure) => left(failure), // Si erreur, retourner l'erreur
-          (_) async {
-        // 2. Ajouter à l'historique
-        await repository.addToConnectionHistory(params.config);
+    // 2. Ajouter à l'historique
+    await repository.addToConnectionHistory(params.config);
 
-        // 3. Appliquer la configuration si demandé
-        if (params.applyImmediately) {
-          return await repository.applyConnectionConfig(params.config);
-        }
+    // 3. Appliquer la configuration si demandé
+    if (params.applyImmediately) {
+      final (_, applyError) = await repository.applyConnectionConfig(params.config);
+      if (applyError != null) {
+        return (null, applyError);
+      }
+    }
 
-        return right(null);
-      },
-    );
+    return (null, null);
   }
 }
 

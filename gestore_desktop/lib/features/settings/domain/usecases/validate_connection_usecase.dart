@@ -1,11 +1,7 @@
-// ========================================
-// lib/features/settings/domain/usecases/validate_connection_usecase.dart
-// Use case pour valider une connexion (tester la connectivité)
-// ========================================
+// ==================== validate_connection_usecase.dart ====================
+// Fichier: lib/features/settings/domain/usecases/validate_connection_usecase.dart
 
 import 'package:equatable/equatable.dart';
-
-import '../../../../core/errors/failures.dart';
 import '../../../../core/network/connection_mode.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/settings_repository.dart';
@@ -18,7 +14,7 @@ class ValidateConnectionUseCase
   ValidateConnectionUseCase(this.repository);
 
   @override
-  Future<Either<Failure, ConnectionValidationResult>> call(
+  Future<(ConnectionValidationResult?, String?)> call(
       ValidateConnectionParams params,
       ) async {
     return await repository.validateConnection(params.config);

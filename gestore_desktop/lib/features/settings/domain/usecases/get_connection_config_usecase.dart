@@ -1,9 +1,6 @@
-// ========================================
-// lib/features/settings/domain/usecases/get_connection_config_usecase.dart
-// Use case pour obtenir la configuration de connexion actuelle
-// ========================================
+// ==================== get_connection_config_usecase.dart ====================
+// Fichier: lib/features/settings/domain/usecases/get_connection_config_usecase.dart
 
-import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/connection_settings_entity.dart';
 import '../repositories/settings_repository.dart';
@@ -16,9 +13,7 @@ class GetConnectionConfigUseCase
   GetConnectionConfigUseCase(this.repository);
 
   @override
-  Future<Either<Failure, ConnectionSettingsEntity>> call(
-      NoParams params,
-      ) async {
+  Future<(ConnectionSettingsEntity?, String?)> call(NoParams params) async {
     return await repository.getCurrentConnectionSettings();
   }
 }
