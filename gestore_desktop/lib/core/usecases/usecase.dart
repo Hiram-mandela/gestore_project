@@ -8,20 +8,22 @@ typedef Either<L, R> = ({L? left, R? right});
 
 /// Extension pour faciliter l'utilisation d'Either
 extension EitherExtension<L, R> on Either<L, R> {
-  /// ✅ CORRECTION: Vérifie que left est null ET que right n'est pas null
+  /// Vérifie qu'il y a une erreur
   bool get isLeft => left != null;
 
-  /// ✅ CORRECTION: Vérifie que right est non-null ET que left est null
-  bool get isRight => right != null && left == null;
+  /// Vérifie qu'il y a un succès (pas d'erreur)
+  bool get isRight => left == null;
 
+  /// Applique la fonction appropriée selon le cas
+  /// CORRECTION: Vérifie uniquement left, right peut être null pour void
   T fold<T>(T Function(L) leftFn, T Function(R) rightFn) {
     if (left != null) {
+      // Cas d'erreur
       return leftFn(left as L);
-    } else if (right != null) {
-      return rightFn(right as R);
     } else {
-      // Cas invalide: les deux sont null
-      throw StateError('Either invalide: left et right sont tous les deux null');
+      // Cas de succès (left est null)
+      // right peut être null pour void, c'est OK
+      return rightFn(right as R);
     }
   }
 }

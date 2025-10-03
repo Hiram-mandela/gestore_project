@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  dartz: ^0.10.1
   # Architecture & DI
   get_it: ^8.2.0
   injectable: ^2.3.2

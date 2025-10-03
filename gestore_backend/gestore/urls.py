@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework import permissions
+from apps.core.views import health_check
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 def api_root(request):
@@ -61,7 +62,8 @@ urlpatterns = [
     
     # API URLs
     path('api/', api_root, name='api-root'),
-    path('api/health/', api_health, name='api-health'),
+    path('api/health/', health_check, name='health-check'),
+    #path('api/health/', api_health, name='api-health'),
     
     # Documentation API
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

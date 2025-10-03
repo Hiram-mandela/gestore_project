@@ -1,13 +1,15 @@
 // ========================================
 // lib/config/routes.dart
-// Configuration des routes avec GoRouter et AppLayout
+// VERSION MIS À JOUR - Ajout routes Settings
 // ========================================
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../features/authentication/presentation/screens/login_screen.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../features/settings/presentation/screens/connection_config_screen.dart';
+import '../features/settings/presentation/screens/settings_screen.dart';
 import '../shared/widgets/app_layout.dart';
 
 /// Configuration des routes avec GoRouter
@@ -56,27 +58,11 @@ final goRouter = GoRouter(
         child: const _PlaceholderScreen(
           title: 'Inventaire',
           icon: Icons.inventory_2_rounded,
-          message: 'Module en développement',
         ),
       ),
-      routes: [
-        // Nouveau article
-        GoRoute(
-          path: 'new',
-          name: 'inventory_new',
-          builder: (context, state) => AppLayout(
-            currentRoute: '/inventory',
-            child: const _PlaceholderScreen(
-              title: 'Nouvel article',
-              icon: Icons.add_box_rounded,
-              message: 'Formulaire de création',
-            ),
-          ),
-        ),
-      ],
     ),
 
-    // Point de vente (POS)
+    // Point of Sale
     GoRoute(
       path: '/pos',
       name: 'pos',
@@ -85,12 +71,11 @@ final goRouter = GoRouter(
         child: const _PlaceholderScreen(
           title: 'Point de vente',
           icon: Icons.point_of_sale_rounded,
-          message: 'Interface POS en développement',
         ),
       ),
     ),
 
-    // Clients
+    // Customers
     GoRoute(
       path: '/customers',
       name: 'customers',
@@ -99,27 +84,11 @@ final goRouter = GoRouter(
         child: const _PlaceholderScreen(
           title: 'Clients',
           icon: Icons.people_rounded,
-          message: 'Gestion des clients',
         ),
       ),
-      routes: [
-        // Nouveau client
-        GoRoute(
-          path: 'new',
-          name: 'customers_new',
-          builder: (context, state) => AppLayout(
-            currentRoute: '/customers',
-            child: const _PlaceholderScreen(
-              title: 'Nouveau client',
-              icon: Icons.person_add_rounded,
-              message: 'Formulaire d\'enregistrement',
-            ),
-          ),
-        ),
-      ],
     ),
 
-    // Rapports
+    // Reports
     GoRoute(
       path: '/reports',
       name: 'reports',
@@ -128,124 +97,66 @@ final goRouter = GoRouter(
         child: const _PlaceholderScreen(
           title: 'Rapports',
           icon: Icons.analytics_rounded,
-          message: 'Analytics et statistiques',
         ),
       ),
     ),
 
-    // Paramètres
+    // Settings
     GoRoute(
       path: '/settings',
       name: 'settings',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
-        child: const _PlaceholderScreen(
-          title: 'Paramètres',
-          icon: Icons.settings_rounded,
-          message: 'Configuration de l\'application',
-        ),
+        child: const SettingsScreen(),
       ),
+      routes: [
+        // Configuration de connexion
+        GoRoute(
+          path: 'connection-config',
+          name: 'connection-config',
+          builder: (context, state) => const ConnectionConfigScreen(),
+        ),
+      ],
     ),
   ],
-
-  // Gestion des erreurs de navigation
-  errorBuilder: (context, state) => Scaffold(
-    body: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 24),
-          Text(
-            'Page non trouvée',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            state.uri.toString(),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => context.go('/home'),
-            icon: const Icon(Icons.home),
-            label: const Text('Retour à l\'accueil'),
-          ),
-        ],
-      ),
-    ),
-  ),
 );
 
-/// Écran placeholder pour les modules en développement
+/// Widget placeholder pour les écrans à venir
 class _PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;
-  final String message;
 
   const _PlaceholderScreen({
     required this.title,
     required this.icon,
-    required this.message,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Icône
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(
-                  icon,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Titre
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 16),
-
-              // Message
-              Text(
-                message,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 32),
-
-              // Indicateur
-              const CircularProgressIndicator(),
-
-              const SizedBox(height: 16),
-
-              Text(
-                'En cours de développement...',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 80,
+            color: Colors.grey.shade400,
           ),
-        ),
+          const SizedBox(height: 24),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Cette fonctionnalité sera bientôt disponible',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
       ),
     );
   }

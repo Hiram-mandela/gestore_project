@@ -1,3 +1,8 @@
+// ========================================
+// lib/core/constants/storage_keys.dart
+// VERSION MISE À JOUR - Ajout clés modes de connexion
+// ========================================
+
 /// Clés pour le stockage local (SharedPreferences & SecureStorage)
 /// Organisation par catégorie pour faciliter la maintenance
 class StorageKeys {
@@ -47,7 +52,46 @@ class StorageKeys {
   /// Utilisateur est authentifié
   static const String isAuthenticated = 'is_authenticated';
 
-  // App Settings
+  // ==================== CONNECTION MODE (NOUVEAU) ====================
+
+  /// Mode de connexion actuel (localhost/local_network/cloud)
+  static const String connectionMode = 'connection_mode';
+
+  /// Configuration de connexion complète (JSON)
+  static const String connectionConfig = 'connection_config';
+
+  /// URL du serveur actuel
+  static const String serverUrl = 'server_url';
+
+  /// Port du serveur
+  static const String serverPort = 'server_port';
+
+  /// Utilise HTTPS
+  static const String useHttps = 'use_https';
+
+  /// Nom personnalisé de la connexion
+  static const String connectionCustomName = 'connection_custom_name';
+
+  /// Historique des connexions (JSON Array)
+  static const String connectionHistory = 'connection_history';
+
+  /// Dernière validation de connexion
+  static const String lastConnectionValidation = 'last_connection_validation';
+
+  /// Statut de la dernière connexion
+  static const String lastConnectionStatus = 'last_connection_status';
+
+  // ==================== API SETTINGS ====================
+
+  /// URL de base de l'API (calculée, dérivée du mode)
+  static const String apiBaseUrl = 'api_base_url';
+
+  /// Environnement actuel (dev/prod/local) - DEPRECATED, utiliser connectionMode
+  @Deprecated('Utiliser connectionMode à la place')
+  static const String currentEnvironment = 'current_environment';
+
+  // ==================== APP SETTINGS ====================
+
   /// Langue de l'application
   static const String appLanguage = 'app_language';
 
@@ -63,11 +107,10 @@ class StorageKeys {
   /// Notifications activées
   static const String notificationsEnabled = 'notifications_enabled';
 
-  // Sync Settings
-  /// Mode hors ligne activé
-  static const String offlineModeEnabled = 'offline_mode_enabled';
+  // ==================== SYNC SETTINGS ====================
+  // Note: Mode offline supprimé selon cahier des charges v1.7
 
-  /// Synchronisation automatique
+  /// Synchronisation automatique (pour future utilisation)
   static const String autoSyncEnabled = 'auto_sync_enabled';
 
   /// Intervalle de synchronisation (minutes)
@@ -76,20 +119,8 @@ class StorageKeys {
   /// Dernière synchronisation
   static const String lastSyncDate = 'last_sync_date';
 
-  /// Statut de la synchronisation
-  static const String syncStatus = 'sync_status';
+  // ==================== BUSINESS SETTINGS ====================
 
-  /// Nombre d'enregistrements en attente de sync
-  static const String pendingSyncCount = 'pending_sync_count';
-
-  // API Settings
-  /// URL de base de l'API
-  static const String apiBaseUrl = 'api_base_url';
-
-  /// Environnement actuel (dev/prod/local)
-  static const String currentEnvironment = 'current_environment';
-
-  // Business Settings
   /// Entrepôt par défaut
   static const String defaultWarehouse = 'default_warehouse';
 
@@ -102,7 +133,8 @@ class StorageKeys {
   /// Fuseau horaire
   static const String timezone = 'timezone';
 
-  // UI Preferences
+  // ==================== UI PREFERENCES ====================
+
   /// Taille de page pour la pagination
   static const String pageSize = 'page_size';
 
@@ -115,7 +147,8 @@ class StorageKeys {
   /// Filtres sauvegardés (JSON)
   static const String savedFilters = 'saved_filters';
 
-  // Cache Keys
+  // ==================== CACHE KEYS ====================
+
   /// Cache des catégories
   static const String cacheCategories = 'cache_categories';
 
@@ -131,7 +164,8 @@ class StorageKeys {
   /// Timestamp du cache
   static const String cacheTimestamp = 'cache_timestamp';
 
-  // Session
+  // ==================== SESSION ====================
+
   /// Session ID
   static const String sessionId = 'session_id';
 
@@ -141,7 +175,8 @@ class StorageKeys {
   /// Session expiration
   static const String sessionExpiry = 'session_expiry';
 
-  // POS (Point of Sale)
+  // ==================== POS (Point of Sale) ====================
+
   /// Caisse ouverte
   static const String posSessionOpen = 'pos_session_open';
 
@@ -154,7 +189,8 @@ class StorageKeys {
   /// Panier en cours (JSON)
   static const String posCurrentCart = 'pos_current_cart';
 
-  // Debug & Development
+  // ==================== DEBUG & DEVELOPMENT ====================
+
   /// Mode debug activé
   static const String debugMode = 'debug_mode';
 
