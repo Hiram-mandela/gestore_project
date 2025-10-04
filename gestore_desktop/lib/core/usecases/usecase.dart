@@ -1,50 +1,20 @@
+// ========================================
+// lib/core/usecases/usecase.dart
+// VERSION NETTOYÉE - Suppression des définitions Either inutilisées
+// ========================================
+
 import 'package:equatable/equatable.dart';
 
-import '../errors/failures.dart';
-
-/// Type Either pour gérer les résultats avec succès ou échec
-/// Left = Failure, Right = Success
-typedef Either<L, R> = ({L? left, R? right});
-
-/// Extension pour faciliter l'utilisation d'Either
-extension EitherExtension<L, R> on Either<L, R> {
-  /// Vérifie qu'il y a une erreur
-  bool get isLeft => left != null;
-
-  /// Vérifie qu'il y a un succès (pas d'erreur)
-  bool get isRight => left == null;
-
-  /// Applique la fonction appropriée selon le cas
-  /// CORRECTION: Vérifie uniquement left, right peut être null pour void
-  T fold<T>(T Function(L) leftFn, T Function(R) rightFn) {
-    if (left != null) {
-      // Cas d'erreur
-      return leftFn(left as L);
-    } else {
-      // Cas de succès (left est null)
-      // right peut être null pour void, c'est OK
-      return rightFn(right as R);
-    }
-  }
-}
-
-/// Helper pour créer un Left (erreur)
-Either<L, R> left<L, R>(L value) {
-  return (left: value, right: null);
-}
-
-/// Helper pour créer un Right (succès)
-Either<L, R> right<L, R>(R value) {
-  return (left: null, right: value);
-}
-
 /// Classe de base pour tous les use cases
-/// Utilise des named records Dart 3 pour retourner soit une erreur soit des données
+/// Utilise des tuples Dart 3 pour retourner soit une erreur soit des données
+/// Format: (Type?, String?)
+/// - Premier élément ($1): Les données (null si erreur)
+/// - Deuxième élément ($2): Le message d'erreur (null si succès)
 abstract class UseCase<Type, Params> {
   /// Exécute le use case avec les paramètres fournis
-  /// Retourne un named record avec :
-  /// - left: String? (message d'erreur si présent)
-  /// - right: Type? (données si présent)
+  /// Retourne un tuple avec :
+  /// - $1: Type? (données si présent, null si erreur)
+  /// - $2: String? (message d'erreur si présent, null si succès)
   Future<(Type?, String?)> call(Params params);
 }
 

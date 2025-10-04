@@ -1,21 +1,20 @@
 // ========================================
 // lib/features/settings/data/repositories/settings_repository_impl.dart
-// Implémentation du repository Settings
+// VERSION CORRIGÉE - Utilisation de tuples simples (Type?, String?)
 // ========================================
 
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
 import '../../../../config/environment.dart';
-import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/connection_mode.dart';
-import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/connection_settings_entity.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/settings_local_datasource.dart';
 
 /// Implémentation du repository Settings
+/// ✅ CORRECTION: Utilise des tuples simples (Type?, String?)
 class SettingsRepositoryImpl implements SettingsRepository {
   final SettingsLocalDataSource localDataSource;
   final ApiClient apiClient;
@@ -28,8 +27,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
       );
 
   @override
-  Future<Either<Failure, ConnectionSettingsEntity>>
-  getCurrentConnectionSettings() async {
+  Future<(ConnectionSettingsEntity?, String?)> getCurrentConnectionSettings() async {
     try {
       // Obtenir la config actuelle
       var config = await localDataSource.getCurrentConnectionConfig();
@@ -46,166 +44,163 @@ class SettingsRepositoryImpl implements SettingsRepository {
       // Obtenir la dernière validation
       final lastValidated = await localDataSource.getLastValidationDate();
 
-      return right(ConnectionSettingsEntity(
+      final settings = ConnectionSettingsEntity(
         currentConfig: config,
         recentConnections: history,
         lastValidated: lastValidated,
         isValidated: lastValidated != null,
-      ));
+      );
+
+      return (settings, null);
     } catch (e) {
       logger.e('❌ Erreur récupération settings: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de la récupération des paramètres.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de la récupération des paramètres.');
     }
   }
 
   @override
-  Future<Either<Failure, void>> saveConnectionConfig(
-      ConnectionConfig config,
-      ) async {
+  Future<(void, String?)> saveConnectionConfig(ConnectionConfig config) async {
     try {
       await localDataSource.saveConnectionConfig(config);
       logger.i('✅ Configuration sauvegardée: ${config.displayName}');
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur sauvegarde config: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de la sauvegarde de la configuration.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de la sauvegarde de la configuration.');
     }
   }
 
   @override
-  Future<Either<Failure, ConnectionValidationResult>> validateConnection(
+  Future<(ConnectionValidationResult?, String?)> validateConnection(
       ConnectionConfig config,
       ) async {
     try {
-      logger.i('🔍 Validation connexion: ${config.fullApiUrl}');
+      logger.i('🔍 Validation connexion: ${config.displayName}');
 
-      // Créer un Dio temporaire pour tester la connexion
-      final testDio = Dio(
-        BaseOptions(
-          baseUrl: config.fullApiUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-          validateStatus: (status) => status != null && status < 500,
+      // Créer un client Dio temporaire pour tester
+      final testDio = Dio(BaseOptions(
+        baseUrl: config.serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ));
+
+      // Essayer de ping l'API
+      final response = await testDio.get('/health/');
+
+      if (response.statusCode == 200) {
+        logger.i('✅ Connexion validée avec succès');
+
+        // Marquer comme validé
+        await localDataSource.markConnectionValidated();
+
+        return (
+        ConnectionValidationResult(
+          isValid: true,
+          errorMessage: 'Connexion établie avec succès',
+          responseTimeMs: response.extra['duration'] as int? ?? 0,
         ),
-      );
-
-      // Mesurer le temps de réponse
-      final startTime = DateTime.now();
-
-      try {
-        // Tester avec l'endpoint health ou un endpoint simple
-        final response = await testDio.get('/health/');
-
-        final responseTime = DateTime.now().difference(startTime).inMilliseconds;
-
-        if (response.statusCode == 200 || response.statusCode == 404) {
-          // 200 = OK, 404 = serveur répond mais endpoint pas trouvé (c'est OK)
-          logger.i('✅ Connexion validée en ${responseTime}ms');
-
-          // Marquer comme validé
-          await localDataSource.markConnectionValidated();
-
-          return right(ConnectionValidationResult.success(
-            responseTimeMs: responseTime,
-          ));
-        } else {
-          return right(ConnectionValidationResult.failure(
-            'Le serveur a répondu avec le code ${response.statusCode}.',
-          ));
-        }
-      } on DioException catch (e) {
-        if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
-          return right(ConnectionValidationResult.failure(
-            'Délai d\'attente dépassé. Le serveur ne répond pas.',
-          ));
-        } else if (e.type == DioExceptionType.connectionError) {
-          return right(ConnectionValidationResult.failure(
-            'Impossible de se connecter au serveur.\n'
-                'Vérifiez l\'adresse IP et le port.',
-          ));
-        } else {
-          return right(ConnectionValidationResult.failure(
-            'Erreur de connexion: ${e.message}',
-          ));
-        }
+        null,
+        );
+      } else {
+        logger.w('⚠️ Réponse inattendue: ${response.statusCode}');
+        return (
+        ConnectionValidationResult(
+          isValid: false,
+          errorMessage: 'Réponse inattendue du serveur',
+          responseTimeMs: 0,
+        ),
+        null,
+        );
       }
+    } on DioException catch (e) {
+      logger.e('❌ Erreur réseau: ${e.type}');
+
+      String errorMessage;
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          errorMessage = 'Délai de connexion dépassé';
+          break;
+        case DioExceptionType.badResponse:
+          errorMessage = 'Serveur inaccessible';
+          break;
+        case DioExceptionType.cancel:
+          errorMessage = 'Connexion annulée';
+          break;
+        case DioExceptionType.unknown:
+        default:
+          errorMessage = 'Impossible de se connecter au serveur';
+          break;
+      }
+
+      return (
+      ConnectionValidationResult(
+        isValid: false,
+        errorMessage: errorMessage,
+        responseTimeMs: 0,
+      ),
+      null,
+      );
     } catch (e) {
       logger.e('❌ Erreur validation: $e');
-      return left(NetworkFailure(
-        message: 'Erreur lors de la validation de la connexion.',
-        error: e,
-      ));
+      return (
+      ConnectionValidationResult(
+        isValid: false,
+        errorMessage: 'Erreur lors de la validation',
+        responseTimeMs: 0,
+      ),
+      null,
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<ConnectionConfig>>>
-  getConnectionHistory() async {
+  Future<(List<ConnectionConfig>?, String?)> getConnectionHistory() async {
     try {
       final history = await localDataSource.getConnectionHistory();
-      return right(history);
+      return (history, null);
     } catch (e) {
       logger.e('❌ Erreur récupération historique: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de la récupération de l\'historique.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de la récupération de l\'historique.');
     }
   }
 
   @override
-  Future<Either<Failure, void>> addToConnectionHistory(
-      ConnectionConfig config,
-      ) async {
+  Future<(void, String?)> addToConnectionHistory(ConnectionConfig config) async {
     try {
       await localDataSource.addToConnectionHistory(config);
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur ajout historique: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de l\'ajout à l\'historique.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de l\'ajout à l\'historique.');
     }
   }
 
   @override
-  Future<Either<Failure, void>> removeFromConnectionHistory(int index) async {
+  Future<(void, String?)> removeFromConnectionHistory(int index) async {
     try {
       await localDataSource.removeFromConnectionHistory(index);
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur suppression historique: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de la suppression de l\'historique.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de la suppression de l\'historique.');
     }
   }
 
   @override
-  Future<Either<Failure, void>> clearConnectionHistory() async {
+  Future<(void, String?)> clearConnectionHistory() async {
     try {
       await localDataSource.clearConnectionHistory();
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur effacement historique: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de l\'effacement de l\'historique.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de l\'effacement de l\'historique.');
     }
   }
 
   @override
-  Future<Either<Failure, ConnectionMode>> getCurrentConnectionMode() async {
+  Future<(ConnectionMode?, String?)> getCurrentConnectionMode() async {
     try {
       var mode = await localDataSource.getCurrentConnectionMode();
 
@@ -214,20 +209,15 @@ class SettingsRepositoryImpl implements SettingsRepository {
         mode = ConnectionMode.localhost;
       }
 
-      return right(mode);
+      return (mode, null);
     } catch (e) {
       logger.e('❌ Erreur récupération mode: $e');
-      return left(CacheFailure(
-        message: 'Erreur lors de la récupération du mode.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de la récupération du mode.');
     }
   }
 
   @override
-  Future<Either<Failure, void>> applyConnectionConfig(
-      ConnectionConfig config,
-      ) async {
+  Future<(void, String?)> applyConnectionConfig(ConnectionConfig config) async {
     try {
       logger.i('🔄 Application de la configuration: ${config.displayName}');
 
@@ -243,13 +233,10 @@ class SettingsRepositoryImpl implements SettingsRepository {
       logger.i('✅ Configuration appliquée avec succès');
       logger.i('📡 Nouvelle URL API: ${newEnvironment.apiBaseUrl}');
 
-      return right(null);
+      return (null, null);
     } catch (e) {
       logger.e('❌ Erreur application config: $e');
-      return left(UnknownFailure(
-        message: 'Erreur lors de l\'application de la configuration.',
-        error: e,
-      ));
+      return (null, 'Erreur lors de l\'application de la configuration.');
     }
   }
 }

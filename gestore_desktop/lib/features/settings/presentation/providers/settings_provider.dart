@@ -1,6 +1,6 @@
 // ========================================
 // lib/features/settings/presentation/providers/settings_provider.dart
-// Providers Riverpod pour Settings
+// VERSION CORRIGÉE - Utilisation de .$1 et .$2 pour les tuples
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,29 +47,35 @@ class ConnectionValidationState {
 final connectionSettingsProvider =
 FutureProvider<ConnectionSettingsEntity>((ref) async {
   final useCase = getIt<GetConnectionConfigUseCase>();
-  final result = await useCase(NoParams());
+  final result = await useCase(const NoParams());
 
-  // Vérifier directement left/right au lieu d'utiliser fold
-  if (result.left != null) {
+  // ✅ CORRECTION: Utiliser .$2 pour l'erreur et .$1 pour les données
+  final error = result.$2;
+  final settings = result.$1;
+
+  if (error != null) {
     // En cas d'erreur, retourner les paramètres par défaut
     return ConnectionSettingsEntity.defaultSettings();
   }
 
-  return result.right ?? ConnectionSettingsEntity.defaultSettings();
+  return settings ?? ConnectionSettingsEntity.defaultSettings();
 });
 
 /// Provider pour l'historique des connexions
 final connectionHistoryProvider =
 FutureProvider<List<ConnectionConfig>>((ref) async {
   final useCase = getIt<GetConnectionHistoryUseCase>();
-  final result = await useCase(NoParams());
+  final result = await useCase(const NoParams());
 
-  // Vérifier directement left/right au lieu d'utiliser fold
-  if (result.left != null) {
+  // ✅ CORRECTION: Utiliser .$2 pour l'erreur et .$1 pour les données
+  final error = result.$2;
+  final history = result.$1;
+
+  if (error != null) {
     return <ConnectionConfig>[];
   }
 
-  return result.right ?? <ConnectionConfig>[];
+  return history ?? <ConnectionConfig>[];
 });
 
 /// Provider pour la configuration actuelle
@@ -112,8 +118,10 @@ class SettingsController {
         applyImmediately: true,
       ));
 
-      // Vérifier directement left/right
-      if (result.left != null) {
+      // ✅ CORRECTION: Utiliser .$2 pour l'erreur
+      final error = result.$2;
+
+      if (error != null) {
         // Erreur
         return false;
       }
@@ -139,19 +147,21 @@ class SettingsController {
       final useCase = getIt<ValidateConnectionUseCase>();
       final result = await useCase(ValidateConnectionParams(config: config));
 
-      // Vérifier directement left/right
-      if (result.left != null) {
+      // ✅ CORRECTION: Utiliser .$2 pour l'erreur et .$1 pour les données
+      final error = result.$2;
+      final validationResult = result.$1;
+
+      if (error != null) {
         // Erreur
         ref.read(connectionValidationStateProvider.notifier).state =
             ConnectionValidationState(
               isValidating: false,
-              errorMessage: result.left!.message,
+              errorMessage: error,
             );
         return null;
       }
 
       // Succès
-      final validationResult = result.right;
       ref.read(connectionValidationStateProvider.notifier).state =
           ConnectionValidationState(
             isValidating: false,
