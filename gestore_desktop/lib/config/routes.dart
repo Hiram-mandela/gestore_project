@@ -1,19 +1,28 @@
 // ========================================
 // lib/config/routes.dart
 // Configuration complète des routes avec GoRouter
-// VERSION COMPLÈTE - Avec Inventory CRUD
+// VERSION COMPLÈTE - Avec Inventory, Categories, Brands, Units
 // ========================================
 
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/network/connection_mode.dart';
 import '../features/authentication/presentation/screens/login_screen.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/inventory/presentation/screens/articles_list_screen.dart';
 import '../features/inventory/presentation/screens/article_detail_screen.dart';
 import '../features/inventory/presentation/screens/article_form_screen.dart';
+import '../features/inventory/presentation/screens/categories_list_screen.dart';
+import '../features/inventory/presentation/screens/brands_list_screen.dart';
+import '../features/inventory/presentation/screens/units_list_screen.dart';
 import '../features/inventory/presentation/providers/article_form_state.dart';
+import '../features/inventory/presentation/providers/category_state.dart';
+import '../features/inventory/presentation/providers/brand_state.dart';
+import '../features/inventory/presentation/providers/unit_state.dart';
+import '../features/inventory/presentation/widgets/brand_form_screen.dart';
+import '../features/inventory/presentation/widgets/category_form_screen.dart';
+import '../features/inventory/presentation/widgets/unit_form_screen.dart';
 import '../features/settings/presentation/screens/connection_config_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 import '../shared/widgets/app_layout.dart';
@@ -56,7 +65,7 @@ final goRouter = GoRouter(
     ),
 
     // ========================================
-    // INVENTORY ROUTES - COMPLET
+    // INVENTORY - ARTICLES ROUTES
     // ========================================
 
     GoRoute(
@@ -67,8 +76,7 @@ final goRouter = GoRouter(
         child: const ArticlesListScreen(),
       ),
       routes: [
-        // ==================== CRÉATION ====================
-        // Créer un nouvel article
+        // ==================== CRÉATION ARTICLE ====================
         GoRoute(
           path: 'new',
           name: 'article-create',
@@ -80,8 +88,7 @@ final goRouter = GoRouter(
           ),
         ),
 
-        // ==================== DÉTAIL + ÉDITION ====================
-        // Détail d'un article
+        // ==================== DÉTAIL + ÉDITION ARTICLE ====================
         GoRoute(
           path: 'article/:id',
           name: 'article-detail',
@@ -93,7 +100,6 @@ final goRouter = GoRouter(
             );
           },
           routes: [
-            // Éditer un article
             GoRoute(
               path: 'edit',
               name: 'article-edit',
@@ -114,58 +120,181 @@ final goRouter = GoRouter(
     ),
 
     // ========================================
-    // POS (Point of Sale) - PLACEHOLDER
+    // INVENTORY - CATEGORIES ROUTES
     // ========================================
 
     GoRoute(
-      path: '/pos',
-      name: 'pos',
+      path: '/inventory/categories',
+      name: 'categories',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
-        child: const _PlaceholderScreen(
-          title: 'Point de vente',
-          icon: Icons.point_of_sale_rounded,
-          description: 'Module POS à venir',
-        ),
+        child: const CategoriesListScreen(),
       ),
+      routes: [
+        // Créer une catégorie
+        GoRoute(
+          path: 'new',
+          name: 'category-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const CategoryFormScreen(
+              mode: CategoryFormMode.create,
+            ),
+          ),
+        ),
+
+        // Détail/Édition catégorie
+        GoRoute(
+          path: ':id',
+          name: 'category-detail',
+          builder: (context, state) {
+            final categoryId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: CategoryFormScreen(
+                mode: CategoryFormMode.edit,
+                categoryId: categoryId,
+              ),
+            );
+          },
+          routes: [
+            GoRoute(
+              path: 'edit',
+              name: 'category-edit',
+              builder: (context, state) {
+                final categoryId = state.pathParameters['id']!;
+                return AppLayout(
+                  currentRoute: state.matchedLocation,
+                  child: CategoryFormScreen(
+                    mode: CategoryFormMode.edit,
+                    categoryId: categoryId,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
     ),
 
     // ========================================
-    // CUSTOMERS - PLACEHOLDER
+    // INVENTORY - BRANDS ROUTES
     // ========================================
 
     GoRoute(
-      path: '/customers',
-      name: 'customers',
+      path: '/inventory/brands',
+      name: 'brands',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
-        child: const _PlaceholderScreen(
-          title: 'Clients',
-          icon: Icons.people_rounded,
-          description: 'Module Clients à venir',
-        ),
+        child: const BrandsListScreen(),
       ),
+      routes: [
+        // Créer une marque
+        GoRoute(
+          path: 'new',
+          name: 'brand-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const BrandFormScreen(
+              mode: BrandFormMode.create,
+            ),
+          ),
+        ),
+
+        // Détail/Édition marque
+        GoRoute(
+          path: ':id',
+          name: 'brand-detail',
+          builder: (context, state) {
+            final brandId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: BrandFormScreen(
+                mode: BrandFormMode.edit,
+                brandId: brandId,
+              ),
+            );
+          },
+          routes: [
+            GoRoute(
+              path: 'edit',
+              name: 'brand-edit',
+              builder: (context, state) {
+                final brandId = state.pathParameters['id']!;
+                return AppLayout(
+                  currentRoute: state.matchedLocation,
+                  child: BrandFormScreen(
+                    mode: BrandFormMode.edit,
+                    brandId: brandId,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
     ),
 
     // ========================================
-    // REPORTS - PLACEHOLDER
+    // INVENTORY - UNITS OF MEASURE ROUTES
     // ========================================
 
     GoRoute(
-      path: '/reports',
-      name: 'reports',
+      path: '/inventory/units',
+      name: 'units',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
-        child: const _PlaceholderScreen(
-          title: 'Rapports',
-          icon: Icons.analytics_rounded,
-          description: 'Module Rapports à venir',
-        ),
+        child: const UnitsListScreen(),
       ),
+      routes: [
+        // Créer une unité
+        GoRoute(
+          path: 'new',
+          name: 'unit-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const UnitFormScreen(
+              mode: UnitFormMode.create,
+            ),
+          ),
+        ),
+
+        // Détail/Édition unité
+        GoRoute(
+          path: ':id',
+          name: 'unit-detail',
+          builder: (context, state) {
+            final unitId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: UnitFormScreen(
+                mode: UnitFormMode.edit,
+                unitId: unitId,
+              ),
+            );
+          },
+          routes: [
+            GoRoute(
+              path: 'edit',
+              name: 'unit-edit',
+              builder: (context, state) {
+                final unitId = state.pathParameters['id']!;
+                return AppLayout(
+                  currentRoute: state.matchedLocation,
+                  child: UnitFormScreen(
+                    mode: UnitFormMode.edit,
+                    unitId: unitId,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
     ),
 
     // ========================================
-    // SETTINGS
+    // SETTINGS ROUTES
     // ========================================
 
     GoRoute(
@@ -176,111 +305,21 @@ final goRouter = GoRouter(
         child: const SettingsScreen(),
       ),
       routes: [
-        // Configuration de connexion
         GoRoute(
           path: 'connection',
           name: 'connection-config',
-          builder: (context, state) => AppLayout(
-            currentRoute: state.matchedLocation,
-            child: const ConnectionConfigScreen(),
-          ),
+          builder: (context, state) {
+            // Récupérer la config initiale si passée en extra
+            final initialConfig = state.extra as ConnectionConfig?;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: ConnectionConfigScreen(
+                initialConfig: initialConfig,
+              ),
+            );
+          },
         ),
       ],
     ),
   ],
 );
-
-// ========================================
-// PLACEHOLDER SCREEN (pour les routes non implémentées)
-// ========================================
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String description;
-
-  const _PlaceholderScreen({
-    required this.title,
-    required this.icon,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 120,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: () => context.go('/home'),
-              icon: const Icon(Icons.home),
-              label: const Text('Retour à l\'accueil'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ========================================
-// ROUTES DISPONIBLES - RÉCAPITULATIF
-// ========================================
-
-/*
-ROUTES PUBLIQUES:
-  / (splash)                              → SplashScreen
-  /login                                  → LoginScreen
-
-ROUTES PROTÉGÉES:
-  /home                                   → DashboardScreen
-
-INVENTORY:
-  /inventory                              → ArticlesListScreen (Liste)
-  /inventory/new                          → ArticleFormScreen (Création)
-  /inventory/article/:id                  → ArticleDetailScreen (Détail)
-  /inventory/article/:id/edit             → ArticleFormScreen (Édition)
-
-AUTRES MODULES:
-  /pos                                    → PlaceholderScreen
-  /customers                              → PlaceholderScreen
-  /reports                                → PlaceholderScreen
-
-SETTINGS:
-  /settings                               → SettingsScreen
-  /settings/connection                    → ConnectionConfigScreen
-
-NAVIGATION EXAMPLES:
-  context.go('/inventory')                       // Aller à la liste
-  context.pushNamed('article-create')            // Créer article
-  context.pushNamed(                             // Voir détail
-    'article-detail',
-    pathParameters: {'id': articleId},
-  )
-  context.pushNamed(                             // Éditer
-    'article-edit',
-    pathParameters: {'id': articleId},
-  )
-  context.pop()                                  // Retour arrière
-*/

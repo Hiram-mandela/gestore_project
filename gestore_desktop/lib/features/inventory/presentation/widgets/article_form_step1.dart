@@ -148,7 +148,7 @@ class ArticleFormStep1 extends ConsumerWidget {
         items: state.categories
             .map((category) => DropdownMenuItem(
           value: category.id,
-          child: Text(category.fullName),
+          child: Text(category.fullPath),
         ))
             .toList(),
         onChanged: (value) => onFieldChanged('categoryId', value ?? ''),

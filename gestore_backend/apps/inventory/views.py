@@ -89,6 +89,18 @@ class UnitOfMeasureViewSet(OptimizedModelViewSet):
             articles_count=Count('article', filter=Q(article__is_active=True)),
             conversion_count=Count('conversions_from') + Count('conversions_to')
         )
+
+    def retrieve(self, request, pk=None):
+        """Récupère une unité de mesure par son ID"""
+        try:
+            unit = self.get_object()
+            serializer = self.get_serializer(unit)
+            return Response(serializer.data)
+        except UnitOfMeasure.DoesNotExist:
+            return Response(
+                {'error': 'Unité de mesure non trouvée'},
+                status=status.HTTP_404_NOT_FOUND
+            )
     
     @action(detail=True, methods=['get'])
     def conversions(self, request, pk=None):

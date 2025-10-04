@@ -1,31 +1,18 @@
 // ========================================
 // lib/shared/widgets/app_layout.dart
-// Layout principal avec sidebar responsive et AppBar
+// Layout principal avec sidebar navigation
+// VERSION COMPLÈTE - Avec tous les modules Inventory
 // ========================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/authentication/presentation/providers/auth_provider.dart';
-import '../themes/app_theme.dart';
+import '../../features/authentication/presentation/providers/auth_state.dart';
 import '../constants/app_colors.dart';
 
-/// Menu item du sidebar
-class MenuItem {
-  final String title;
-  final IconData icon;
-  final String route;
-  final List<MenuItem>? subItems;
-
-  const MenuItem({
-    required this.title,
-    required this.icon,
-    required this.route,
-    this.subItems,
-  });
-}
-
-/// Layout principal de l'application
-class AppLayout extends ConsumerStatefulWidget {
+/// Layout principal de l'application avec sidebar
+class AppLayout extends ConsumerWidget {
   final Widget child;
   final String currentRoute;
 
@@ -36,335 +23,220 @@ class AppLayout extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AppLayout> createState() => _AppLayoutState();
-}
-
-class _AppLayoutState extends ConsumerState<AppLayout> {
-  // Items du menu
-  static const List<MenuItem> menuItems = [
-    MenuItem(
-      title: 'Tableau de bord',
-      icon: Icons.dashboard_rounded,
-      route: '/home',
-    ),
-    MenuItem(
-      title: 'Inventaire',
-      icon: Icons.inventory_2_rounded,
-      route: '/inventory',
-    ),
-    MenuItem(
-      title: 'Point de vente',
-      icon: Icons.point_of_sale_rounded,
-      route: '/pos',
-    ),
-    MenuItem(
-      title: 'Clients',
-      icon: Icons.people_rounded,
-      route: '/customers',
-    ),
-    MenuItem(
-      title: 'Rapports',
-      icon: Icons.analytics_rounded,
-      route: '/reports',
-    ),
-    MenuItem(
-      title: 'Paramètres',
-      icon: Icons.settings_rounded,
-      route: '/settings',
-    ),
-  ];
-
-  bool _isDrawerOpen = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    // Responsive: afficher NavigationRail sur grand écran, Drawer sur petit
-    final showPermanentDrawer = screenWidth >= 1200;
-    final showRail = screenWidth >= 768 && screenWidth < 1200;
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        leading: showPermanentDrawer || showRail
-            ? null
-            : IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            setState(() => _isDrawerOpen = !_isDrawerOpen);
-            if (_isDrawerOpen) {
-              Scaffold.of(context).openDrawer();
-            }
-          },
-        ),
-        title: Row(
-          children: [
-            // Logo compact
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
-              child: const Icon(
-                Icons.store,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spacingMd),
-            const Text(
-              'GESTORE',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          // Notifications
-          IconButton(
-            icon: Badge(
-              label: const Text('3'),
-              child: Icon(
-                Icons.notifications_outlined,
-                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-              ),
-            ),
-            tooltip: 'Notifications',
-            onPressed: () {
-              // TODO: Ouvrir panneau de notifications
-            },
-          ),
-
-          const SizedBox(width: AppTheme.spacingSm),
-
-          // Profil utilisateur
-          if (currentUser != null)
-            Padding(
-              padding: const EdgeInsets.only(right: AppTheme.spacingMd),
-              child: PopupMenuButton<void>(
-                offset: const Offset(0, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      child: Text(
-                        currentUser.fullName.substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.spacingSm),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          currentUser.fullName,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          currentUser.email,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: AppTheme.spacingSm),
-                    const Icon(Icons.keyboard_arrow_down, size: 20),
-                  ],
-                ),
-                itemBuilder: (context) => <PopupMenuEntry<void>>[
-                  PopupMenuItem<void>(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.person_outline, size: 20),
-                        SizedBox(width: AppTheme.spacingMd),
-                        Text('Mon profil'),
-                      ],
-                    ),
-                    onTap: () {
-                      // TODO: Naviguer vers profil
-                    },
-                  ),
-                  PopupMenuItem<void>(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.settings_outlined, size: 20),
-                        SizedBox(width: AppTheme.spacingMd),
-                        Text('Paramètres'),
-                      ],
-                    ),
-                    onTap: () {
-                      context.go('/settings');
-                    },
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem<void>(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.logout, size: 20, color: AppColors.error),
-                        SizedBox(width: AppTheme.spacingMd),
-                        Text('Déconnexion', style: TextStyle(color: AppColors.error)),
-                      ],
-                    ),
-                    onTap: () async {
-                      await ref.read(authProvider.notifier).logout();
-                      if (context.mounted) {
-                        context.go('/login');
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-
-      // Drawer pour mobile
-      drawer: showPermanentDrawer || showRail
-          ? null
-          : _buildDrawer(context, isDark),
-
-      // Body avec sidebar
       body: Row(
         children: [
-          // Sidebar permanent (desktop)
-          if (showPermanentDrawer)
-            _buildDrawer(context, isDark, isPermanent: true),
-
-          // NavigationRail (tablet)
-          if (showRail)
-            _buildNavigationRail(context, isDark),
+          // Sidebar
+          _Sidebar(currentRoute: currentRoute),
 
           // Contenu principal
           Expanded(
-            child: Container(
-              color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-              child: widget.child,
-            ),
+            child: child,
           ),
         ],
       ),
     );
   }
+}
 
-  /// Construire le drawer/sidebar
-  Widget _buildDrawer(BuildContext context, bool isDark, {bool isPermanent = false}) {
+/// Sidebar de navigation
+class _Sidebar extends ConsumerWidget {
+  final String currentRoute;
+
+  const _Sidebar({required this.currentRoute});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final user = authState is AuthAuthenticated ? authState.user : null;
+
     return Container(
-      width: 280,
+      width: 260,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        border: isPermanent
-            ? Border(
-          right: BorderSide(
-            color: isDark ? AppColors.borderDark : AppColors.border,
-            width: 1,
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(2, 0),
           ),
-        )
-            : null,
+        ],
       ),
       child: Column(
         children: [
-          // Espaceur si permanent (AppBar prend déjà la place)
-          if (isPermanent) const SizedBox(height: AppTheme.spacingMd),
+          // Header avec logo
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.store,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'GESTORE',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-          // Liste des menu items
+          const Divider(height: 1),
+
+          // Menu items
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingMd,
-                vertical: AppTheme.spacingSm,
-              ),
-              children: menuItems.map((item) {
-                final isSelected = widget.currentRoute == item.route;
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                // Dashboard
+                _MenuItem(
+                  icon: Icons.dashboard,
+                  label: 'Tableau de bord',
+                  route: '/home',
+                  currentRoute: currentRoute,
+                ),
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.spacingSm),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        context.go(item.route);
-                        if (!isPermanent) {
-                          Navigator.pop(context);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.spacingMd,
-                          vertical: AppTheme.spacingMd,
+                const SizedBox(height: 8),
+                _SectionHeader(title: 'INVENTAIRE'),
+
+                // Articles
+                _MenuItem(
+                  icon: Icons.inventory_2,
+                  label: 'Articles',
+                  route: '/inventory',
+                  currentRoute: currentRoute,
+                ),
+
+                // Catégories
+                _MenuItem(
+                  icon: Icons.category,
+                  label: 'Catégories',
+                  route: '/inventory/categories',
+                  currentRoute: currentRoute,
+                ),
+
+                // Marques
+                _MenuItem(
+                  icon: Icons.branding_watermark,
+                  label: 'Marques',
+                  route: '/inventory/brands',
+                  currentRoute: currentRoute,
+                ),
+
+                // Unités de mesure
+                _MenuItem(
+                  icon: Icons.straighten,
+                  label: 'Unités',
+                  route: '/inventory/units',
+                  currentRoute: currentRoute,
+                ),
+
+                const SizedBox(height: 8),
+                _SectionHeader(title: 'VENTES'),
+
+                // Point de vente (TODO)
+                _MenuItem(
+                  icon: Icons.point_of_sale,
+                  label: 'Point de vente',
+                  route: '/sales/pos',
+                  currentRoute: currentRoute,
+                  enabled: false, // À activer plus tard
+                ),
+
+                const SizedBox(height: 8),
+                _SectionHeader(title: 'SYSTÈME'),
+
+                // Paramètres
+                _MenuItem(
+                  icon: Icons.settings,
+                  label: 'Paramètres',
+                  route: '/settings',
+                  currentRoute: currentRoute,
+                ),
+              ],
+            ),
+          ),
+
+          // User info et déconnexion
+          const Divider(height: 1),
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // User info
+                if (user != null)
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        child: Text(
+                          user.username.isNotEmpty
+                              ? user.username[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary.withValues(alpha: 0.1)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                        ),
-                        child: Row(
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              item.icon,
-                              size: 24,
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : (isDark
-                                  ? AppColors.textSecondaryDark
-                                  : AppColors.textSecondary),
-                            ),
-                            const SizedBox(width: AppTheme.spacingMd),
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : (isDark
-                                      ? AppColors.textPrimaryDark
-                                      : AppColors.textPrimary),
-                                ),
+                            Text(
+                              user.username,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              user.email,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+
+                const SizedBox(height: 12),
+
+                // Bouton déconnexion
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      _showLogoutConfirmation(context, ref);
+                    },
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Déconnexion'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.shade300),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          // Footer
-          Container(
-            padding: const EdgeInsets.all(AppTheme.spacingMd),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: isDark ? AppColors.borderDark : AppColors.border,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Version de l'app
-                Text(
-                  'Version 1.0.0',
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
@@ -374,21 +246,126 @@ class _AppLayoutState extends ConsumerState<AppLayout> {
     );
   }
 
-  /// Construire le NavigationRail (pour tablette)
-  Widget _buildNavigationRail(BuildContext context, bool isDark) {
-    return NavigationRail(
-      selectedIndex: menuItems.indexWhere((item) => item.route == widget.currentRoute),
-      onDestinationSelected: (index) {
-        context.go(menuItems[index].route);
-      },
-      labelType: NavigationRailLabelType.all,
-      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      destinations: menuItems.map((item) {
-        return NavigationRailDestination(
-          icon: Icon(item.icon),
-          label: Text(item.title),
-        );
-      }).toList(),
+  /// Affiche la confirmation de déconnexion
+  Future<void> _showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
     );
+
+    if (confirm == true && context.mounted) {
+      await ref.read(authProvider.notifier).logout();
+      if (context.mounted) {
+        context.go('/login');
+      }
+    }
+  }
+}
+
+/// En-tête de section dans le menu
+class _SectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey[600],
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Item de menu
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String route;
+  final String currentRoute;
+  final bool enabled;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.route,
+    required this.currentRoute,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = _isRouteSelected();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: ListTile(
+        enabled: enabled,
+        selected: isSelected,
+        selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        leading: Icon(
+          icon,
+          size: 22,
+          color: enabled
+              ? (isSelected ? AppColors.primary : Colors.grey[700])
+              : Colors.grey[400],
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: enabled
+                ? (isSelected ? AppColors.primary : Colors.grey[800])
+                : Colors.grey[400],
+          ),
+        ),
+        onTap: enabled
+            ? () {
+          if (route != currentRoute) {
+            context.go(route);
+          }
+        }
+            : null,
+      ),
+    );
+  }
+
+  /// Vérifie si la route est sélectionnée
+  bool _isRouteSelected() {
+    // Exact match
+    if (currentRoute == route) return true;
+
+    // Parent route match (ex: /inventory/categories correspond à /inventory/categories/*)
+    if (currentRoute.startsWith('$route/')) return true;
+
+    return false;
   }
 }

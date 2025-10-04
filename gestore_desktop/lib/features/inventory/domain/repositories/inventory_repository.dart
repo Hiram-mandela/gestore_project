@@ -77,53 +77,6 @@ abstract class InventoryRepository {
   /// Returns: [List<ArticleEntity>] ou une erreur
   Future<(List<ArticleEntity>?, String?)> getExpiringSoonArticles();
 
-  // ==================== CATEGORIES ====================
-
-  /// Récupère toutes les catégories
-  ///
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  ///
-  /// Returns: [List<CategoryEntity>] ou une erreur
-  Future<(List<CategoryEntity>?, String?)> getCategories({
-    bool? isActive,
-  });
-
-  /// Récupère une catégorie par son ID
-  ///
-  /// [id] : ID de la catégorie
-  ///
-  /// Returns: [CategoryEntity] ou une erreur
-  Future<(CategoryEntity?, String?)> getCategoryById(String id);
-
-  // ==================== BRANDS ====================
-
-  /// Récupère toutes les marques
-  ///
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  ///
-  /// Returns: [List<BrandEntity>] ou une erreur
-  Future<(List<BrandEntity>?, String?)> getBrands({
-    bool? isActive,
-  });
-
-  /// Récupère une marque par son ID
-  ///
-  /// [id] : ID de la marque
-  ///
-  /// Returns: [BrandEntity] ou une erreur
-  Future<(BrandEntity?, String?)> getBrandById(String id);
-
-  // ==================== UNITS OF MEASURE ====================
-
-  /// Récupère toutes les unités de mesure
-  ///
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  ///
-  /// Returns: [List<UnitOfMeasureEntity>] ou une erreur
-  Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({
-    bool? isActive,
-  });
-
   // ==================== CRUD ARTICLES ====================
 
   /// Crée un nouvel article
@@ -146,4 +99,76 @@ abstract class InventoryRepository {
   ///
   /// Returns: void ou une erreur
   Future<(void, String?)> deleteArticle(String articleId);
+
+  // ==================== CATEGORIES - CRUD ====================
+
+  /// Récupère toutes les catégories
+  ///
+  /// [isActive] : Filtrer par statut actif (optionnel)
+  ///
+  /// Returns: [List<CategoryEntity>] ou une erreur
+  Future<(List<CategoryEntity>?, String?)> getCategories({
+    bool? isActive,
+  });
+
+  /// Récupère une catégorie par son ID
+  ///
+  /// [id] : ID de la catégorie
+  ///
+  /// Returns: [CategoryEntity] ou une erreur
+  Future<(CategoryEntity?, String?)> getCategoryById(String id);
+
+  /// Crée une nouvelle catégorie
+  Future<(CategoryEntity?, String?)> createCategory(Map<String, dynamic> data);
+
+  /// Met à jour une catégorie
+  Future<(CategoryEntity?, String?)> updateCategory(String id, Map<String, dynamic> data);
+
+  /// Supprime une catégorie
+  Future<(void, String?)> deleteCategory(String id);
+
+  // ==================== BRANDS - CRUD ====================
+
+  /// Récupère toutes les marques
+  ///
+  /// [isActive] : Filtrer par statut actif (optionnel)
+  ///
+  /// Returns: [List<BrandEntity>] ou une erreur
+  Future<(List<BrandEntity>?, String?)> getBrands({
+    bool? isActive,
+  });
+
+  /// Récupère une marque par son ID
+  ///
+  /// [id] : ID de la marque
+  ///
+  /// Returns: [BrandEntity] ou une erreur
+  Future<(BrandEntity?, String?)> getBrandById(String id);
+
+  /// Crée une nouvelle marque
+  Future<(BrandEntity?, String?)> createBrand(Map<String, dynamic> data, String? logoPath);
+
+  /// Met à jour une marque
+  Future<(BrandEntity?, String?)> updateBrand(String id, Map<String, dynamic> data, String? logoPath);
+
+  /// Supprime une marque
+  Future<(void, String?)> deleteBrand(String id);
+
+
+  // ==================== UNITS OF MEASURE - CRUD ====================
+
+  /// Récupère toutes les unités de mesure
+  Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({bool? isActive});
+
+  /// Récupère une unité de mesure par ID
+  Future<(UnitOfMeasureEntity?, String?)> getUnitById(String id);
+
+  /// Crée une nouvelle unité de mesure
+  Future<(UnitOfMeasureEntity?, String?)> createUnit(Map<String, dynamic> data);
+
+  /// Met à jour une unité de mesure
+  Future<(UnitOfMeasureEntity?, String?)> updateUnit(String id, Map<String, dynamic> data);
+
+  /// Supprime une unité de mesure
+  Future<(void, String?)> deleteUnit(String id);
 }

@@ -299,6 +299,59 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
+  @override
+  Future<(CategoryEntity?, String?)> createCategory(Map<String, dynamic> data) async {
+    try {
+      logger.d('📦 Repository: Création catégorie "${data['name']}"');
+
+      final categoryModel = await remoteDataSource.createCategory(data);
+      final categoryEntity = categoryModel.toEntity();
+
+      logger.i('✅ Repository: Catégorie "${categoryEntity.name}" créée');
+
+      return (categoryEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création catégorie: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(CategoryEntity?, String?)> updateCategory(String id, Map<String, dynamic> data) async {
+    try {
+      logger.d('📦 Repository: Mise à jour catégorie $id');
+
+      final categoryModel = await remoteDataSource.updateCategory(id, data);
+      final categoryEntity = categoryModel.toEntity();
+
+      logger.i('✅ Repository: Catégorie "${categoryEntity.name}" mise à jour');
+
+      return (categoryEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mise à jour catégorie: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteCategory(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression catégorie $id');
+
+      await remoteDataSource.deleteCategory(id);
+
+      logger.i('✅ Repository: Catégorie supprimée');
+
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression catégorie: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
   // ==================== BRANDS ====================
 
   @override
@@ -343,6 +396,59 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
+  @override
+  Future<(BrandEntity?, String?)> createBrand(Map<String, dynamic> data, String? logoPath) async {
+    try {
+      logger.d('📦 Repository: Création marque "${data['name']}"');
+
+      final brandModel = await remoteDataSource.createBrand(data, logoPath);
+      final brandEntity = brandModel.toEntity();
+
+      logger.i('✅ Repository: Marque "${brandEntity.name}" créée');
+
+      return (brandEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création marque: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(BrandEntity?, String?)> updateBrand(String id, Map<String, dynamic> data, String? logoPath) async {
+    try {
+      logger.d('📦 Repository: Mise à jour marque $id');
+
+      final brandModel = await remoteDataSource.updateBrand(id, data, logoPath);
+      final brandEntity = brandModel.toEntity();
+
+      logger.i('✅ Repository: Marque "${brandEntity.name}" mise à jour');
+
+      return (brandEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mise à jour marque: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteBrand(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression marque $id');
+
+      await remoteDataSource.deleteBrand(id);
+
+      logger.i('✅ Repository: Marque supprimée');
+
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression marque: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
   // ==================== UNITS OF MEASURE ====================
 
   @override
@@ -365,6 +471,77 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur unités: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitOfMeasureEntity?, String?)> getUnitById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération unité $id');
+
+      final unitModel = await remoteDataSource.getUnitById(id);
+      final unitEntity = unitModel.toEntity();
+
+      logger.i('✅ Repository: Unité ${unitEntity.name} récupérée');
+
+      return (unitEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur récupération unité: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitOfMeasureEntity?, String?)> createUnit(Map<String, dynamic> data) async {
+    try {
+      logger.d('📦 Repository: Création unité "${data['name']}"');
+
+      final unitModel = await remoteDataSource.createUnit(data);
+      final unitEntity = unitModel.toEntity();
+
+      logger.i('✅ Repository: Unité "${unitEntity.name}" créée');
+
+      return (unitEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création unité: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitOfMeasureEntity?, String?)> updateUnit(String id, Map<String, dynamic> data) async {
+    try {
+      logger.d('📦 Repository: Mise à jour unité $id');
+
+      final unitModel = await remoteDataSource.updateUnit(id, data);
+      final unitEntity = unitModel.toEntity();
+
+      logger.i('✅ Repository: Unité "${unitEntity.name}" mise à jour');
+
+      return (unitEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mise à jour unité: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteUnit(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression unité $id');
+
+      await remoteDataSource.deleteUnit(id);
+
+      logger.i('✅ Repository: Unité supprimée');
+
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression unité: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }
