@@ -200,10 +200,10 @@ class ArticleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _parseColor(article.categoryColor).withOpacity(0.1),
+        color: _parseColor(article.categoryColor).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _parseColor(article.categoryColor).withOpacity(0.3),
+          color: _parseColor(article.categoryColor).withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -223,7 +223,7 @@ class ArticleCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: _parseColor(article.categoryColor).withOpacity(0.8),
+              color: _parseColor(article.categoryColor).withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -262,9 +262,9 @@ class ArticleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: marginColor.withOpacity(0.1),
+        color: marginColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: marginColor.withOpacity(0.3)),
+        border: Border.all(color: marginColor.withValues(alpha: 0.3)),
       ),
       child: Text(
         article.formattedMargin,

@@ -205,9 +205,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
       var mode = await localDataSource.getCurrentConnectionMode();
 
       // Si aucun mode défini, utiliser localhost par défaut
-      if (mode == null) {
-        mode = ConnectionMode.localhost;
-      }
+      mode ??= ConnectionMode.localhost;
 
       return (mode, null);
     } catch (e) {

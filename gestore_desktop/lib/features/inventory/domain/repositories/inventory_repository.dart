@@ -1,13 +1,17 @@
 // ========================================
 // lib/features/inventory/domain/repositories/inventory_repository.dart
 // Interface du repository pour la gestion de l'inventaire
+// MISE À JOUR : Ajout de getArticleDetailById
 // ========================================
 
 import '../entities/article_entity.dart';
+import '../entities/article_detail_entity.dart';
 import '../entities/category_entity.dart';
 import '../entities/brand_entity.dart';
 import '../entities/unit_of_measure_entity.dart';
 import '../entities/paginated_response_entity.dart';
+import '../usecases/create_article_usecase.dart';
+import '../usecases/update_article_usecase.dart';
 
 /// Repository interface pour la gestion de l'inventaire
 /// Définit les contrats que l'implémentation doit respecter
@@ -37,12 +41,20 @@ abstract class InventoryRepository {
     String? ordering,
   });
 
-  /// Récupère un article par son ID
+  /// Récupère un article par son ID (version liste simplifiée)
   ///
   /// [id] : ID de l'article
   ///
   /// Returns: [ArticleEntity] ou une erreur
   Future<(ArticleEntity?, String?)> getArticleById(String id);
+
+  /// Récupère le détail complet d'un article par son ID
+  /// ⭐ NOUVEAU - Retourne ArticleDetailEntity avec toutes les relations
+  ///
+  /// [id] : ID de l'article
+  ///
+  /// Returns: [ArticleDetailEntity] ou une erreur
+  Future<(ArticleDetailEntity?, String?)> getArticleDetailById(String id);
 
   /// Recherche des articles
   ///
@@ -111,4 +123,27 @@ abstract class InventoryRepository {
   Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({
     bool? isActive,
   });
+
+  // ==================== CRUD ARTICLES ====================
+
+  /// Crée un nouvel article
+  ///
+  /// [params] : Paramètres de création
+  ///
+  /// Returns: [ArticleEntity] créé ou une erreur
+  Future<(ArticleEntity?, String?)> createArticle(CreateArticleParams params);
+
+  /// Met à jour un article existant
+  ///
+  /// [params] : Paramètres de mise à jour (avec ID)
+  ///
+  /// Returns: [ArticleEntity] mis à jour ou une erreur
+  Future<(ArticleEntity?, String?)> updateArticle(UpdateArticleParams params);
+
+  /// Supprime un article
+  ///
+  /// [articleId] : ID de l'article à supprimer
+  ///
+  /// Returns: void ou une erreur
+  Future<(void, String?)> deleteArticle(String articleId);
 }

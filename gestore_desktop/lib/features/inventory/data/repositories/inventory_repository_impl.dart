@@ -1,16 +1,20 @@
 // ========================================
 // lib/features/inventory/data/repositories/inventory_repository_impl.dart
 // Implémentation du repository inventory
+// VERSION COMPLÈTE avec CRUD
 // ========================================
 
 import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
 import '../../domain/entities/article_entity.dart';
+import '../../domain/entities/article_detail_entity.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/brand_entity.dart';
 import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/entities/paginated_response_entity.dart';
 import '../../domain/repositories/inventory_repository.dart';
+import '../../domain/usecases/create_article_usecase.dart';
+import '../../domain/usecases/update_article_usecase.dart';
 import '../datasources/inventory_remote_datasource.dart';
 
 /// Implémentation du repository inventory
@@ -24,6 +28,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
     required this.remoteDataSource,
     required this.logger,
   });
+
+  // ==================== ARTICLES - LECTURE ====================
 
   @override
   Future<(PaginatedResponseEntity<ArticleEntity>?, String?)> getArticles({
@@ -61,7 +67,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur récupération articles: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
@@ -79,7 +85,31 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur récupération article: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(ArticleDetailEntity?, String?)> getArticleDetailById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération détail article $id');
+
+      final articleDetailModel = await remoteDataSource.getArticleDetailById(id);
+      final articleDetailEntity = articleDetailModel.toEntity();
+
+      logger.i('✅ Repository: Détail article ${articleDetailEntity.name} récupéré');
+      logger.d('   - Catégorie: ${articleDetailEntity.category?.name ?? "N/A"}');
+      logger.d('   - Marque: ${articleDetailEntity.brand?.name ?? "N/A"}');
+      logger.d('   - Stock: ${articleDetailEntity.currentStock}');
+      logger.d('   - Images: ${articleDetailEntity.images.length}');
+      logger.d('   - Variantes: ${articleDetailEntity.variants.length}');
+      logger.d('   - Historique prix: ${articleDetailEntity.priceHistory.length}');
+
+      return (articleDetailEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur récupération détail article: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
@@ -106,7 +136,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur recherche: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
@@ -125,7 +155,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur stock bas: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
@@ -144,19 +174,100 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur péremption: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
+
+  // ==================== ARTICLES - CRUD ====================
+
+  @override
+  Future<(ArticleEntity?, String?)> createArticle(
+      CreateArticleParams params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Création article "${params.name}"');
+      logger.d('   Code: ${params.code}');
+      logger.d('   Catégorie: ${params.categoryId}');
+      logger.d('   Prix vente: ${params.sellingPrice} FCFA');
+
+      final data = params.toJson();
+      final articleModel = await remoteDataSource.createArticle(
+        data,
+        params.imagePath,
+      );
+
+      final articleEntity = articleModel.toEntity();
+
+      logger.i('✅ Repository: Article "${articleEntity.name}" créé avec succès');
+      logger.d('   ID: ${articleEntity.id}');
+      logger.d('   Code: ${articleEntity.code}');
+
+      return (articleEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création article: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(ArticleEntity?, String?)> updateArticle(
+      UpdateArticleParams params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Mise à jour article "${params.name}" (ID: ${params.id})');
+      logger.d('   Code: ${params.code}');
+      logger.d('   Prix vente: ${params.sellingPrice} FCFA');
+
+      final data = params.toJson();
+      final articleModel = await remoteDataSource.updateArticle(
+        params.id,
+        data,
+        params.imagePath,
+      );
+
+      final articleEntity = articleModel.toEntity();
+
+      logger.i('✅ Repository: Article "${articleEntity.name}" mis à jour');
+
+      return (articleEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mise à jour article: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteArticle(String articleId) async {
+    try {
+      logger.d('📦 Repository: Suppression article (ID: $articleId)');
+
+      await remoteDataSource.deleteArticle(articleId);
+
+      logger.i('✅ Repository: Article supprimé avec succès');
+
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression article: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== CATEGORIES ====================
 
   @override
   Future<(List<CategoryEntity>?, String?)> getCategories({
     bool? isActive,
   }) async {
     try {
-      logger.d('📂 Repository: Récupération catégories');
+      logger.d('📦 Repository: Récupération catégories');
 
-      final categoriesModel =
-      await remoteDataSource.getCategories(isActive: isActive);
+      final categoriesModel = await remoteDataSource.getCategories(
+        isActive: isActive,
+      );
+
       final categoriesEntity =
       categoriesModel.map((model) => model.toEntity()).toList();
 
@@ -166,14 +277,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur catégories: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
   @override
   Future<(CategoryEntity?, String?)> getCategoryById(String id) async {
     try {
-      logger.d('📂 Repository: Récupération catégorie $id');
+      logger.d('📦 Repository: Récupération catégorie $id');
 
       final categoryModel = await remoteDataSource.getCategoryById(id);
       final categoryEntity = categoryModel.toEntity();
@@ -184,19 +295,25 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur catégorie: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
+
+  // ==================== BRANDS ====================
 
   @override
   Future<(List<BrandEntity>?, String?)> getBrands({
     bool? isActive,
   }) async {
     try {
-      logger.d('🏷️ Repository: Récupération marques');
+      logger.d('📦 Repository: Récupération marques');
 
-      final brandsModel = await remoteDataSource.getBrands(isActive: isActive);
-      final brandsEntity = brandsModel.map((model) => model.toEntity()).toList();
+      final brandsModel = await remoteDataSource.getBrands(
+        isActive: isActive,
+      );
+
+      final brandsEntity =
+      brandsModel.map((model) => model.toEntity()).toList();
 
       logger.i('✅ Repository: ${brandsEntity.length} marques récupérées');
 
@@ -204,14 +321,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur marques: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
 
   @override
   Future<(BrandEntity?, String?)> getBrandById(String id) async {
     try {
-      logger.d('🏷️ Repository: Récupération marque $id');
+      logger.d('📦 Repository: Récupération marque $id');
 
       final brandModel = await remoteDataSource.getBrandById(id);
       final brandEntity = brandModel.toEntity();
@@ -222,20 +339,25 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur marque: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
   }
+
+  // ==================== UNITS OF MEASURE ====================
 
   @override
   Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({
     bool? isActive,
   }) async {
     try {
-      logger.d('📏 Repository: Récupération unités de mesure');
+      logger.d('📦 Repository: Récupération unités de mesure');
 
-      final unitsModel =
-      await remoteDataSource.getUnitsOfMeasure(isActive: isActive);
-      final unitsEntity = unitsModel.map((model) => model.toEntity()).toList();
+      final unitsModel = await remoteDataSource.getUnitsOfMeasure(
+        isActive: isActive,
+      );
+
+      final unitsEntity =
+      unitsModel.map((model) => model.toEntity()).toList();
 
       logger.i('✅ Repository: ${unitsEntity.length} unités récupérées');
 
@@ -243,7 +365,21 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur unités: $errorMessage');
-      return (null, errorMessage);
+      return (null, _extractErrorMessage(errorMessage));
     }
+  }
+
+  // ==================== UTILITAIRES ====================
+
+  /// Extrait un message d'erreur lisible pour l'utilisateur
+  String _extractErrorMessage(String error) {
+    // Nettoyer le message d'erreur
+    if (error.contains('Exception:')) {
+      return error.split('Exception:').last.trim();
+    }
+    if (error.contains('Error:')) {
+      return error.split('Error:').last.trim();
+    }
+    return error;
   }
 }

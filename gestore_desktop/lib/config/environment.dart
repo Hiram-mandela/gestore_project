@@ -32,7 +32,7 @@ class AppEnvironment {
   /// Configuration localhost par défaut
   static const localhost = AppEnvironment(
     name: 'Localhost',
-    apiBaseUrl: 'http://127.0.0.1:8000/api',
+    apiBaseUrl: 'http://127.0.0.1:8080/api',
     connectionMode: ConnectionMode.localhost,
     enableLogging: true,
     enablePrettyJson: true,
@@ -41,7 +41,7 @@ class AppEnvironment {
   /// Configuration réseau local par défaut
   static const localNetwork = AppEnvironment(
     name: 'Local Network',
-    apiBaseUrl: 'http://192.168.1.100:8000/api',
+    apiBaseUrl: 'http://192.168.1.100:8080/api',
     connectionMode: ConnectionMode.localNetwork,
     enableLogging: true,
     enablePrettyJson: true,
@@ -85,7 +85,7 @@ class AppEnvironment {
   /// Créer un environnement localhost personnalisé
   factory AppEnvironment.customLocalhost({
     String host = '127.0.0.1',
-    int port = 8000,
+    int port = 8080,
   }) {
     return AppEnvironment(
       name: 'Localhost Custom',
@@ -99,7 +99,7 @@ class AppEnvironment {
   /// Créer un environnement réseau local personnalisé
   factory AppEnvironment.customLocalNetwork({
     required String serverIp,
-    int port = 8000,
+    int port = 8080,
     bool useHttps = false,
   }) {
     final protocol = useHttps ? 'https' : 'http';

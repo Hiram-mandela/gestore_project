@@ -1,6 +1,7 @@
 // ========================================
 // lib/features/inventory/data/datasources/inventory_remote_datasource.dart
 // DataSource pour les appels API du module inventory
+// VERSION COMPLÈTE avec CRUD
 // ========================================
 
 import 'package:dio/dio.dart';
@@ -9,6 +10,7 @@ import 'package:logger/logger.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
 import '../models/article_model.dart';
+import '../models/article_detail_model.dart';
 import '../models/category_model.dart';
 import '../models/brand_model.dart';
 import '../models/paginated_response_model.dart';
@@ -16,6 +18,8 @@ import '../models/unit_of_measure_model.dart';
 
 /// DataSource abstraite pour les opérations d'inventaire
 abstract class InventoryRemoteDataSource {
+  // ==================== ARTICLES - LECTURE ====================
+
   /// Récupère la liste paginée des articles
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
     int page = 1,
@@ -28,8 +32,11 @@ abstract class InventoryRemoteDataSource {
     String? ordering,
   });
 
-  /// Récupère un article par ID
+  /// Récupère un article par ID (version liste simplifiée)
   Future<ArticleModel> getArticleById(String id);
+
+  /// Récupère le détail complet d'un article par ID
+  Future<ArticleDetailModel> getArticleDetailById(String id);
 
   /// Recherche des articles
   Future<PaginatedResponseModel<ArticleModel>> searchArticles({
@@ -43,17 +50,34 @@ abstract class InventoryRemoteDataSource {
   /// Récupère les articles proches de la péremption
   Future<List<ArticleModel>> getExpiringSoonArticles();
 
+  // ==================== ARTICLES - CRUD ====================
+
+  /// Crée un nouvel article
+  Future<ArticleModel> createArticle(Map<String, dynamic> data, String? imagePath);
+
+  /// Met à jour un article
+  Future<ArticleModel> updateArticle(String id, Map<String, dynamic> data, String? imagePath);
+
+  /// Supprime un article
+  Future<void> deleteArticle(String id);
+
+  // ==================== CATEGORIES ====================
+
   /// Récupère toutes les catégories
   Future<List<CategoryModel>> getCategories({bool? isActive});
 
   /// Récupère une catégorie par ID
   Future<CategoryModel> getCategoryById(String id);
 
+  // ==================== BRANDS ====================
+
   /// Récupère toutes les marques
   Future<List<BrandModel>> getBrands({bool? isActive});
 
   /// Récupère une marque par ID
   Future<BrandModel> getBrandById(String id);
+
+  // ==================== UNITS OF MEASURE ====================
 
   /// Récupère toutes les unités de mesure
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive});
@@ -70,6 +94,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     required this.logger,
   });
 
+  // ==================== ARTICLES - LECTURE - IMPLÉMENTATION ====================
+
   @override
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
     int page = 1,
@@ -82,46 +108,32 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     String? ordering,
   }) async {
     try {
-      logger.d('📦 Récupération articles: page=$page, pageSize=$pageSize');
+      logger.d('📡 API Call: GET /articles (page: $page)');
 
-      // Construire les query parameters
       final queryParams = <String, dynamic>{
         'page': page,
         'page_size': pageSize,
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (categoryId != null) 'category': categoryId,
+        if (brandId != null) 'brand': brandId,
+        if (isActive != null) 'is_active': isActive,
+        if (isLowStock != null) 'is_low_stock': isLowStock,
+        if (ordering != null) 'ordering': ordering,
       };
-
-      if (search != null && search.isNotEmpty) {
-        queryParams['search'] = search;
-      }
-      if (categoryId != null) {
-        queryParams['category'] = categoryId;
-      }
-      if (brandId != null) {
-        queryParams['brand'] = brandId;
-      }
-      if (isActive != null) {
-        queryParams['is_active'] = isActive;
-      }
-      if (isLowStock != null) {
-        queryParams['is_low_stock'] = isLowStock;
-      }
-      if (ordering != null) {
-        queryParams['ordering'] = ordering;
-      }
 
       final response = await apiClient.get(
         ApiEndpoints.articles,
         queryParameters: queryParams,
       );
 
-      logger.i('✅ Articles récupérés: ${response.data['count']} total');
+      logger.i('✅ API Success: Articles récupérés');
 
-      return PaginatedResponseModel.fromJson(
+      return PaginatedResponseModel<ArticleModel>.fromJson(
         response.data,
             (json) => ArticleModel.fromJson(json),
       );
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération articles: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -129,15 +141,31 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<ArticleModel> getArticleById(String id) async {
     try {
-      logger.d('📦 Récupération article: $id');
+      logger.d('📡 API Call: GET /articles/$id');
 
-      final response = await apiClient.get(ApiEndpoints.articleDetail(id));
+      final response = await apiClient.get('${ApiEndpoints.articles}$id/');
 
-      logger.i('✅ Article récupéré: ${response.data['name']}');
+      logger.i('✅ API Success: Article $id récupéré');
 
       return ArticleModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération article: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<ArticleDetailModel> getArticleDetailById(String id) async {
+    try {
+      logger.d('📡 API Call: GET /articles/$id/ (détail complet)');
+
+      final response = await apiClient.get('${ApiEndpoints.articles}$id/');
+
+      logger.i('✅ API Success: Détail article $id récupéré');
+
+      return ArticleDetailModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error getArticleDetailById: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -148,24 +176,21 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     int page = 1,
   }) async {
     try {
-      logger.d('🔍 Recherche articles: "$query"');
+      logger.d('📡 API Call: SEARCH articles "$query"');
 
       final response = await apiClient.get(
         ApiEndpoints.articles,
-        queryParameters: {
-          'search': query,
-          'page': page,
-        },
+        queryParameters: {'search': query, 'page': page},
       );
 
-      logger.i('✅ Résultats recherche: ${response.data['count']} trouvés');
+      logger.i('✅ API Success: Recherche terminée');
 
-      return PaginatedResponseModel.fromJson(
+      return PaginatedResponseModel<ArticleModel>.fromJson(
         response.data,
             (json) => ArticleModel.fromJson(json),
       );
     } on DioException catch (e) {
-      logger.e('❌ Erreur recherche articles: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -173,18 +198,19 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<List<ArticleModel>> getLowStockArticles() async {
     try {
-      logger.d('📦 Récupération articles stock bas');
+      logger.d('📡 API Call: GET /articles?is_low_stock=true');
 
-      final response = await apiClient.get(ApiEndpoints.articlesLowStock);
+      final response = await apiClient.get(
+        ApiEndpoints.articles,
+        queryParameters: {'is_low_stock': true},
+      );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      logger.i('✅ Articles stock bas: ${data.length} trouvés');
+      logger.i('✅ API Success: Articles stock bas récupérés');
 
-      return data
-          .map((json) => ArticleModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final results = response.data['results'] as List;
+      return results.map((json) => ArticleModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération stock bas: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -192,45 +218,134 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<List<ArticleModel>> getExpiringSoonArticles() async {
     try {
-      logger.d('📦 Récupération articles péremption proche');
+      logger.d('📡 API Call: GET /articles/expiring-soon');
 
-      final response = await apiClient.get(ApiEndpoints.articlesExpiringSoon);
+      final response = await apiClient.get(
+        '${ApiEndpoints.articles}expiring-soon/',
+      );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      logger.i('✅ Articles péremption proche: ${data.length} trouvés');
+      logger.i('✅ API Success: Articles péremption proche récupérés');
 
-      return data
-          .map((json) => ArticleModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final results = response.data as List;
+      return results.map((json) => ArticleModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération péremption: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  // ==================== ARTICLES - CRUD - IMPLÉMENTATION ====================
+
+  @override
+  Future<ArticleModel> createArticle(
+      Map<String, dynamic> data,
+      String? imagePath,
+      ) async {
+    try {
+      logger.d('📡 API Call: POST /articles (création)');
+      logger.d('   Data: $data');
+
+      dynamic requestData = data;
+
+      // Si une image est fournie, utiliser FormData
+      if (imagePath != null && imagePath.isNotEmpty) {
+        requestData = FormData.fromMap({
+          ...data,
+          'image': await MultipartFile.fromFile(
+            imagePath,
+            filename: imagePath.split('/').last,
+          ),
+        });
+        logger.d('   Image: ${imagePath.split('/').last}');
+      }
+
+      final response = await apiClient.post(
+        ApiEndpoints.articles,
+        data: requestData,
+      );
+
+      logger.i('✅ API Success: Article créé');
+
+      return ArticleModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error createArticle: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
+  Future<ArticleModel> updateArticle(
+      String id,
+      Map<String, dynamic> data,
+      String? imagePath,
+      ) async {
+    try {
+      logger.d('📡 API Call: PUT /articles/$id/ (mise à jour)');
+      logger.d('   Data: $data');
+
+      dynamic requestData = data;
+
+      // Si une nouvelle image est fournie
+      if (imagePath != null && imagePath.isNotEmpty) {
+        requestData = FormData.fromMap({
+          ...data,
+          'image': await MultipartFile.fromFile(
+            imagePath,
+            filename: imagePath.split('/').last,
+          ),
+        });
+        logger.d('   Nouvelle image: ${imagePath.split('/').last}');
+      }
+
+      final response = await apiClient.put(
+        '${ApiEndpoints.articles}$id/',
+        data: requestData,
+      );
+
+      logger.i('✅ API Success: Article $id mis à jour');
+
+      return ArticleModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error updateArticle: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<void> deleteArticle(String id) async {
+    try {
+      logger.d('📡 API Call: DELETE /articles/$id/');
+
+      await apiClient.delete('${ApiEndpoints.articles}$id/');
+
+      logger.i('✅ API Success: Article $id supprimé');
+    } on DioException catch (e) {
+      logger.e('❌ API Error deleteArticle: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  // ==================== CATEGORIES - IMPLÉMENTATION ====================
+
+  @override
   Future<List<CategoryModel>> getCategories({bool? isActive}) async {
     try {
-      logger.d('📂 Récupération catégories');
+      logger.d('📡 API Call: GET /categories');
 
       final queryParams = <String, dynamic>{};
-      if (isActive != null) {
-        queryParams['is_active'] = isActive;
-      }
+      if (isActive != null) queryParams['is_active'] = isActive;
 
       final response = await apiClient.get(
         ApiEndpoints.categories,
-        queryParameters: queryParams,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      logger.i('✅ Catégories récupérées: ${data.length}');
+      logger.i('✅ API Success: Catégories récupérées');
 
-      return data
-          .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final results = response.data as List;
+      return results.map((json) => CategoryModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération catégories: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -238,42 +353,40 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<CategoryModel> getCategoryById(String id) async {
     try {
-      logger.d('📂 Récupération catégorie: $id');
+      logger.d('📡 API Call: GET /categories/$id');
 
-      final response = await apiClient.get(ApiEndpoints.categoryDetail(id));
+      final response = await apiClient.get('${ApiEndpoints.categories}$id/');
 
-      logger.i('✅ Catégorie récupérée: ${response.data['name']}');
+      logger.i('✅ API Success: Catégorie $id récupérée');
 
       return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération catégorie: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
+  // ==================== BRANDS - IMPLÉMENTATION ====================
+
   @override
   Future<List<BrandModel>> getBrands({bool? isActive}) async {
     try {
-      logger.d('🏷️ Récupération marques');
+      logger.d('📡 API Call: GET /brands');
 
       final queryParams = <String, dynamic>{};
-      if (isActive != null) {
-        queryParams['is_active'] = isActive;
-      }
+      if (isActive != null) queryParams['is_active'] = isActive;
 
       final response = await apiClient.get(
         ApiEndpoints.brands,
-        queryParameters: queryParams,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      logger.i('✅ Marques récupérées: ${data.length}');
+      logger.i('✅ API Success: Marques récupérées');
 
-      return data
-          .map((json) => BrandModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final results = response.data as List;
+      return results.map((json) => BrandModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération marques: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -281,78 +394,91 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<BrandModel> getBrandById(String id) async {
     try {
-      logger.d('🏷️ Récupération marque: $id');
+      logger.d('📡 API Call: GET /brands/$id');
 
-      final response = await apiClient.get(ApiEndpoints.brandDetail(id));
+      final response = await apiClient.get('${ApiEndpoints.brands}$id/');
 
-      logger.i('✅ Marque récupérée: ${response.data['name']}');
+      logger.i('✅ API Success: Marque $id récupérée');
 
       return BrandModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération marque: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
+
+  // ==================== UNITS OF MEASURE - IMPLÉMENTATION ====================
 
   @override
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive}) async {
     try {
-      logger.d('📏 Récupération unités de mesure');
+      logger.d('📡 API Call: GET /units-of-measure');
 
       final queryParams = <String, dynamic>{};
-      if (isActive != null) {
-        queryParams['is_active'] = isActive;
-      }
+      if (isActive != null) queryParams['is_active'] = isActive;
 
       final response = await apiClient.get(
         ApiEndpoints.units,
-        queryParameters: queryParams,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      logger.i('✅ Unités de mesure récupérées: ${data.length}');
+      logger.i('✅ API Success: Unités de mesure récupérées');
 
-      return data
-          .map((json) =>
-          UnitOfMeasureModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final results = response.data as List;
+      return results.map((json) => UnitOfMeasureModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ Erreur récupération unités: ${e.message}');
+      logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
-  /// Gère les erreurs Dio et retourne des messages appropriés
-  String _handleDioError(DioException error) {
-    if (error.response != null) {
-      final statusCode = error.response!.statusCode;
-      final data = error.response!.data;
+  // ==================== GESTION DES ERREURS ====================
 
-      switch (statusCode) {
-        case 400:
-          return 'Requête invalide: ${data?['detail'] ?? 'Erreur de validation'}';
-        case 401:
-          return 'Session expirée. Veuillez vous reconnecter.';
-        case 403:
-          return 'Accès refusé. Permissions insuffisantes.';
-        case 404:
-          return 'Ressource non trouvée.';
-        case 500:
-          return 'Erreur serveur. Veuillez réessayer plus tard.';
-        default:
-          return 'Erreur réseau: ${error.message}';
-      }
+  Exception _handleDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return Exception(
+          'Délai d\'attente dépassé. Vérifiez votre connexion.',
+        );
+
+      case DioExceptionType.badResponse:
+        final statusCode = error.response?.statusCode;
+        final message = error.response?.data?['detail'] ??
+            error.response?.data?['message'] ??
+            'Erreur serveur';
+
+        switch (statusCode) {
+          case 400:
+            return Exception('Requête invalide: $message');
+          case 401:
+            return Exception('Non authentifié. Reconnectez-vous.');
+          case 403:
+            return Exception('Accès refusé: $message');
+          case 404:
+            return Exception('Ressource non trouvée');
+          case 500:
+          case 502:
+          case 503:
+            return Exception('Erreur serveur. Réessayez plus tard.');
+          default:
+            return Exception('Erreur HTTP $statusCode: $message');
+        }
+
+      case DioExceptionType.cancel:
+        return Exception('Requête annulée');
+
+      case DioExceptionType.unknown:
+        if (error.message?.contains('SocketException') ?? false) {
+          return Exception(
+            'Impossible de se connecter au serveur. Vérifiez votre réseau.',
+          );
+        }
+        return Exception('Erreur inconnue: ${error.message}');
+
+      default:
+        return Exception('Erreur réseau: ${error.message}');
     }
-
-    if (error.type == DioExceptionType.connectionTimeout ||
-        error.type == DioExceptionType.receiveTimeout) {
-      return 'Délai d\'attente dépassé. Vérifiez votre connexion.';
-    }
-
-    if (error.type == DioExceptionType.connectionError) {
-      return 'Impossible de se connecter au serveur.';
-    }
-
-    return 'Une erreur est survenue: ${error.message}';
   }
 }

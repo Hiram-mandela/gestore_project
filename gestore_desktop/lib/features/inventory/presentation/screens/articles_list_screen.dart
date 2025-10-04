@@ -1,11 +1,12 @@
 // ========================================
 // lib/features/inventory/presentation/screens/articles_list_screen.dart
-// Écran principal de la liste des articles
+// VERSION COMPLÈTE MISE À JOUR - Écran principal de la liste des articles
+// Intégration navigation CRUD (Création, Détail, Édition)
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../shared/widgets/app_layout.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/articles_provider.dart';
 import '../providers/categories_brands_providers.dart';
 import '../providers/inventory_state.dart';
@@ -46,7 +47,7 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     super.dispose();
   }
 
-  /// Gère le scroll pour la pagination
+  /// Gère le scroll pour la pagination (infinite scroll)
   void _onScroll() {
     if (_isLoadingMore) return;
 
@@ -81,91 +82,88 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   Widget build(BuildContext context) {
     final articlesState = ref.watch(articlesProvider);
 
-    return AppLayout(
-      currentRoute: '/inventory', // Route pour Inventory dans la navigation
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        body: Column(
-          children: [
-            // Header avec titre et actions
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Titre et boutons d'action
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Articles',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: Column(
+        children: [
+          // Header avec titre et actions
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Titre et boutons d'action
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Articles',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _buildSubtitle(articlesState),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _buildSubtitle(articlesState),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      // Bouton Filtres
-                      IconButton(
-                        onPressed: _showFiltersSheet,
-                        icon: const Icon(Icons.filter_list),
-                        tooltip: 'Filtres',
-                      ),
-                      // Bouton Rafraîchir
-                      IconButton(
-                        onPressed: () {
-                          ref.read(articlesProvider.notifier).refresh();
-                        },
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Actualiser',
-                      ),
-                      // Bouton Ajouter (futur)
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Naviguer vers le formulaire de création
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Fonctionnalité à venir'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.add_circle),
-                        tooltip: 'Nouvel article',
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Barre de recherche
-                  ArticleSearchBar(
-                    onSearch: (query) {
-                      ref.read(articlesProvider.notifier).searchArticles(query);
-                    },
-                  ),
-                ],
-              ),
-            ),
+                    ),
 
-            // Corps principal
-            Expanded(
-              child: _buildBody(articlesState),
+                    // Bouton Filtres
+                    IconButton(
+                      onPressed: _showFiltersSheet,
+                      icon: const Icon(Icons.filter_list),
+                      tooltip: 'Filtres',
+                    ),
+
+                    // Bouton Rafraîchir
+                    IconButton(
+                      onPressed: () {
+                        ref.read(articlesProvider.notifier).refresh();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Actualiser',
+                    ),
+
+                    // ⭐ NOUVEAU : Bouton Nouvel Article
+                    IconButton(
+                      onPressed: () {
+                        // Navigation vers le formulaire de création
+                        context.pushNamed('article-create');
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Nouvel article',
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Barre de recherche
+                ArticleSearchBar(
+                  onSearch: (query) {
+                    ref.read(articlesProvider.notifier).searchArticles(query);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          // Corps principal
+          Expanded(
+            child: _buildBody(articlesState),
+          ),
+        ],
       ),
     );
   }
@@ -173,7 +171,8 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   /// Construit le sous-titre en fonction de l'état
   String _buildSubtitle(InventoryState state) {
     if (state is InventoryLoaded) {
-      return '${state.totalCount} articles';
+      final count = state.totalCount;
+      return count > 1 ? '$count articles' : '$count article';
     }
     return 'Gestion des articles';
   }
@@ -181,7 +180,12 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   /// Construit le corps de l'écran en fonction de l'état
   Widget _buildBody(InventoryState state) {
     if (state is InventoryInitial) {
-      return const Center(child: Text('Prêt à charger les articles'));
+      return const Center(
+        child: Text(
+          'Prêt à charger les articles',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     } else if (state is InventoryLoading) {
       return const Center(child: CircularProgressIndicator());
     } else if (state is InventoryLoaded) {
@@ -199,11 +203,19 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     }
 
     // Cas par défaut (ne devrait jamais arriver)
-    return const Center(child: Text('État inconnu'));
+    return const Center(
+      child: Text(
+        'État inconnu',
+        style: TextStyle(color: Colors.grey),
+      ),
+    );
   }
 
   /// Construit la liste des articles
-  Widget _buildArticlesList(InventoryLoaded state, {bool isLoadingMore = false}) {
+  Widget _buildArticlesList(
+      InventoryLoaded state, {
+        bool isLoadingMore = false,
+      }) {
     final articles = state.articles;
 
     if (articles.isEmpty) {
@@ -234,11 +246,10 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           return ArticleCard(
             article: article,
             onTap: () {
-              // TODO: Naviguer vers le détail de l'article
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Détail de ${article.name}'),
-                ),
+              // ⭐ NOUVEAU : Navigation vers le détail de l'article
+              context.pushNamed(
+                'article-detail',
+                pathParameters: {'id': article.id},
               );
             },
           );
@@ -250,32 +261,46 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   /// Widget pour l'état vide
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Aucun article trouvé',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 80,
+              color: Colors.grey[300],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Essayez d\'ajuster vos filtres',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
+            const SizedBox(height: 16),
+            Text(
+              'Aucun article trouvé',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[600],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Essayez d\'ajuster vos filtres ou créez un nouvel article',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ⭐ NOUVEAU : Bouton pour créer le premier article
+            FilledButton.icon(
+              onPressed: () {
+                context.pushNamed('article-create');
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Créer un article'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -283,27 +308,27 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   /// Widget pour l'état d'erreur
   Widget _buildErrorWidget(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 80,
-            color: Colors.red[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Erreur',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.red[300],
             ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
+            const SizedBox(height: 16),
+            Text(
+              'Erreur',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -311,16 +336,16 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
                 color: Colors.grey[600],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              ref.read(articlesProvider.notifier).refresh();
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
-          ),
-        ],
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                ref.read(articlesProvider.notifier).refresh();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
       ),
     );
   }
