@@ -47,6 +47,8 @@ import '../features/inventory/domain/usecases/create_article_usecase.dart';
 import '../features/inventory/domain/usecases/update_article_usecase.dart';
 import '../features/inventory/domain/usecases/delete_article_usecase.dart';
 
+import '../core/utils/jwt_helper.dart';
+
 // Environment
 import 'environment.dart';
 
@@ -101,11 +103,19 @@ Future<void> configureDependencies() async {
         () => NetworkInfoImpl(getIt<Connectivity>()),
   );
 
-  // API Client
-  getIt.registerLazySingleton<ApiClient>(
+  // JWT HELPER
+  // ========================================
+  getIt.registerLazySingleton(
+        () => JwtHelper(getIt<Logger>()),
+  );
+  logger.i('✅ JwtHelper configuré');
+
+  // Puis mettre à jour ApiClient pour utiliser JwtHelper :
+  getIt.registerLazySingleton(
         () => ApiClient(
       secureStorage: getIt<FlutterSecureStorage>(),
       logger: getIt<Logger>(),
+      jwtHelper: getIt<JwtHelper>(),  // ✅ AJOUTER CETTE LIGNE
       environment: getIt<AppEnvironment>(),
     ),
   );

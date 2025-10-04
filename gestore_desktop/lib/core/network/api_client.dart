@@ -1,7 +1,9 @@
 // ========================================
 // lib/core/network/api_client.dart
-// VERSION ADAPTÉE - Support URL dynamique pour modes de connexion
+// VERSION CORRIGÉE - Gestion intelligente des tokens JWT
+// Utilise les Failures du fichier failures.dart existant
 // ========================================
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
@@ -11,25 +13,35 @@ import '../../config/environment.dart';
 import '../constants/api_endpoints.dart';
 import '../constants/storage_keys.dart';
 import '../errors/failures.dart';
+import '../utils/jwt_helper.dart';
 
-/// Client API configuré avec Dio pour toutes les requêtes HTTP
-/// Supporte le changement d'URL à chaud pour les modes de connexion
+/// Client API avec gestion intelligente des tokens JWT
 class ApiClient {
   late Dio _dio;
   final FlutterSecureStorage _secureStorage;
   final Logger _logger;
+  final JwtHelper _jwtHelper;
   AppEnvironment _environment;
 
-  // Cache en mémoire pour les tokens
+  // Cache des tokens
   String? _cachedAccessToken;
   String? _cachedRefreshToken;
+
+  // Protection contre les refreshes multiples simultanés
+  bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
+
+  // Buffer avant expiration pour refresh proactif (5 minutes)
+  static const int _refreshBufferSeconds = 300;
 
   ApiClient({
     required FlutterSecureStorage secureStorage,
     required Logger logger,
+    required JwtHelper jwtHelper,
     AppEnvironment? environment,
   })  : _secureStorage = secureStorage,
         _logger = logger,
+        _jwtHelper = jwtHelper,
         _environment = environment ?? AppEnvironment.current {
     _dio = _createDio();
     _setupInterceptors();
@@ -39,34 +51,26 @@ class ApiClient {
   // ==================== GESTION URL DYNAMIQUE ====================
 
   /// Mettre à jour l'environnement et l'URL de l'API
-  /// Permet de changer de mode de connexion à chaud
   void updateEnvironment(AppEnvironment newEnvironment) {
-    _logger.i('🔄 Changement d\'environnement: ${_environment.name} → ${newEnvironment.name}');
-    _logger.i('📡 Nouvelle URL API: ${newEnvironment.apiBaseUrl}');
+    _logger.i('🔄 Changement environnement: ${_environment.name} → ${newEnvironment.name}');
+    _logger.i('📡 Nouvelle URL: ${newEnvironment.apiBaseUrl}');
 
     _environment = newEnvironment;
-
-    // Mettre à jour la baseUrl du Dio existant
     _dio.options.baseUrl = newEnvironment.apiBaseUrl;
     _dio.options.connectTimeout = Duration(milliseconds: newEnvironment.connectTimeout);
     _dio.options.receiveTimeout = Duration(milliseconds: newEnvironment.receiveTimeout);
 
-    // Reconfigurer les intercepteurs si nécessaire
     _reconfigureLogging();
-
-    _logger.i('✅ Environnement mis à jour avec succès');
+    _logger.i('✅ Environnement mis à jour');
   }
 
-  /// Obtenir l'environnement actuel
   AppEnvironment get currentEnvironment => _environment;
-
-  /// Obtenir l'URL API actuelle
   String get currentApiUrl => _environment.apiBaseUrl;
 
   // ==================== CRÉATION DIO ====================
 
   Dio _createDio() {
-    final dio = Dio(
+    return Dio(
       BaseOptions(
         baseUrl: _environment.apiBaseUrl,
         connectTimeout: Duration(milliseconds: _environment.connectTimeout),
@@ -75,37 +79,49 @@ class ApiClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        validateStatus: (status) {
-          return status != null && status < 500;
-        },
+        validateStatus: (status) => status != null && status < 500,
       ),
     );
-    return dio;
   }
 
   // ==================== INTERCEPTEURS ====================
 
   void _setupInterceptors() {
-    // 1. Intercepteur d'authentification
+    // 1. Intercepteur d'authentification avec vérification proactive
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // ✅ Vérifier et rafraîchir AVANT la requête
+          await _ensureValidToken();
+
+          // Ajouter le token à la requête
           if (_cachedAccessToken != null && _cachedAccessToken!.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $_cachedAccessToken';
+            _logger.d('🔑 Token ajouté à la requête: ${options.path}');
           }
+
           return handler.next(options);
         },
         onError: (error, handler) async {
+          // ✅ Gérer 401 avec retry automatique
           if (error.response?.statusCode == 401) {
-            if (await _refreshToken()) {
+            _logger.w('⚠️ 401 Unauthorized - Tentative refresh token');
+
+            // Tenter le refresh (avec protection race condition)
+            if (await _refreshTokenWithLock()) {
               try {
+                // Retry la requête avec le nouveau token
                 final opts = error.requestOptions;
                 opts.headers['Authorization'] = 'Bearer $_cachedAccessToken';
                 final response = await _dio.fetch(opts);
                 return handler.resolve(response);
               } catch (e) {
+                _logger.e('❌ Échec retry après refresh: $e');
                 return handler.next(error);
               }
+            } else {
+              _logger.e('❌ Refresh token échoué - Déconnexion requise');
+              await clearTokens();
             }
           }
           return handler.next(error);
@@ -113,7 +129,7 @@ class ApiClient {
       ),
     );
 
-    // 2. Intercepteur de logs
+    // 2. Intercepteur de logs (si activé)
     if (_environment.enableLogging) {
       _dio.interceptors.add(
         PrettyDioLogger(
@@ -129,12 +145,8 @@ class ApiClient {
     }
   }
 
-  /// Reconfigurer le logging après changement d'environnement
   void _reconfigureLogging() {
-    // Supprimer l'ancien intercepteur de logs s'il existe
-    _dio.interceptors.removeWhere((interceptor) => interceptor is PrettyDioLogger);
-
-    // Ajouter un nouveau si nécessaire
+    _dio.interceptors.removeWhere((i) => i is PrettyDioLogger);
     if (_environment.enableLogging) {
       _dio.interceptors.add(
         PrettyDioLogger(
@@ -150,7 +162,115 @@ class ApiClient {
     }
   }
 
-  // ==================== GESTION TOKENS ====================
+  // ==================== GESTION TOKENS (AMÉLIORÉE) ====================
+
+  /// ✅ S'assurer que le token est valide avant requête
+  Future<void> _ensureValidToken() async {
+    // Si pas de token, rien à vérifier
+    if (_cachedAccessToken == null || _cachedAccessToken!.isEmpty) {
+      _logger.d('ℹ️ Aucun token en cache');
+      return;
+    }
+
+    // ✅ Vérifier si le token va bientôt expirer
+    if (_jwtHelper.willExpireSoon(_cachedAccessToken, bufferSeconds: _refreshBufferSeconds)) {
+      final remainingTime = _jwtHelper.getRemainingTime(_cachedAccessToken);
+      _logger.w('⚠️ Token expire bientôt (${remainingTime}s) - Refresh proactif');
+
+      await _refreshTokenWithLock();
+    } else {
+      final remainingTime = _jwtHelper.getRemainingTime(_cachedAccessToken);
+      _logger.d('✅ Token valide (${remainingTime}s restantes)');
+    }
+  }
+
+  /// ✅ Refresh avec protection contre race conditions
+  Future<bool> _refreshTokenWithLock() async {
+    // Si un refresh est déjà en cours, attendre sa fin
+    if (_isRefreshing) {
+      _logger.d('⏳ Refresh déjà en cours - Attente...');
+      return await _refreshCompleter!.future;
+    }
+
+    // Démarrer un nouveau refresh
+    _isRefreshing = true;
+    _refreshCompleter = Completer<bool>();
+
+    try {
+      final success = await _refreshToken();
+      _refreshCompleter!.complete(success);
+      return success;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _isRefreshing = false;
+      _refreshCompleter = null;
+    }
+  }
+
+  /// ✅ Refresh token
+  Future<bool> _refreshToken() async {
+    try {
+      final refreshToken = _cachedRefreshToken;
+      if (refreshToken == null || refreshToken.isEmpty) {
+        _logger.w('⚠️ Aucun refresh token disponible');
+        return false;
+      }
+
+      // Vérifier si le refresh token lui-même est expiré
+      if (_jwtHelper.isTokenExpired(refreshToken)) {
+        _logger.e('❌ Refresh token expiré - Déconnexion requise');
+        await clearTokens();
+        return false;
+      }
+
+      _logger.i('🔄 Rafraîchissement du token...');
+
+      // Créer un Dio temporaire SANS intercepteurs pour éviter boucle infinie
+      final tempDio = Dio(
+        BaseOptions(
+          baseUrl: _environment.apiBaseUrl,
+          connectTimeout: Duration(milliseconds: _environment.connectTimeout),
+          receiveTimeout: Duration(milliseconds: _environment.receiveTimeout),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      // ✅ Format correct pour Django
+      final response = await tempDio.post(
+        ApiEndpoints.authRefresh,
+        data: {'refresh': refreshToken},
+      );
+
+      if (response.statusCode == 200) {
+        final newAccessToken = response.data['access'] as String;
+
+        // ✅ Django avec ROTATE_REFRESH_TOKENS retourne un nouveau refresh token
+        final newRefreshToken = response.data['refresh'] as String? ?? refreshToken;
+
+        await saveTokens(
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+        );
+
+        // Vérifier la nouvelle expiration
+        final expirationDate = _jwtHelper.getExpirationDate(newAccessToken);
+        _logger.i('✅ Token rafraîchi - Expire le: $expirationDate');
+
+        return true;
+      }
+
+      _logger.e('❌ Refresh échoué - Status: ${response.statusCode}');
+      return false;
+    } catch (e) {
+      _logger.e('❌ Erreur refresh token: $e');
+      return false;
+    }
+  }
 
   Future<void> _loadTokensToCache() async {
     try {
@@ -158,7 +278,10 @@ class ApiClient {
       _cachedRefreshToken = await _secureStorage.read(key: StorageKeys.refreshToken);
 
       if (_cachedAccessToken != null) {
-        _logger.i('✅ Token chargé en cache');
+        // Afficher l'expiration du token chargé
+        final expirationDate = _jwtHelper.getExpirationDate(_cachedAccessToken);
+        final remainingTime = _jwtHelper.getRemainingTime(_cachedAccessToken);
+        _logger.i('✅ Token chargé - Expire le: $expirationDate (${remainingTime}s)');
       }
     } catch (e) {
       _logger.e('❌ Erreur chargement tokens: $e');
@@ -178,7 +301,9 @@ class ApiClient {
       _cachedAccessToken = accessToken;
       _cachedRefreshToken = refreshToken;
 
-      _logger.i('✅ Tokens sauvegardés');
+      // Afficher l'expiration
+      final expirationDate = _jwtHelper.getExpirationDate(accessToken);
+      _logger.i('✅ Tokens sauvegardés - Expire le: $expirationDate');
     } catch (e) {
       _logger.e('❌ Erreur sauvegarde tokens: $e');
       rethrow;
@@ -205,51 +330,10 @@ class ApiClient {
   String? get accessToken => _cachedAccessToken;
   String? get refreshToken => _cachedRefreshToken;
 
-  Future<bool> _refreshToken() async {
-    try {
-      final refreshToken = _cachedRefreshToken;
-      if (refreshToken == null || refreshToken.isEmpty) {
-        _logger.w('⚠️ Aucun refresh token');
-        return false;
-      }
-
-      _logger.i('🔄 Rafraîchissement token...');
-
-      final tempDio = Dio(
-        BaseOptions(
-          baseUrl: _environment.apiBaseUrl,
-          connectTimeout: Duration(milliseconds: _environment.connectTimeout),
-          receiveTimeout: Duration(milliseconds: _environment.receiveTimeout),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      );
-
-      final response = await tempDio.post(
-        ApiEndpoints.authRefresh,
-        data: {'refresh': refreshToken},
-      );
-
-      if (response.statusCode == 200) {
-        final newAccessToken = response.data['access'] as String;
-        final newRefreshToken = response.data['refresh'] as String? ?? refreshToken;
-
-        await saveTokens(
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-        );
-
-        _logger.i('✅ Token rafraîchi avec succès');
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      _logger.e('❌ Erreur rafraîchissement token: $e');
-      return false;
-    }
+  /// ✅ Vérifier si le token actuel est valide
+  bool get hasValidToken {
+    if (_cachedAccessToken == null) return false;
+    return !_jwtHelper.isTokenExpired(_cachedAccessToken);
   }
 
   // ==================== MÉTHODES HTTP ====================
@@ -347,46 +431,64 @@ class ApiClient {
     }
   }
 
-  // ==================== GESTION ERREURS ====================
+  // ==================== GESTION RÉPONSES/ERREURS ====================
 
   Response _handleResponse(Response response) {
-    if (response.statusCode! >= 200 && response.statusCode! < 300) {
+    if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
       return response;
-    } else if (response.statusCode! >= 400) {
-      throw _createFailureFromResponse(response);
     }
-    return response;
+    throw _createFailureFromResponse(response);
   }
 
   Failure _handleDioError(DioException error) {
     _logger.e('❌ Erreur Dio: ${error.type} - ${error.message}');
 
+    // Si on a une réponse HTTP, traiter selon le code
     if (error.response != null) {
       return _createFailureFromResponse(error.response!);
     }
 
+    // Sinon, gérer selon le type d'erreur Dio
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const NetworkFailure(
+        return const TimeoutFailure(
           message: 'Délai de connexion dépassé. Vérifiez votre réseau.',
         );
 
       case DioExceptionType.connectionError:
-        return NetworkFailure(
+        return const NetworkFailure(
           message: 'Impossible de se connecter au serveur.\n'
               'Vérifiez votre configuration de connexion.',
         );
 
-      case DioExceptionType.cancel:
-        return const NetworkFailure(message: 'Requête annulée.');
-
-      default:
-        return UnknownFailure(
-          message: 'Erreur réseau: ${error.message}',
+      case DioExceptionType.badCertificate:
+        return const NetworkFailure(
+          message: 'Erreur de certificat SSL. Connexion non sécurisée.',
         );
-    }
+
+      case DioExceptionType.badResponse:
+        return const ServerFailure(
+          message: 'Réponse invalide du serveur.',
+        );
+
+      case DioExceptionType.cancel:
+        return const NetworkFailure(
+          message: 'Requête annulée.',
+        );
+
+      case DioExceptionType.unknown:
+        if (error.message?.contains('SocketException') ?? false) {
+          return const NetworkFailure(
+            message: 'Pas de connexion internet.',
+          );
+        }
+        return UnknownFailure(
+          message: 'Erreur réseau: ${error.message ?? "Inconnue"}',
+        );
+
+      }
   }
 
   Failure _createFailureFromResponse(Response response) {
@@ -396,7 +498,8 @@ class ApiClient {
     String message = 'Une erreur est survenue.';
     Map<String, List<String>>? fieldErrors;
 
-    if (data is Map) {
+    // Extraire le message d'erreur
+    if (data is Map<String, dynamic>) {
       if (data.containsKey('detail')) {
         message = data['detail'].toString();
       } else if (data.containsKey('message')) {
@@ -405,42 +508,88 @@ class ApiClient {
         message = data['error'].toString();
       }
 
+      // Extraire les erreurs de champs pour ValidationFailure
       fieldErrors = _extractFieldErrors(data);
+    } else if (data is String) {
+      message = data;
     }
 
-    if (statusCode == 400) {
-      return ValidationFailure(
-        message: message,
-        fieldErrors: fieldErrors,
-      );
-    } else if (statusCode == 401) {
-      return const AuthenticationFailure(
-        message: 'Session expirée. Veuillez vous reconnecter.',
-      );
-    } else if (statusCode == 403) {
-      return const PermissionFailure(
-        message: 'Vous n\'avez pas les permissions nécessaires.',
-      );
-    } else if (statusCode == 404) {
-      return const NotFoundFailure(
-        message: 'Ressource introuvable.',
-      );
-    } else if (statusCode >= 500) {
-      return ServerFailure(
-        message: 'Erreur serveur. Veuillez réessayer.',
-        statusCode: statusCode,
-      );
-    }
+    // Créer le Failure approprié selon le code HTTP
+    switch (statusCode) {
+      case 400:
+        return ValidationFailure(
+          message: message,
+          statusCode: statusCode,
+          fieldErrors: fieldErrors,
+        );
 
-    return UnknownFailure(message: message);
+      case 401:
+        return AuthenticationFailure(
+          message: message.isEmpty ? 'Session expirée. Veuillez vous reconnecter.' : message,
+          statusCode: statusCode,
+        );
+
+      case 403:
+        return PermissionFailure(
+          message: message.isEmpty ? 'Vous n\'avez pas les permissions nécessaires.' : message,
+          statusCode: statusCode,
+        );
+
+      case 404:
+        return NotFoundFailure(
+          message: message.isEmpty ? 'Ressource introuvable.' : message,
+          statusCode: statusCode,
+        );
+
+      case 409:
+        return ConflictFailure(
+          message: message,
+          statusCode: statusCode,
+        );
+
+      case 422:
+        return ValidationFailure(
+          message: message,
+          statusCode: statusCode,
+          fieldErrors: fieldErrors,
+        );
+
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return ServerFailure(
+          message: message.isEmpty ? 'Erreur serveur. Veuillez réessayer plus tard.' : message,
+          statusCode: statusCode,
+        );
+
+      default:
+        if (statusCode >= 400 && statusCode < 500) {
+          return ValidationFailure(
+            message: message,
+            statusCode: statusCode,
+            fieldErrors: fieldErrors,
+          );
+        } else if (statusCode >= 500) {
+          return ServerFailure(
+            message: message,
+            statusCode: statusCode,
+          );
+        }
+        return UnknownFailure(
+          message: message,
+          statusCode: statusCode,
+        );
+    }
   }
 
-  Map<String, List<String>>? _extractFieldErrors(dynamic responseData) {
-    if (responseData is! Map) return null;
-
+  /// Extraire les erreurs de champs depuis la réponse API
+  Map<String, List<String>>? _extractFieldErrors(Map<String, dynamic> responseData) {
     final errors = <String, List<String>>{};
 
+    // Parcourir les clés de la réponse
     responseData.forEach((key, value) {
+      // Ignorer les clés meta
       if (key == 'message' ||
           key == 'detail' ||
           key == 'error' ||
@@ -451,10 +600,14 @@ class ApiClient {
         return;
       }
 
+      // Convertir les erreurs de champ
       if (value is List) {
         errors[key] = value.map((e) => e.toString()).toList();
       } else if (value is String) {
         errors[key] = [value];
+      } else if (value is Map) {
+        // Gérer les erreurs de champs imbriqués
+        errors[key] = [value.toString()];
       }
     });
 

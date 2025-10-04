@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/data/datasources/inventory_remote_datasource.dart
 // DataSource pour les appels API du module inventory
-// VERSION COMPLÈTE avec CRUD
+// VERSION CORRIGÉE - Pagination Django gérée correctement
 // ========================================
 
 import 'package:dio/dio.dart';
@@ -20,7 +20,6 @@ import '../models/unit_of_measure_model.dart';
 abstract class InventoryRemoteDataSource {
   // ==================== ARTICLES - LECTURE ====================
 
-  /// Récupère la liste paginée des articles
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
     int page = 1,
     int pageSize = 20,
@@ -32,54 +31,33 @@ abstract class InventoryRemoteDataSource {
     String? ordering,
   });
 
-  /// Récupère un article par ID (version liste simplifiée)
   Future<ArticleModel> getArticleById(String id);
-
-  /// Récupère le détail complet d'un article par ID
   Future<ArticleDetailModel> getArticleDetailById(String id);
-
-  /// Recherche des articles
   Future<PaginatedResponseModel<ArticleModel>> searchArticles({
     required String query,
     int page = 1,
   });
-
-  /// Récupère les articles avec stock bas
   Future<List<ArticleModel>> getLowStockArticles();
-
-  /// Récupère les articles proches de la péremption
   Future<List<ArticleModel>> getExpiringSoonArticles();
 
   // ==================== ARTICLES - CRUD ====================
 
-  /// Crée un nouvel article
   Future<ArticleModel> createArticle(Map<String, dynamic> data, String? imagePath);
-
-  /// Met à jour un article
   Future<ArticleModel> updateArticle(String id, Map<String, dynamic> data, String? imagePath);
-
-  /// Supprime un article
   Future<void> deleteArticle(String id);
 
   // ==================== CATEGORIES ====================
 
-  /// Récupère toutes les catégories
   Future<List<CategoryModel>> getCategories({bool? isActive});
-
-  /// Récupère une catégorie par ID
   Future<CategoryModel> getCategoryById(String id);
 
   // ==================== BRANDS ====================
 
-  /// Récupère toutes les marques
   Future<List<BrandModel>> getBrands({bool? isActive});
-
-  /// Récupère une marque par ID
   Future<BrandModel> getBrandById(String id);
 
   // ==================== UNITS OF MEASURE ====================
 
-  /// Récupère toutes les unités de mesure
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive});
 }
 
@@ -94,7 +72,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     required this.logger,
   });
 
-  // ==================== ARTICLES - LECTURE - IMPLÉMENTATION ====================
+  // ==================== ARTICLES - LECTURE ====================
 
   @override
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
@@ -207,7 +185,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       logger.i('✅ API Success: Articles stock bas récupérés');
 
-      final results = response.data['results'] as List;
+      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
       return results.map((json) => ArticleModel.fromJson(json)).toList();
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
@@ -226,15 +207,23 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       logger.i('✅ API Success: Articles péremption proche récupérés');
 
-      final results = response.data as List;
-      return results.map((json) => ArticleModel.fromJson(json)).toList();
+      // Cette route pourrait retourner soit une liste directe, soit paginé
+      // On gère les deux cas
+      if (response.data is List) {
+        final results = response.data as List;
+        return results.map((json) => ArticleModel.fromJson(json)).toList();
+      } else {
+        final data = response.data as Map<String, dynamic>;
+        final results = data['results'] as List;
+        return results.map((json) => ArticleModel.fromJson(json)).toList();
+      }
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
-  // ==================== ARTICLES - CRUD - IMPLÉMENTATION ====================
+  // ==================== ARTICLES - CRUD ====================
 
   @override
   Future<ArticleModel> createArticle(
@@ -247,7 +236,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       dynamic requestData = data;
 
-      // Si une image est fournie, utiliser FormData
       if (imagePath != null && imagePath.isNotEmpty) {
         requestData = FormData.fromMap({
           ...data,
@@ -285,7 +273,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       dynamic requestData = data;
 
-      // Si une nouvelle image est fournie
       if (imagePath != null && imagePath.isNotEmpty) {
         requestData = FormData.fromMap({
           ...data,
@@ -325,7 +312,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     }
   }
 
-  // ==================== CATEGORIES - IMPLÉMENTATION ====================
+  // ==================== CATEGORIES ====================
 
   @override
   Future<List<CategoryModel>> getCategories({bool? isActive}) async {
@@ -342,7 +329,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       logger.i('✅ API Success: Catégories récupérées');
 
-      final results = response.data as List;
+      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
       return results.map((json) => CategoryModel.fromJson(json)).toList();
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
@@ -366,7 +356,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     }
   }
 
-  // ==================== BRANDS - IMPLÉMENTATION ====================
+  // ==================== BRANDS ====================
 
   @override
   Future<List<BrandModel>> getBrands({bool? isActive}) async {
@@ -383,7 +373,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       logger.i('✅ API Success: Marques récupérées');
 
-      final results = response.data as List;
+      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
       return results.map((json) => BrandModel.fromJson(json)).toList();
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
@@ -407,7 +400,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     }
   }
 
-  // ==================== UNITS OF MEASURE - IMPLÉMENTATION ====================
+  // ==================== UNITS OF MEASURE ====================
 
   @override
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive}) async {
@@ -424,7 +417,10 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
       logger.i('✅ API Success: Unités de mesure récupérées');
 
-      final results = response.data as List;
+      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
       return results.map((json) => UnitOfMeasureModel.fromJson(json)).toList();
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
