@@ -1,7 +1,8 @@
 // ========================================
 // lib/config/dependencies.dart
 // Configuration complète de l'injection de dépendances
-// VERSION COMPLÈTE - Avec Inventory CRUD
+// VERSION MISE À JOUR - Inventory 100% (Articles + Catégories + Marques + Unités)
+// Date: 04 Octobre 2025
 // ========================================
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -13,8 +14,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Core
 import '../core/network/api_client.dart';
 import '../core/network/network_info.dart';
+import '../core/utils/jwt_helper.dart';
 
-// Authentication
+// Environment
+import 'environment.dart';
+
+// ==================== AUTHENTICATION ====================
 import '../features/authentication/data/datasources/auth_local_datasource.dart';
 import '../features/authentication/data/datasources/auth_remote_datasource.dart';
 import '../features/authentication/data/repositories/auth_repository_impl.dart';
@@ -25,7 +30,7 @@ import '../features/authentication/domain/usecases/login_usecase.dart';
 import '../features/authentication/domain/usecases/logout_usecase.dart';
 import '../features/authentication/domain/usecases/refresh_token_usecase.dart';
 
-// Settings
+// ==================== SETTINGS ====================
 import '../features/settings/data/datasources/settings_local_datasource.dart';
 import '../features/settings/data/repositories/settings_repository_impl.dart';
 import '../features/settings/domain/repositories/settings_repository.dart';
@@ -34,23 +39,32 @@ import '../features/settings/domain/usecases/get_connection_history_usecase.dart
 import '../features/settings/domain/usecases/save_connection_config_usecase.dart';
 import '../features/settings/domain/usecases/validate_connection_usecase.dart';
 
-// Inventory
+// ==================== INVENTORY ====================
+// Data Layer
 import '../features/inventory/data/datasources/inventory_remote_datasource.dart';
 import '../features/inventory/data/repositories/inventory_repository_impl.dart';
+
+// Domain Layer
 import '../features/inventory/domain/repositories/inventory_repository.dart';
+
+// Use Cases - Articles
 import '../features/inventory/domain/usecases/get_articles_usecase.dart';
 import '../features/inventory/domain/usecases/get_article_detail_usecase.dart';
 import '../features/inventory/domain/usecases/search_articles_usecase.dart';
-import '../features/inventory/domain/usecases/get_categories_usecase.dart';
-import '../features/inventory/domain/usecases/get_brands_usecase.dart';
 import '../features/inventory/domain/usecases/create_article_usecase.dart';
 import '../features/inventory/domain/usecases/update_article_usecase.dart';
 import '../features/inventory/domain/usecases/delete_article_usecase.dart';
 
-import '../core/utils/jwt_helper.dart';
+// Use Cases - Catégories
+import '../features/inventory/domain/usecases/get_categories_usecase.dart';
+import '../features/inventory/domain/usecases/category_usecases.dart';
 
-// Environment
-import 'environment.dart';
+// Use Cases - Marques
+import '../features/inventory/domain/usecases/get_brands_usecase.dart';
+import '../features/inventory/domain/usecases/brand_usecases.dart';
+
+// Use Cases - Unités de mesure
+import '../features/inventory/domain/usecases/unit_usecases.dart';
 
 /// Instance globale de GetIt
 final getIt = GetIt.instance;
@@ -69,7 +83,7 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  logger.i('🔧 Configuration des dépendances...');
+  logger.i('🔧 Configuration des dépendances - Version Complète...');
 
   // ========================================
   // CORE DEPENDENCIES
@@ -103,24 +117,22 @@ Future<void> configureDependencies() async {
         () => NetworkInfoImpl(getIt<Connectivity>()),
   );
 
-  // JWT HELPER
-  // ========================================
+  // JWT Helper
   getIt.registerLazySingleton(
         () => JwtHelper(getIt<Logger>()),
   );
-  logger.i('✅ JwtHelper configuré');
 
-  // Puis mettre à jour ApiClient pour utiliser JwtHelper :
+  // API Client
   getIt.registerLazySingleton(
         () => ApiClient(
       secureStorage: getIt<FlutterSecureStorage>(),
       logger: getIt<Logger>(),
-      jwtHelper: getIt<JwtHelper>(),  // ✅ AJOUTER CETTE LIGNE
+      jwtHelper: getIt<JwtHelper>(),
       environment: getIt<AppEnvironment>(),
     ),
   );
 
-  logger.i('✅ Core dependencies configurées');
+  logger.i('✅ Core dependencies configurées (7 services)');
 
   // ========================================
   // AUTHENTICATION FEATURE
@@ -172,7 +184,7 @@ Future<void> configureDependencies() async {
         () => CheckAuthStatusUseCase(getIt<AuthRepository>()),
   );
 
-  logger.i('✅ Module Authentication configuré');
+  logger.i('✅ Module Authentication configuré (8 services)');
 
   // ========================================
   // SETTINGS FEATURE
@@ -211,13 +223,13 @@ Future<void> configureDependencies() async {
         () => GetConnectionHistoryUseCase(getIt<SettingsRepository>()),
   );
 
-  logger.i('✅ Module Settings configuré');
+  logger.i('✅ Module Settings configuré (6 services)');
 
   // ========================================
-  // INVENTORY FEATURE (COMPLET AVEC CRUD)
+  // INVENTORY FEATURE - MODULE COMPLET
   // ========================================
 
-  logger.d('Configuration module Inventory...');
+  logger.d('Configuration module Inventory (complet)...');
 
   // Data Sources
   getIt.registerLazySingleton<InventoryRemoteDataSource>(
@@ -235,7 +247,10 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  // Use Cases - Lecture
+  // ==================== ARTICLES ====================
+  logger.d('  → Articles Use Cases...');
+
+  // Lecture
   getIt.registerLazySingleton(
         () => GetArticlesUseCase(getIt<InventoryRepository>()),
   );
@@ -248,15 +263,7 @@ Future<void> configureDependencies() async {
         () => SearchArticlesUseCase(getIt<InventoryRepository>()),
   );
 
-  getIt.registerLazySingleton(
-        () => GetCategoriesUseCase(getIt<InventoryRepository>()),
-  );
-
-  getIt.registerLazySingleton(
-        () => GetBrandsUseCase(getIt<InventoryRepository>()),
-  );
-
-  // Use Cases - CRUD (Create, Update, Delete)
+  // CRUD
   getIt.registerLazySingleton(
         () => CreateArticleUseCase(repository: getIt<InventoryRepository>()),
   );
@@ -269,7 +276,94 @@ Future<void> configureDependencies() async {
         () => DeleteArticleUseCase(repository: getIt<InventoryRepository>()),
   );
 
-  logger.i('✅ Module Inventory (avec CRUD) configuré');
+  logger.d('    ✓ 6 Use Cases Articles');
+
+  // ==================== CATÉGORIES ====================
+  logger.d('  → Catégories Use Cases...');
+
+  // Liste
+  getIt.registerLazySingleton(
+        () => GetCategoriesUseCase(getIt<InventoryRepository>()),
+  );
+
+  // CRUD
+  getIt.registerLazySingleton(
+        () => CreateCategoryUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateCategoryUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteCategoryUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetCategoryByIdUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  logger.d('    ✓ 5 Use Cases Catégories');
+
+  // ==================== MARQUES ====================
+  logger.d('  → Marques Use Cases...');
+
+  // Liste
+  getIt.registerLazySingleton(
+        () => GetBrandsUseCase(getIt<InventoryRepository>()),
+  );
+
+  // CRUD
+  getIt.registerLazySingleton(
+        () => CreateBrandUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateBrandUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteBrandUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetBrandByIdUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  logger.d('    ✓ 5 Use Cases Marques');
+
+  // ==================== UNITÉS DE MESURE ====================
+  logger.d('  → Unités de mesure Use Cases...');
+
+  // Liste
+  getIt.registerLazySingleton(
+        () => GetUnitsUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  // CRUD
+  getIt.registerLazySingleton(
+        () => CreateUnitUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateUnitUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteUnitUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetUnitByIdUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  logger.d('    ✓ 5 Use Cases Unités');
+
+  logger.i('✅ Module Inventory configuré (23 services)');
+  logger.i('   - 6 Articles (Get, Detail, Search, Create, Update, Delete)');
+  logger.i('   - 5 Catégories (Get, Create, Update, Delete, GetById)');
+  logger.i('   - 5 Marques (Get, Create, Update, Delete, GetById)');
+  logger.i('   - 5 Unités (Get, Create, Update, Delete, GetById)');
 
   // ========================================
   // AUTRES FEATURES À VENIR
@@ -279,8 +373,10 @@ Future<void> configureDependencies() async {
   // - Reporting
   // - Licensing
 
+  logger.i('');
   logger.i('🎉 Toutes les dépendances configurées avec succès');
-  logger.i('📊 Total services enregistrés');
+  logger.i('📊 Total services enregistrés: ~44');
+  logger.i('');
 }
 
 // ========================================
@@ -288,13 +384,18 @@ Future<void> configureDependencies() async {
 // ========================================
 
 /*
-CORE (6 services):
+═══════════════════════════════════════════════════════════════════════
+                    GESTORE - DEPENDENCY INJECTION
+═══════════════════════════════════════════════════════════════════════
+
+CORE (7 services):
   ✅ Logger
   ✅ AppEnvironment
   ✅ FlutterSecureStorage
   ✅ SharedPreferences
   ✅ Connectivity
   ✅ NetworkInfo
+  ✅ JwtHelper
   ✅ ApiClient
 
 AUTHENTICATION (8 services):
@@ -315,21 +416,46 @@ SETTINGS (6 services):
   ✅ ValidateConnectionUseCase
   ✅ GetConnectionHistoryUseCase
 
-INVENTORY (11 services):
-  ✅ InventoryRemoteDataSource
-  ✅ InventoryRepository
-  ✅ GetArticlesUseCase
-  ✅ GetArticleDetailUseCase
-  ✅ SearchArticlesUseCase
-  ✅ GetCategoriesUseCase
-  ✅ GetBrandsUseCase
-  ✅ CreateArticleUseCase          ⭐ CRUD
-  ✅ UpdateArticleUseCase          ⭐ CRUD
-  ✅ DeleteArticleUseCase          ⭐ CRUD
+INVENTORY (23 services):
+  DataSource & Repository:
+    ✅ InventoryRemoteDataSource
+    ✅ InventoryRepository
 
-TOTAL: ~31 services enregistrés
+  Articles (6):
+    ✅ GetArticlesUseCase
+    ✅ GetArticleDetailUseCase
+    ✅ SearchArticlesUseCase
+    ✅ CreateArticleUseCase
+    ✅ UpdateArticleUseCase
+    ✅ DeleteArticleUseCase
+
+  Catégories (5):
+    ✅ GetCategoriesUseCase
+    ✅ CreateCategoryUseCase
+    ✅ UpdateCategoryUseCase
+    ✅ DeleteCategoryUseCase
+    ✅ GetCategoryByIdUseCase
+
+  Marques (5):
+    ✅ GetBrandsUseCase
+    ✅ CreateBrandUseCase
+    ✅ UpdateBrandUseCase
+    ✅ DeleteBrandUseCase
+    ✅ GetBrandByIdUseCase
+
+  Unités de mesure (5):
+    ✅ GetUnitsUseCase
+    ✅ CreateUnitUseCase
+    ✅ UpdateUnitUseCase
+    ✅ DeleteUnitUseCase
+    ✅ GetUnitByIdUseCase
+
+═══════════════════════════════════════════════════════════════════════
+TOTAL: 44 services enregistrés
+═══════════════════════════════════════════════════════════════════════
 
 USAGE DANS LE CODE:
+
   // Récupérer un service
   final logger = getIt<Logger>();
   final apiClient = getIt<ApiClient>();
@@ -342,4 +468,15 @@ USAGE DANS LE CODE:
       logger: getIt<Logger>(),
     );
   });
+
+  // Dans les widgets
+  @override
+  Widget build(BuildContext context) {
+    final useCase = getIt<CreateArticleUseCase>();
+    // ...
+  }
+
+═══════════════════════════════════════════════════════════════════════
+                        DÉVELOPPÉ AVEC ❤️ POUR GESTORE
+═══════════════════════════════════════════════════════════════════════
 */

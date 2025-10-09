@@ -1,13 +1,12 @@
 // ========================================
-// FICHIER 1: lib/features/inventory/presentation/widgets/article_form_step1.dart
-// Étape 1: Informations de base
+// lib/features/inventory/presentation/widgets/article_form_step1.dart
+// ÉTAPE 1 : Informations de Base (10 champs)
+// VERSION 2.0 - Formulaire Complet
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/article_entity.dart';
 import '../providers/article_form_state.dart';
-import '../providers/categories_brands_providers.dart';
 import 'form_field_widgets.dart';
 
 class ArticleFormStep1 extends ConsumerWidget {
@@ -24,111 +23,66 @@ class ArticleFormStep1 extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesState = ref.watch(categoriesProvider);
-    final brandsState = ref.watch(brandsProvider);
-
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         // En-tête
-        Text(
-          'Informations de base',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Renseignez les informations principales de l\'article',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.grey,
-          ),
-        ),
+        _buildHeader(context),
         const SizedBox(height: 24),
 
-        // Nom *
-        CustomTextField(
-          label: 'Nom de l\'article *',
-          initialValue: formData.name,
-          errorText: errors['name'],
-          onChanged: (value) => onFieldChanged('name', value),
-          prefixIcon: Icons.inventory_2,
-          required: true,
-        ),
-        const SizedBox(height: 16),
+        // Section 1 : Identification
+        _buildIdentificationSection(context),
+        const SizedBox(height: 24),
 
-        // Code *
-        CustomTextField(
-          label: 'Code article *',
-          initialValue: formData.code,
-          errorText: errors['code'],
-          onChanged: (value) => onFieldChanged('code', value.toUpperCase()),
-          prefixIcon: Icons.tag,
-          required: true,
-          textCapitalization: TextCapitalization.characters,
-        ),
-        const SizedBox(height: 16),
+        // Section 2 : Descriptions
+        _buildDescriptionsSection(context),
+        const SizedBox(height: 24),
 
-        // Description
-        CustomTextField(
-          label: 'Description',
-          initialValue: formData.description,
-          onChanged: (value) => onFieldChanged('description', value),
-          prefixIcon: Icons.description,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
+        // Section 3 : Références et Métadonnées
+        _buildReferencesSection(context),
+      ],
+    );
+  }
 
-        // Type d'article *
-        CustomDropdown<String>(
-          label: 'Type d\'article *',
-          value: formData.articleType,
-          items: ArticleType.values
-              .map((type) => DropdownMenuItem(
-            value: type.value,
-            child: Text(type.label),
-          ))
-              .toList(),
-          onChanged: (value) => onFieldChanged('articleType', value),
-          prefixIcon: Icons.category,
-          required: true,
-        ),
-        const SizedBox(height: 16),
+  // ==================== HEADER ====================
 
-        // Catégorie * (Dropdown avec chargement)
-        _buildCategoryDropdown(categoriesState, context),
-        const SizedBox(height: 16),
-
-        // Marque (Dropdown avec chargement)
-        _buildBrandDropdown(brandsState, context),
-        const SizedBox(height: 16),
-
-        // Code-barres
-        CustomTextField(
-          label: 'Code-barres',
-          initialValue: formData.barcode,
-          onChanged: (value) => onFieldChanged('barcode', value),
-          prefixIcon: Icons.qr_code,
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 16),
-
-        // Références
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           children: [
-            Expanded(
-              child: CustomTextField(
-                label: 'Réf. interne',
-                initialValue: formData.internalReference,
-                onChanged: (value) => onFieldChanged('internalReference', value),
-                prefixIcon: Icons.numbers,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.primary,
+                size: 28,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: CustomTextField(
-                label: 'Réf. fournisseur',
-                initialValue: formData.supplierReference,
-                onChanged: (value) => onFieldChanged('supplierReference', value),
-                prefixIcon: Icons.receipt_long,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Informations de base',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Renseignez les informations principales de l\'article',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -137,50 +91,191 @@ class ArticleFormStep1 extends ConsumerWidget {
     );
   }
 
-  Widget _buildCategoryDropdown(CategoriesState state, BuildContext context) {
-    if (state is CategoriesLoading) {
-      return const LinearProgressIndicator();
-    } else if (state is CategoriesLoaded) {
-      return CustomDropdown<String>(
-        label: 'Catégorie *',
-        value: formData.categoryId.isEmpty ? null : formData.categoryId,
-        errorText: errors['categoryId'],
-        items: state.categories
-            .map((category) => DropdownMenuItem(
-          value: category.id,
-          child: Text(category.fullPath),
-        ))
-            .toList(),
-        onChanged: (value) => onFieldChanged('categoryId', value ?? ''),
-        prefixIcon: Icons.folder,
-        required: true,
-      );
-    } else if (state is CategoriesError) {
-      return Text('Erreur: ${state.message}');
-    }
-    return const SizedBox();
+  // ==================== SECTION IDENTIFICATION ====================
+
+  Widget _buildIdentificationSection(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, 'Identification', Icons.tag),
+            const SizedBox(height: 16),
+
+            // Nom * (Requis)
+            CustomTextField(
+              label: 'Nom de l\'article',
+              initialValue: formData.name,
+              errorText: errors['name'],
+              onChanged: (value) => onFieldChanged('name', value),
+              prefixIcon: Icons.inventory_2,
+              required: true,
+              helperText: 'Nom commercial de l\'article',
+            ),
+            const SizedBox(height: 16),
+
+            // Code * (Requis)
+            CustomTextField(
+              label: 'Code article',
+              initialValue: formData.code,
+              errorText: errors['code'],
+              onChanged: (value) => onFieldChanged('code', value.toUpperCase()),
+              prefixIcon: Icons.qr_code,
+              required: true,
+              textCapitalization: TextCapitalization.characters,
+              helperText: 'Code unique pour identifier l\'article (SKU)',
+            ),
+            const SizedBox(height: 16),
+
+            // Type d'article
+            CustomDropdown<String>(
+              label: 'Type d\'article',
+              value: formData.articleType.isEmpty ? null : formData.articleType,
+              items: const [
+                DropdownMenuItem(value: 'product', child: Text('Produit')),
+                DropdownMenuItem(value: 'service', child: Text('Service')),
+                DropdownMenuItem(value: 'bundle', child: Text('Pack/Bundle')),
+                DropdownMenuItem(value: 'variant', child: Text('Variante')),
+              ],
+              onChanged: (value) => onFieldChanged('articleType', value ?? 'product'),
+              prefixIcon: Icons.category,
+              helperText: 'Nature de l\'article',
+            ),
+            const SizedBox(height: 16),
+
+            // Code-barres principal
+            CustomTextField(
+              label: 'Code-barres principal',
+              initialValue: formData.barcode,
+              errorText: errors['barcode'],
+              onChanged: (value) => onFieldChanged('barcode', value),
+              prefixIcon: Icons.qr_code_scanner,
+              helperText: 'EAN13, UPC ou autre (codes additionnels en étape 5)',
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  Widget _buildBrandDropdown(BrandsState state, BuildContext context) {
-    if (state is BrandsLoading) {
-      return const LinearProgressIndicator();
-    } else if (state is BrandsLoaded) {
-      return CustomDropdown<String>(
-        label: 'Marque',
-        value: formData.brandId.isEmpty ? null : formData.brandId,
-        items: [
-          const DropdownMenuItem(value: '', child: Text('Aucune')),
-          ...state.brands
-              .map((brand) => DropdownMenuItem(
-            value: brand.id,
-            child: Text(brand.name),
-          ))
-              .toList(),
-        ],
-        onChanged: (value) => onFieldChanged('brandId', value ?? ''),
-        prefixIcon: Icons.branding_watermark,
-      );
-    }
-    return const SizedBox();
+  // ==================== SECTION DESCRIPTIONS ====================
+
+  Widget _buildDescriptionsSection(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, 'Descriptions', Icons.description),
+            const SizedBox(height: 16),
+
+            // Description courte (NOUVEAU)
+            CustomTextField(
+              label: 'Description courte',
+              initialValue: formData.shortDescription,
+              errorText: errors['shortDescription'],
+              onChanged: (value) => onFieldChanged('shortDescription', value),
+              prefixIcon: Icons.short_text,
+              maxLines: 2,
+              helperText: 'Résumé pour les listes et recherches (150 caractères max)',
+            ),
+            const SizedBox(height: 16),
+
+            // Description complète
+            CustomTextField(
+              label: 'Description complète',
+              initialValue: formData.description,
+              errorText: errors['description'],
+              onChanged: (value) => onFieldChanged('description', value),
+              prefixIcon: Icons.notes,
+              maxLines: 4,
+              helperText: 'Description détaillée de l\'article',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== SECTION RÉFÉRENCES ====================
+
+  Widget _buildReferencesSection(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(context, 'Références et Métadonnées', Icons.bookmark),
+            const SizedBox(height: 16),
+
+            // Référence interne
+            CustomTextField(
+              label: 'Référence interne',
+              initialValue: formData.internalReference,
+              errorText: errors['internalReference'],
+              onChanged: (value) => onFieldChanged('internalReference', value),
+              prefixIcon: Icons.pin,
+              helperText: 'Référence utilisée en interne',
+            ),
+            const SizedBox(height: 16),
+
+            // Référence fournisseur
+            CustomTextField(
+              label: 'Référence fournisseur',
+              initialValue: formData.supplierReference,
+              errorText: errors['supplierReference'],
+              onChanged: (value) => onFieldChanged('supplierReference', value),
+              prefixIcon: Icons.business,
+              helperText: 'Référence du fournisseur principal',
+            ),
+            const SizedBox(height: 16),
+
+            // Tags
+            CustomTextField(
+              label: 'Tags',
+              initialValue: formData.tags,
+              errorText: errors['tags'],
+              onChanged: (value) => onFieldChanged('tags', value),
+              prefixIcon: Icons.label,
+              helperText: 'Mots-clés séparés par des virgules (ex: bio, promo, nouveau)',
+            ),
+            const SizedBox(height: 16),
+
+            // Notes
+            CustomTextField(
+              label: 'Notes internes',
+              initialValue: formData.notes,
+              errorText: errors['notes'],
+              onChanged: (value) => onFieldChanged('notes', value),
+              prefixIcon: Icons.sticky_note_2,
+              maxLines: 3,
+              helperText: 'Notes visibles uniquement en interne',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== HELPERS ====================
+
+  Widget _buildSectionTitle(BuildContext context, String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -26,7 +26,7 @@ class ArticleStockTab extends StatelessWidget {
               child: _StockCard(
                 label: 'Stock actuel',
                 value:
-                '${article.currentStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+                '${article.currentStock} ${article.unitOfMeasure?.symbol ?? ""}',
                 icon: Icons.inventory,
                 color: article.isLowStock ? AppColors.error : AppColors.success,
               ),
@@ -36,7 +36,7 @@ class ArticleStockTab extends StatelessWidget {
               child: _StockCard(
                 label: 'Disponible',
                 value:
-                '${article.availableStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+                '${article.availableStock} ${article.unitOfMeasure?.symbol ?? ""}',
                 icon: Icons.check_circle,
                 color: AppColors.primary,
               ),
@@ -50,7 +50,7 @@ class ArticleStockTab extends StatelessWidget {
               child: _StockCard(
                 label: 'Réservé',
                 value:
-                '${article.reservedStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+                '${article.reservedStock} ${article.unitOfMeasure?.symbol ?? ""}',
                 icon: Icons.bookmark,
                 color: AppColors.warning,
               ),
@@ -59,7 +59,7 @@ class ArticleStockTab extends StatelessWidget {
             Expanded(
               child: _StockCard(
                 label: 'Niveau',
-                value: '${article.stockPercentage.toStringAsFixed(0)}%',
+                value: '${article.stockPercentage}%',
                 icon: Icons.trending_up,
                 color: _getStockLevelColor(article.stockPercentage),
               ),

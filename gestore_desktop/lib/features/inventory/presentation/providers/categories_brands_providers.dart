@@ -1,6 +1,6 @@
 // ========================================
 // lib/features/inventory/presentation/providers/categories_brands_providers.dart
-// Providers pour catégories et marques
+// MISE À JOUR - Ajout du provider Units
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +8,10 @@ import 'package:logger/logger.dart';
 import '../../../../config/dependencies.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/brand_entity.dart';
+import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_brands_usecase.dart';
+import '../../domain/usecases/unit_usecases.dart';
 
 // ==================== CATEGORIES ====================
 
@@ -47,42 +49,39 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
   CategoriesNotifier({
     required this.getCategoriesUseCase,
     required this.logger,
-  }) : super(CategoriesInitial());
+  }) : super(CategoriesInitial()) {
+    loadCategories();
+  }
 
   /// Charge les catégories
   Future<void> loadCategories({bool? isActive}) async {
-    logger.d('📂 Chargement catégories...');
-    state = CategoriesLoading();
-
     try {
-      final params = GetCategoriesParams(isActive: isActive);
-      final (categories, error) = await getCategoriesUseCase(params);
+      logger.d('📂 Chargement catégories...');
+      state = CategoriesLoading();
 
-      if (error != null) {
-        logger.e('❌ Erreur chargement catégories: $error');
-        state = CategoriesError(error);
+      final params = GetCategoriesParams(isActive: isActive);
+      final result = await getCategoriesUseCase(params);
+
+      final error = result.$2;
+      final categories = result.$1;
+
+      if (error != null || categories == null) {
+        logger.e('❌ Erreur: $error');
+        state = CategoriesError(error ?? 'Erreur inconnue');
         return;
       }
 
-      if (categories != null) {
-        logger.i('✅ ${categories.length} catégories chargées');
-        state = CategoriesLoaded(categories);
-      }
+      logger.i('✅ ${categories.length} catégories chargées');
+      state = CategoriesLoaded(categories);
     } catch (e) {
-      logger.e('❌ Exception catégories: $e');
-      state = CategoriesError('Une erreur est survenue');
+      logger.e('❌ Exception: $e');
+      state = CategoriesError(e.toString());
     }
   }
-}
 
-/// Provider pour obtenir la liste des catégories actives
-final activeCategoriesProvider = Provider<List<CategoryEntity>>((ref) {
-  final categoriesState = ref.watch(categoriesProvider);
-  if (categoriesState is CategoriesLoaded) {
-    return categoriesState.categories;
-  }
-  return [];
-});
+  /// Rafraîchit les catégories
+  Future<void> refresh() => loadCategories();
+}
 
 // ==================== BRANDS ====================
 
@@ -104,7 +103,8 @@ class BrandsError extends BrandsState {
 }
 
 /// Provider pour les marques
-final brandsProvider = StateNotifierProvider<BrandsNotifier, BrandsState>((ref) {
+final brandsProvider =
+StateNotifierProvider<BrandsNotifier, BrandsState>((ref) {
   return BrandsNotifier(
     getBrandsUseCase: getIt<GetBrandsUseCase>(),
     logger: getIt<Logger>(),
@@ -119,39 +119,106 @@ class BrandsNotifier extends StateNotifier<BrandsState> {
   BrandsNotifier({
     required this.getBrandsUseCase,
     required this.logger,
-  }) : super(BrandsInitial());
+  }) : super(BrandsInitial()) {
+    loadBrands();
+  }
 
   /// Charge les marques
   Future<void> loadBrands({bool? isActive}) async {
-    logger.d('🏷️ Chargement marques...');
-    state = BrandsLoading();
-
     try {
-      final params = GetBrandsParams(isActive: isActive);
-      final (brands, error) = await getBrandsUseCase(params);
+      logger.d('🏷️ Chargement marques...');
+      state = BrandsLoading();
 
-      if (error != null) {
-        logger.e('❌ Erreur chargement marques: $error');
-        state = BrandsError(error);
+      final params = GetBrandsParams(isActive: isActive);
+      final result = await getBrandsUseCase(params);
+
+      final error = result.$2;
+      final brands = result.$1;
+
+      if (error != null || brands == null) {
+        logger.e('❌ Erreur: $error');
+        state = BrandsError(error ?? 'Erreur inconnue');
         return;
       }
 
-      if (brands != null) {
-        logger.i('✅ ${brands.length} marques chargées');
-        state = BrandsLoaded(brands);
-      }
+      logger.i('✅ ${brands.length} marques chargées');
+      state = BrandsLoaded(brands);
     } catch (e) {
-      logger.e('❌ Exception marques: $e');
-      state = BrandsError('Une erreur est survenue');
+      logger.e('❌ Exception: $e');
+      state = BrandsError(e.toString());
     }
   }
+
+  /// Rafraîchit les marques
+  Future<void> refresh() => loadBrands();
 }
 
-/// Provider pour obtenir la liste des marques actives
-final activeBrandsProvider = Provider<List<BrandEntity>>((ref) {
-  final brandsState = ref.watch(brandsProvider);
-  if (brandsState is BrandsLoaded) {
-    return brandsState.brands;
-  }
-  return [];
+// ==================== UNITS OF MEASURE (NOUVEAU) ====================
+
+/// État pour les unités de mesure
+sealed class UnitsState {}
+
+class UnitsInitial extends UnitsState {}
+
+class UnitsLoading extends UnitsState {}
+
+class UnitsLoaded extends UnitsState {
+  final List<UnitOfMeasureEntity> units;
+  UnitsLoaded(this.units);
+}
+
+class UnitsError extends UnitsState {
+  final String message;
+  UnitsError(this.message);
+}
+
+/// Provider pour les unités de mesure
+final unitsProvider =
+StateNotifierProvider<UnitsNotifier, UnitsState>((ref) {
+  return UnitsNotifier(
+    getUnitsUseCase: getIt<GetUnitsUseCase>(),
+    logger: getIt<Logger>(),
+  );
 });
+
+/// Notifier pour les unités de mesure
+class UnitsNotifier extends StateNotifier<UnitsState> {
+  final GetUnitsUseCase getUnitsUseCase;
+  final Logger logger;
+
+  UnitsNotifier({
+    required this.getUnitsUseCase,
+    required this.logger,
+  }) : super(UnitsInitial()) {
+    loadUnits();
+  }
+
+  /// Charge les unités de mesure
+  Future<void> loadUnits({bool? isActive}) async {
+    try {
+      logger.d('📏 Chargement unités de mesure...');
+      state = UnitsLoading();
+
+      final params = GetUnitsParams(isActive: isActive);
+      final result = await getUnitsUseCase(params);
+
+      final error = result.$2;
+      final units = result.$1;
+
+      if (error != null || units == null) {
+        logger.e('❌ Erreur: $error');
+        state = UnitsError(error ?? 'Erreur inconnue');
+        return;
+      }
+
+      logger.i('✅ ${units.length} unités chargées');
+      state = UnitsLoaded(units);
+    } catch (e) {
+      logger.e('❌ Exception: $e');
+      state = UnitsError(e.toString());
+    }
+  }
+
+  /// Rafraîchit les unités
+  Future<void> refresh() => loadUnits();
+}

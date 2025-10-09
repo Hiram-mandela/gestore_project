@@ -1,6 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/screens/article_form_screen.dart
-// Écran du formulaire article (création/édition) avec 3 étapes
+// Écran du formulaire article (création/édition) avec 5 étapes
+// VERSION 2.0 - Formulaire Complet
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import '../providers/article_form_state.dart';
 import '../widgets/article_form_step1.dart';
 import '../widgets/article_form_step2.dart';
 import '../widgets/article_form_step3.dart';
+import '../widgets/article_form_step4.dart';
+import '../widgets/article_form_step5.dart';
 
 class ArticleFormScreen extends ConsumerStatefulWidget {
   final ArticleFormMode mode;
@@ -45,26 +48,33 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.mode == ArticleFormMode.create
-              ? 'Nouvel article'
-              : 'Modifier article',
-        ),
-        actions: [
-          if (state is ArticleFormReady)
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => _confirmCancel(context),
-              tooltip: 'Annuler',
-            ),
-        ],
-      ),
+      appBar: _buildAppBar(state),
       body: _buildBody(state),
+      bottomNavigationBar: _buildBottomBar(state),
     );
   }
 
-  // ==================== CONSTRUCTION DU BODY ====================
+  // ==================== APP BAR ====================
+
+  PreferredSizeWidget _buildAppBar(ArticleFormState state) {
+    return AppBar(
+      title: Text(
+        widget.mode == ArticleFormMode.create
+            ? 'Nouvel article'
+            : 'Modifier article',
+      ),
+      actions: [
+        if (state is ArticleFormReady)
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => _confirmCancel(context),
+            tooltip: 'Annuler',
+          ),
+      ],
+    );
+  }
+
+  // ==================== BODY ====================
 
   Widget _buildBody(ArticleFormState state) {
     if (state is ArticleFormLoading) {
@@ -169,18 +179,12 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
       children: [
         // Stepper horizontal
         _buildStepper(state),
-
         const Divider(height: 1),
 
-        // Contenu de l'étape actuelle
+        // Contenu de l'étape
         Expanded(
           child: _buildStepContent(state),
         ),
-
-        const Divider(height: 1),
-
-        // Boutons de navigation
-        _buildNavigationButtons(state),
       ],
     );
   }
@@ -189,101 +193,122 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
 
   Widget _buildStepper(ArticleFormReady state) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
+        children: List.generate(
+          5,
+              (index) => Expanded(
+            child: _buildStepIndicator(
+              step: index,
+              currentStep: state.currentStep,
+              isCompleted: index < state.currentStep,
+              onTap: () => _goToStep(index),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepIndicator({
+    required int step,
+    required int currentStep,
+    required bool isCompleted,
+    required VoidCallback onTap,
+  }) {
+    final isActive = step == currentStep;
+    final color = isCompleted || isActive
+        ? AppColors.primary
+        : Colors.grey.shade400;
+
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildStepIndicator(
-            stepNumber: 1,
-            label: 'Informations',
-            isActive: state.currentStep == 0,
-            isCompleted: state.currentStep > 0,
-            onTap: () => _goToStep(0),
+          Row(
+            children: [
+              if (step > 0)
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    color: isCompleted ? AppColors.primary : Colors.grey.shade300,
+                  ),
+                ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppColors.primary
+                      : isCompleted
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : Colors.grey.shade200,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color,
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(Icons.check, size: 16, color: AppColors.primary)
+                      : Text(
+                    '${step + 1}',
+                    style: TextStyle(
+                      color: isActive ? Colors.white : color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              if (step < 4)
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    color: isCompleted && step < currentStep
+                        ? AppColors.primary
+                        : Colors.grey.shade300,
+                  ),
+                ),
+            ],
           ),
-          _buildStepConnector(isCompleted: state.currentStep > 0),
-          _buildStepIndicator(
-            stepNumber: 2,
-            label: 'Prix & Stock',
-            isActive: state.currentStep == 1,
-            isCompleted: state.currentStep > 1,
-            onTap: () => _goToStep(1),
-          ),
-          _buildStepConnector(isCompleted: state.currentStep > 1),
-          _buildStepIndicator(
-            stepNumber: 3,
-            label: 'Options',
-            isActive: state.currentStep == 2,
-            isCompleted: false,
-            onTap: () => _goToStep(2),
+          const SizedBox(height: 8),
+          Text(
+            _getStepLabel(step),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: isActive ? AppColors.primary : Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStepIndicator({
-    required int stepNumber,
-    required String label,
-    required bool isActive,
-    required bool isCompleted,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted
-                    ? AppColors.success
-                    : isActive
-                    ? AppColors.primary
-                    : AppColors.textSecondary.withValues(alpha: 0.3),
-              ),
-              child: Center(
-                child: isCompleted
-                    ? const Icon(Icons.check, color: Colors.white, size: 20)
-                    : Text(
-                  '$stepNumber',
-                  style: TextStyle(
-                    color: isActive ? Colors.white : Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? AppColors.primary : Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _getStepLabel(int step) {
+    switch (step) {
+      case 0:
+        return 'Infos de base';
+      case 1:
+        return 'Classification';
+      case 2:
+        return 'Stock';
+      case 3:
+        return 'Prix';
+      case 4:
+        return 'Avancé';
+      default:
+        return '';
+    }
   }
 
-  Widget _buildStepConnector({required bool isCompleted}) {
-    return Expanded(
-      child: Container(
-        height: 2,
-        margin: const EdgeInsets.only(bottom: 32),
-        decoration: BoxDecoration(
-          color: isCompleted ? AppColors.success : AppColors.textSecondary.withValues(alpha: 0.3),
-        ),
-      ),
-    );
-  }
-
-  // ==================== CONTENU DES ÉTAPES ====================
+  // ==================== STEP CONTENT ====================
 
   Widget _buildStepContent(ArticleFormReady state) {
     switch (state.currentStep) {
@@ -305,49 +330,64 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           errors: state.errors,
           onFieldChanged: _updateField,
         );
+      case 3:
+        return ArticleFormStep4(
+          formData: state.formData,
+          errors: state.errors,
+          onFieldChanged: _updateField,
+        );
+      case 4:
+        return ArticleFormStep5(
+          formData: state.formData,
+          errors: state.errors,
+          onFieldChanged: _updateField,
+        );
       default:
         return const SizedBox();
     }
   }
 
-  // ==================== BOUTONS DE NAVIGATION ====================
+  // ==================== BOTTOM BAR ====================
 
-  Widget _buildNavigationButtons(ArticleFormReady state) {
-    final notifier = ref.read(
-      articleFormProvider((widget.mode, widget.articleId)).notifier,
-    );
+  Widget? _buildBottomBar(ArticleFormState state) {
+    if (state is! ArticleFormReady) return null;
+
+    final notifier = ref.read(articleFormProvider((widget.mode, widget.articleId)).notifier);
 
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Bouton Précédent
-          if (state.currentStep > 0)
-            OutlinedButton.icon(
-              onPressed: notifier.previousStep,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Précédent'),
-            )
-          else
-            const SizedBox(),
+          if (!state.isFirstStep)
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => notifier.previousStep(),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Précédent'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
 
-          // Indicateur d'étape
-          Text(
-            'Étape ${state.currentStep + 1} sur 3',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          if (!state.isFirstStep) const SizedBox(width: 16),
 
           // Bouton Suivant ou Enregistrer
-          if (state.currentStep < 2)
-            FilledButton.icon(
-              onPressed: state.errors.isEmpty ? notifier.nextStep : null,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Suivant'),
-            )
-          else
-            FilledButton.icon(
-              onPressed: state.errors.isEmpty ? () => _submitForm() : null,
+          Expanded(
+            child: state.isLastStep
+                ? FilledButton.icon(
+              onPressed: state.errors.isEmpty ? _submitForm : null,
               icon: Icon(
                 widget.mode == ArticleFormMode.create
                     ? Icons.add
@@ -355,10 +395,22 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
               ),
               label: Text(
                 widget.mode == ArticleFormMode.create
-                    ? 'Créer'
+                    ? 'Créer l\'article'
                     : 'Enregistrer',
               ),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            )
+                : FilledButton.icon(
+              onPressed: () => notifier.nextStep(),
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Suivant'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
             ),
+          ),
         ],
       ),
     );
@@ -390,7 +442,8 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Annuler'),
         content: const Text(
-          'Êtes-vous sûr de vouloir annuler ? Toutes les modifications seront perdues.',
+          'Êtes-vous sûr de vouloir annuler ? '
+              'Toutes les modifications seront perdues.',
         ),
         actions: [
           TextButton(
@@ -402,6 +455,9 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
               Navigator.of(context).pop();
               context.pop();
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
             child: const Text('Oui, annuler'),
           ),
         ],

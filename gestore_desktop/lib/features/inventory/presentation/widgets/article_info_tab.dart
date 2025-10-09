@@ -55,7 +55,7 @@ class ArticleInfoTab extends StatelessWidget {
             child: Column(
               children: [
                 if (article.category != null)
-                  _InfoRow('Catégorie', article.category!.fullName),
+                  _InfoRow('Catégorie', article.category!.fullPath),
                 if (article.brand != null)
                   _InfoRow('Marque', article.brand!.name),
                 if (article.unitOfMeasure != null)
@@ -221,7 +221,7 @@ class ArticleInfoTab extends StatelessWidget {
           _InfoCard(
             child: Column(
               children: [
-                _InfoRow('Créé par', article.createdBy),
+                _InfoRow('Créé par', article.createdBy!),
                 _InfoRow('Créé le', _formatDate(article.createdAt)),
                 if (article.updatedBy != null)
                   _InfoRow('Modifié par', article.updatedBy!),

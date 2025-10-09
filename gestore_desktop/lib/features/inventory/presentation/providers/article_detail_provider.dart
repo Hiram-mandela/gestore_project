@@ -65,11 +65,6 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
         return;
       }
 
-      logger.i('✅ Détail article chargé: ${article.name}');
-      logger.d('   - Stock: ${article.currentStock} ${article.unitOfMeasure?.symbol ?? ""}');
-      logger.d('   - Prix: ${article.formattedSellingPrice}');
-      logger.d('   - Marge: ${article.formattedMargin}');
-
       state = ArticleDetailLoaded(article: article);
     } catch (e) {
       logger.e('❌ Exception chargement détail: $e');

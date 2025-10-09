@@ -1,6 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/providers/article_form_state.dart
 // États pour le formulaire article (création/édition)
+// VERSION ÉTENDUE - Support complet de l'API (40+ champs)
 // ========================================
 
 import 'package:equatable/equatable.dart';
@@ -23,7 +24,7 @@ abstract class ArticleFormState extends Equatable {
 /// État initial
 class ArticleFormInitial extends ArticleFormState {
   final ArticleFormMode mode;
-  final String? articleId; // ID si mode édition
+  final String? articleId;
 
   const ArticleFormInitial({
     required this.mode,
@@ -49,7 +50,7 @@ class ArticleFormReady extends ArticleFormState {
   final ArticleFormMode mode;
   final String? articleId;
   final ArticleFormData formData;
-  final int currentStep;
+  final int currentStep; // 0 à 4 (5 étapes)
   final Map<String, String> errors;
 
   const ArticleFormReady({
@@ -68,6 +69,15 @@ class ArticleFormReady extends ArticleFormState {
 
   /// Vérifie si on est en mode édition
   bool get isEditMode => mode == ArticleFormMode.edit;
+
+  /// Nombre total d'étapes
+  int get totalSteps => 5;
+
+  /// Vérifie si on est à la première étape
+  bool get isFirstStep => currentStep == 0;
+
+  /// Vérifie si on est à la dernière étape
+  bool get isLastStep => currentStep == totalSteps - 1;
 
   /// Copie l'état avec modifications
   ArticleFormReady copyWith({
@@ -120,7 +130,7 @@ class ArticleFormSuccess extends ArticleFormState {
 class ArticleFormError extends ArticleFormState {
   final String message;
   final ArticleFormMode mode;
-  final ArticleFormData? formData; // Pour revenir à l'édition
+  final ArticleFormData? formData;
 
   const ArticleFormError({
     required this.message,
@@ -132,59 +142,83 @@ class ArticleFormError extends ArticleFormState {
   List<Object?> get props => [message, mode, formData];
 }
 
-// ==================== DATA CLASS ====================
+// ==================== DATA CLASSES ====================
 
-/// Données du formulaire
+/// Données du formulaire article (VERSION ÉTENDUE)
+/// Reflète TOUS les champs de l'API ArticleDetail
 class ArticleFormData extends Equatable {
-  // Étape 1 : Informations de base
+  // ==================== SECTION 1: INFORMATIONS DE BASE ====================
   final String name;
-  final String code;
   final String description;
+  final String shortDescription; // ⭐ NOUVEAU
+  final String code;
   final String articleType;
   final String barcode;
   final String internalReference;
   final String supplierReference;
+  final String tags;
+  final String notes;
+
+  // ==================== SECTION 2: CLASSIFICATION ====================
   final String categoryId;
   final String brandId;
   final String unitOfMeasureId;
-  final String mainSupplierId;
 
-  // Étape 2 : Prix et stock
-  final double purchasePrice;
-  final double sellingPrice;
+  // ==================== SECTION 3: GESTION DE STOCK ====================
   final bool manageStock;
   final int minStockLevel;
   final int maxStockLevel;
-
-  // Étape 3 : Options avancées
   final bool requiresLotTracking;
   final bool requiresExpiryDate;
   final bool isSellable;
   final bool isPurchasable;
   final bool allowNegativeStock;
-  final String imagePath;
+
+  // ==================== SECTION 4: PRIX ET FOURNISSEUR ====================
+  final double purchasePrice;
+  final double sellingPrice;
+  final String mainSupplierId;
+
+  // ==================== SECTION 5: MÉTADONNÉES AVANCÉES ====================
+  // Dimensions
   final double weight;
   final double length;
   final double width;
   final double height;
-  final String tags;
-  final String notes;
+
+  // Variantes
+  final String? parentArticleId; // ⭐ NOUVEAU
+  final String variantAttributes; // ⭐ NOUVEAU (JSON string)
+
+  // Statut
   final bool isActive;
 
+  // Image principale
+  final String imagePath;
+
+  // ==================== DONNÉES COMPLEXES (TABLEAUX) ====================
+  final List<ArticleImageData> images; // ⭐ NOUVEAU
+  final List<AdditionalBarcodeData> additionalBarcodes; // ⭐ NOUVEAU
+
   const ArticleFormData({
+    // Section 1
     this.name = '',
-    this.code = '',
     this.description = '',
+    this.shortDescription = '',
+    this.code = '',
     this.articleType = 'product',
     this.barcode = '',
     this.internalReference = '',
     this.supplierReference = '',
+    this.tags = '',
+    this.notes = '',
+
+    // Section 2
     this.categoryId = '',
     this.brandId = '',
     this.unitOfMeasureId = '',
-    this.mainSupplierId = '',
-    this.purchasePrice = 0.0,
-    this.sellingPrice = 0.0,
+
+    // Section 3
     this.manageStock = true,
     this.minStockLevel = 0,
     this.maxStockLevel = 0,
@@ -193,31 +227,62 @@ class ArticleFormData extends Equatable {
     this.isSellable = true,
     this.isPurchasable = true,
     this.allowNegativeStock = false,
-    this.imagePath = '',
+
+    // Section 4
+    this.purchasePrice = 0.0,
+    this.sellingPrice = 0.0,
+    this.mainSupplierId = '',
+
+    // Section 5
     this.weight = 0.0,
     this.length = 0.0,
     this.width = 0.0,
     this.height = 0.0,
-    this.tags = '',
-    this.notes = '',
+    this.parentArticleId,
+    this.variantAttributes = '',
     this.isActive = true,
+    this.imagePath = '',
+
+    // Tableaux
+    this.images = const [],
+    this.additionalBarcodes = const [],
   });
+
+  /// Calcul de la marge en pourcentage
+  double get marginPercent {
+    if (purchasePrice <= 0 || sellingPrice <= 0) return 0.0;
+    return ((sellingPrice - purchasePrice) / purchasePrice) * 100;
+  }
+
+  /// Vérifie si l'article a une image
+  bool get hasImage => imagePath.isNotEmpty || images.isNotEmpty;
+
+  /// Vérifie si l'article a des codes-barres additionnels
+  bool get hasAdditionalBarcodes => additionalBarcodes.isNotEmpty;
+
+  /// Vérifie si l'article est une variante
+  bool get isVariant => parentArticleId != null && parentArticleId!.isNotEmpty;
 
   /// Copie avec modifications
   ArticleFormData copyWith({
+    // Section 1
     String? name,
-    String? code,
     String? description,
+    String? shortDescription,
+    String? code,
     String? articleType,
     String? barcode,
     String? internalReference,
     String? supplierReference,
+    String? tags,
+    String? notes,
+
+    // Section 2
     String? categoryId,
     String? brandId,
     String? unitOfMeasureId,
-    String? mainSupplierId,
-    double? purchasePrice,
-    double? sellingPrice,
+
+    // Section 3
     bool? manageStock,
     int? minStockLevel,
     int? maxStockLevel,
@@ -226,29 +291,40 @@ class ArticleFormData extends Equatable {
     bool? isSellable,
     bool? isPurchasable,
     bool? allowNegativeStock,
-    String? imagePath,
+
+    // Section 4
+    double? purchasePrice,
+    double? sellingPrice,
+    String? mainSupplierId,
+
+    // Section 5
     double? weight,
     double? length,
     double? width,
     double? height,
-    String? tags,
-    String? notes,
+    String? parentArticleId,
+    String? variantAttributes,
     bool? isActive,
+    String? imagePath,
+
+    // Tableaux
+    List<ArticleImageData>? images,
+    List<AdditionalBarcodeData>? additionalBarcodes,
   }) {
     return ArticleFormData(
       name: name ?? this.name,
-      code: code ?? this.code,
       description: description ?? this.description,
+      shortDescription: shortDescription ?? this.shortDescription,
+      code: code ?? this.code,
       articleType: articleType ?? this.articleType,
       barcode: barcode ?? this.barcode,
       internalReference: internalReference ?? this.internalReference,
       supplierReference: supplierReference ?? this.supplierReference,
+      tags: tags ?? this.tags,
+      notes: notes ?? this.notes,
       categoryId: categoryId ?? this.categoryId,
       brandId: brandId ?? this.brandId,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
-      mainSupplierId: mainSupplierId ?? this.mainSupplierId,
-      purchasePrice: purchasePrice ?? this.purchasePrice,
-      sellingPrice: sellingPrice ?? this.sellingPrice,
       manageStock: manageStock ?? this.manageStock,
       minStockLevel: minStockLevel ?? this.minStockLevel,
       maxStockLevel: maxStockLevel ?? this.maxStockLevel,
@@ -257,32 +333,107 @@ class ArticleFormData extends Equatable {
       isSellable: isSellable ?? this.isSellable,
       isPurchasable: isPurchasable ?? this.isPurchasable,
       allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
-      imagePath: imagePath ?? this.imagePath,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      sellingPrice: sellingPrice ?? this.sellingPrice,
+      mainSupplierId: mainSupplierId ?? this.mainSupplierId,
       weight: weight ?? this.weight,
       length: length ?? this.length,
       width: width ?? this.width,
       height: height ?? this.height,
-      tags: tags ?? this.tags,
-      notes: notes ?? this.notes,
+      parentArticleId: parentArticleId ?? this.parentArticleId,
+      variantAttributes: variantAttributes ?? this.variantAttributes,
       isActive: isActive ?? this.isActive,
+      imagePath: imagePath ?? this.imagePath,
+      images: images ?? this.images,
+      additionalBarcodes: additionalBarcodes ?? this.additionalBarcodes,
     );
   }
 
   @override
   List<Object?> get props => [
-    name,
-    code,
-    description,
-    articleType,
-    categoryId,
-    brandId,
-    unitOfMeasureId,
-    purchasePrice,
-    sellingPrice,
-    manageStock,
-    minStockLevel,
-    maxStockLevel,
-    imagePath,
-    isActive,
+    name, description, shortDescription, code, articleType, barcode,
+    internalReference, supplierReference, tags, notes,
+    categoryId, brandId, unitOfMeasureId,
+    manageStock, minStockLevel, maxStockLevel,
+    requiresLotTracking, requiresExpiryDate, isSellable,
+    isPurchasable, allowNegativeStock,
+    purchasePrice, sellingPrice, mainSupplierId,
+    weight, length, width, height,
+    parentArticleId, variantAttributes, isActive, imagePath,
+    images, additionalBarcodes,
   ];
+}
+
+// ==================== CLASSES AUXILIAIRES ====================
+
+/// Données pour une image d'article
+class ArticleImageData extends Equatable {
+  final String? id; // null si nouvelle image
+  final String imagePath; // Path local ou URL
+  final String altText;
+  final String caption;
+  final bool isPrimary;
+  final int order;
+
+  const ArticleImageData({
+    this.id,
+    required this.imagePath,
+    this.altText = '',
+    this.caption = '',
+    this.isPrimary = false,
+    this.order = 0,
+  });
+
+  ArticleImageData copyWith({
+    String? id,
+    String? imagePath,
+    String? altText,
+    String? caption,
+    bool? isPrimary,
+    int? order,
+  }) {
+    return ArticleImageData(
+      id: id ?? this.id,
+      imagePath: imagePath ?? this.imagePath,
+      altText: altText ?? this.altText,
+      caption: caption ?? this.caption,
+      isPrimary: isPrimary ?? this.isPrimary,
+      order: order ?? this.order,
+    );
+  }
+
+  @override
+  List<Object?> get props => [id, imagePath, altText, caption, isPrimary, order];
+}
+
+/// Données pour un code-barres additionnel
+class AdditionalBarcodeData extends Equatable {
+  final String? id; // null si nouveau
+  final String barcode;
+  final String barcodeType; // EAN13, UPC, CODE128, etc.
+  final bool isPrimary;
+
+  const AdditionalBarcodeData({
+    this.id,
+    required this.barcode,
+    this.barcodeType = 'EAN13',
+    this.isPrimary = false,
+  });
+
+  AdditionalBarcodeData copyWith({
+    String? id,
+    String? barcode,
+    String? barcodeType,
+    bool? isPrimary,
+  }) {
+    return AdditionalBarcodeData(
+      id: id ?? this.id,
+      barcode: barcode ?? this.barcode,
+      barcodeType: barcodeType ?? this.barcodeType,
+      isPrimary: isPrimary ?? this.isPrimary,
+    );
+  }
+
+  @override
+  List<Object?> get props => [id, barcode, barcodeType, isPrimary];
 }

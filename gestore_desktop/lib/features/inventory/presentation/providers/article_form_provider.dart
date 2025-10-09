@@ -1,6 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/providers/article_form_provider.dart
 // Provider Riverpod pour le formulaire article
+// VERSION 2.0 - Support complet 40+ champs + 5 étapes
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +66,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         mode: mode,
         formData: const ArticleFormData(),
       );
-      logger.d('📝 Formulaire prêt pour création');
+      logger.d('📝 Formulaire prêt pour création (5 étapes)');
     }
   }
 
@@ -90,21 +91,48 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         return;
       }
 
+      // Mapper les images
+      final images = article.images.map((img) {
+        return ArticleImageData(
+          id: img.id,
+          imagePath: img.imageUrl,
+          altText: img.altText,
+          caption: img.caption,
+          isPrimary: img.isPrimary,
+          order: img.order,
+        );
+      }).toList() ?? [];
+
+      // Mapper les codes-barres additionnels
+      final additionalBarcodes = article.additionalBarcodes.map((barcode) {
+        return AdditionalBarcodeData(
+          id: barcode.id,
+          barcode: barcode.barcode,
+          barcodeType: barcode.barcodeType,
+          isPrimary: barcode.isPrimary,
+        );
+      }).toList() ?? [];
+
       // Remplir le formulaire avec les données de l'article
       final formData = ArticleFormData(
+        // Section 1: Informations de base
         name: article.name,
         code: article.code,
         description: article.description,
+        shortDescription: article.shortDescription ?? '',
         articleType: article.articleType.value,
         barcode: article.barcode ?? '',
         internalReference: article.internalReference ?? '',
         supplierReference: article.supplierReference ?? '',
+        tags: article.tags ?? '',
+        notes: article.notes ?? '',
+
+        // Section 2: Classification
         categoryId: article.category?.id ?? '',
         brandId: article.brand?.id ?? '',
         unitOfMeasureId: article.unitOfMeasure?.id ?? '',
-        mainSupplierId: article.mainSupplier?.id ?? '',
-        purchasePrice: article.purchasePrice,
-        sellingPrice: article.sellingPrice,
+
+        // Section 3: Gestion de stock
         manageStock: article.manageStock,
         minStockLevel: article.minStockLevel,
         maxStockLevel: article.maxStockLevel,
@@ -113,14 +141,25 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         isSellable: article.isSellable,
         isPurchasable: article.isPurchasable,
         allowNegativeStock: article.allowNegativeStock,
-        imagePath: article.imageUrl ?? '',
+
+        // Section 4: Prix et fournisseur
+        purchasePrice: article.purchasePrice,
+        sellingPrice: article.sellingPrice,
+        mainSupplierId: article.mainSupplier?.id ?? '',
+
+        // Section 5: Métadonnées avancées
         weight: article.weight ?? 0.0,
         length: article.length ?? 0.0,
         width: article.width ?? 0.0,
         height: article.height ?? 0.0,
-        tags: article.tags ?? '',
-        notes: article.notes ?? '',
+        parentArticleId: article.parentArticle?.id,
+        variantAttributes: article.variantAttributes ?? '',
         isActive: article.isActive,
+        imagePath: article.imageUrl ?? '',
+
+        // Tableaux
+        images: images,
+        additionalBarcodes: additionalBarcodes,
       );
 
       state = ArticleFormReady(
@@ -151,16 +190,18 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     ArticleFormData updatedData;
 
     switch (field) {
+    // Section 1: Informations de base
       case 'name':
         updatedData = currentState.formData.copyWith(name: value as String);
         break;
       case 'code':
-        updatedData = currentState.formData.copyWith(
-          code: (value as String).toUpperCase(),
-        );
+        updatedData = currentState.formData.copyWith(code: value as String);
         break;
       case 'description':
         updatedData = currentState.formData.copyWith(description: value as String);
+        break;
+      case 'shortDescription':
+        updatedData = currentState.formData.copyWith(shortDescription: value as String);
         break;
       case 'articleType':
         updatedData = currentState.formData.copyWith(articleType: value as String);
@@ -174,6 +215,14 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'supplierReference':
         updatedData = currentState.formData.copyWith(supplierReference: value as String);
         break;
+      case 'tags':
+        updatedData = currentState.formData.copyWith(tags: value as String);
+        break;
+      case 'notes':
+        updatedData = currentState.formData.copyWith(notes: value as String);
+        break;
+
+    // Section 2: Classification
       case 'categoryId':
         updatedData = currentState.formData.copyWith(categoryId: value as String);
         break;
@@ -183,15 +232,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'unitOfMeasureId':
         updatedData = currentState.formData.copyWith(unitOfMeasureId: value as String);
         break;
-      case 'mainSupplierId':
-        updatedData = currentState.formData.copyWith(mainSupplierId: value as String);
-        break;
-      case 'purchasePrice':
-        updatedData = currentState.formData.copyWith(purchasePrice: value as double);
-        break;
-      case 'sellingPrice':
-        updatedData = currentState.formData.copyWith(sellingPrice: value as double);
-        break;
+
+    // Section 3: Gestion de stock
       case 'manageStock':
         updatedData = currentState.formData.copyWith(manageStock: value as bool);
         break;
@@ -216,9 +258,19 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'allowNegativeStock':
         updatedData = currentState.formData.copyWith(allowNegativeStock: value as bool);
         break;
-      case 'imagePath':
-        updatedData = currentState.formData.copyWith(imagePath: value as String);
+
+    // Section 4: Prix et fournisseur
+      case 'purchasePrice':
+        updatedData = currentState.formData.copyWith(purchasePrice: value as double);
         break;
+      case 'sellingPrice':
+        updatedData = currentState.formData.copyWith(sellingPrice: value as double);
+        break;
+      case 'mainSupplierId':
+        updatedData = currentState.formData.copyWith(mainSupplierId: value as String);
+        break;
+
+    // Section 5: Métadonnées avancées
       case 'weight':
         updatedData = currentState.formData.copyWith(weight: value as double);
         break;
@@ -231,135 +283,43 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'height':
         updatedData = currentState.formData.copyWith(height: value as double);
         break;
-      case 'tags':
-        updatedData = currentState.formData.copyWith(tags: value as String);
+      case 'parentArticleId':
+        updatedData = currentState.formData.copyWith(parentArticleId: value as String?);
         break;
-      case 'notes':
-        updatedData = currentState.formData.copyWith(notes: value as String);
+      case 'variantAttributes':
+        updatedData = currentState.formData.copyWith(variantAttributes: value as String);
         break;
       case 'isActive':
         updatedData = currentState.formData.copyWith(isActive: value as bool);
         break;
+      case 'imagePath':
+        updatedData = currentState.formData.copyWith(imagePath: value as String);
+        break;
+
+    // Tableaux complexes
+      case 'images':
+        updatedData = currentState.formData.copyWith(
+          images: value as List<ArticleImageData>,
+        );
+        break;
+      case 'additionalBarcodes':
+        updatedData = currentState.formData.copyWith(
+          additionalBarcodes: value as List<AdditionalBarcodeData>,
+        );
+        break;
+
       default:
         logger.w('⚠️ Champ inconnu: $field');
         return;
     }
 
     // Valider et mettre à jour l'état
-    final errors = _validateFormData(updatedData);
+    final errors = _validateFormData(updatedData, currentState.currentStep);
+
     state = currentState.copyWith(
       formData: updatedData,
       errors: errors,
     );
-  }
-
-  // ==================== VALIDATION ====================
-
-  /// Valide les données du formulaire
-  Map<String, String> _validateFormData(ArticleFormData data) {
-    final errors = <String, String>{};
-
-    // Nom
-    if (data.name.trim().isEmpty) {
-      errors['name'] = 'Le nom est requis';
-    } else if (data.name.length < 3) {
-      errors['name'] = 'Le nom doit contenir au moins 3 caractères';
-    }
-
-    // Code
-    if (data.code.trim().isEmpty) {
-      errors['code'] = 'Le code est requis';
-    } else if (data.code.length < 2) {
-      errors['code'] = 'Le code doit contenir au moins 2 caractères';
-    }
-
-    // Catégorie
-    if (data.categoryId.trim().isEmpty) {
-      errors['categoryId'] = 'La catégorie est requise';
-    }
-
-    // Unité de mesure
-    if (data.unitOfMeasureId.trim().isEmpty) {
-      errors['unitOfMeasureId'] = 'L\'unité de mesure est requise';
-    }
-
-    // Prix d'achat
-    if (data.purchasePrice < 0) {
-      errors['purchasePrice'] = 'Le prix d\'achat ne peut pas être négatif';
-    }
-
-    // Prix de vente
-    if (data.sellingPrice < 0) {
-      errors['sellingPrice'] = 'Le prix de vente ne peut pas être négatif';
-    } else if (data.sellingPrice < data.purchasePrice) {
-      errors['sellingPrice'] = 'Le prix de vente doit être ≥ prix d\'achat';
-    }
-
-    // Stock
-    if (data.manageStock) {
-      if (data.minStockLevel < 0) {
-        errors['minStockLevel'] = 'Le stock minimum ne peut pas être négatif';
-      }
-      if (data.maxStockLevel < 0) {
-        errors['maxStockLevel'] = 'Le stock maximum ne peut pas être négatif';
-      }
-      if (data.maxStockLevel > 0 && data.minStockLevel > data.maxStockLevel) {
-        errors['minStockLevel'] = 'Le stock min ne peut pas être > stock max';
-      }
-    }
-
-    return errors;
-  }
-
-  /// Valide une étape spécifique
-  bool validateStep(int step) {
-    final currentState = state;
-    if (currentState is! ArticleFormReady) return false;
-
-    final errors = _validateFormData(currentState.formData);
-    final stepErrors = <String, String>{};
-
-    switch (step) {
-      case 0: // Étape 1 : Informations de base
-        if (errors.containsKey('name')) stepErrors['name'] = errors['name']!;
-        if (errors.containsKey('code')) stepErrors['code'] = errors['code']!;
-        if (errors.containsKey('categoryId')) {
-          stepErrors['categoryId'] = errors['categoryId']!;
-        }
-        if (errors.containsKey('unitOfMeasureId')) {
-          stepErrors['unitOfMeasureId'] = errors['unitOfMeasureId']!;
-        }
-        break;
-
-      case 1: // Étape 2 : Prix et stock
-        if (errors.containsKey('purchasePrice')) {
-          stepErrors['purchasePrice'] = errors['purchasePrice']!;
-        }
-        if (errors.containsKey('sellingPrice')) {
-          stepErrors['sellingPrice'] = errors['sellingPrice']!;
-        }
-        if (errors.containsKey('minStockLevel')) {
-          stepErrors['minStockLevel'] = errors['minStockLevel']!;
-        }
-        if (errors.containsKey('maxStockLevel')) {
-          stepErrors['maxStockLevel'] = errors['maxStockLevel']!;
-        }
-        break;
-
-      case 2: // Étape 3 : Options avancées
-      // Pas de validation obligatoire pour cette étape
-        break;
-    }
-
-    if (stepErrors.isNotEmpty) {
-      state = currentState.copyWith(errors: stepErrors);
-      logger.w('⚠️ Erreurs validation étape $step: $stepErrors');
-      return false;
-    }
-
-    // Étape valide
-    state = currentState.copyWith(errors: {});
-    return true;
   }
 
   // ==================== NAVIGATION ENTRE ÉTAPES ====================
@@ -369,41 +329,157 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
 
-    // Valider l'étape actuelle
-    if (!validateStep(currentState.currentStep)) {
-      logger.w('⚠️ Étape ${currentState.currentStep} invalide');
+    if (currentState.isLastStep) {
+      logger.w('⚠️ Déjà à la dernière étape');
       return;
     }
 
-    // Passer à l'étape suivante
-    final nextStep = currentState.currentStep + 1;
-    if (nextStep <= 2) {
-      state = currentState.copyWith(currentStep: nextStep);
-      logger.d('➡️ Passage à l\'étape $nextStep');
+    // Valider l'étape actuelle avant de continuer
+    final errors = _validateFormData(currentState.formData, currentState.currentStep);
+
+    if (errors.isNotEmpty) {
+      logger.w('⚠️ Erreurs de validation, impossible de continuer');
+      state = currentState.copyWith(errors: errors);
+      return;
     }
+
+    final nextStep = currentState.currentStep + 1;
+    logger.d('📝 Passage à l\'étape ${nextStep + 1}/5');
+
+    state = currentState.copyWith(
+      currentStep: nextStep,
+      errors: {},
+    );
   }
 
-  /// Retourne à l'étape précédente
+  /// Revient à l'étape précédente
   void previousStep() {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
 
-    final prevStep = currentState.currentStep - 1;
-    if (prevStep >= 0) {
-      state = currentState.copyWith(currentStep: prevStep);
-      logger.d('⬅️ Retour à l\'étape $prevStep');
+    if (currentState.isFirstStep) {
+      logger.w('⚠️ Déjà à la première étape');
+      return;
     }
+
+    final previousStep = currentState.currentStep - 1;
+    logger.d('📝 Retour à l\'étape ${previousStep + 1}/5');
+
+    state = currentState.copyWith(
+      currentStep: previousStep,
+      errors: {},
+    );
   }
 
-  /// Va à une étape spécifique
+  /// Va directement à une étape spécifique
   void goToStep(int step) {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
 
-    if (step >= 0 && step <= 2) {
-      state = currentState.copyWith(currentStep: step);
-      logger.d('📍 Navigation vers étape $step');
+    if (step < 0 || step >= 5) {
+      logger.w('⚠️ Étape invalide: $step');
+      return;
     }
+
+    logger.d('📝 Navigation vers étape ${step + 1}/5');
+
+    state = currentState.copyWith(
+      currentStep: step,
+      errors: {},
+    );
+  }
+
+  // ==================== VALIDATION ====================
+
+  /// Valide les données du formulaire selon l'étape
+  Map<String, String> _validateFormData(ArticleFormData data, int step) {
+    final errors = <String, String>{};
+
+    switch (step) {
+      case 0: // Étape 1: Informations de base
+        if (data.name.trim().isEmpty) {
+          errors['name'] = 'Le nom est requis';
+        } else if (data.name.trim().length < 2) {
+          errors['name'] = 'Le nom doit contenir au moins 2 caractères';
+        }
+
+        if (data.code.trim().isEmpty) {
+          errors['code'] = 'Le code est requis';
+        } else if (data.code.trim().length < 2) {
+          errors['code'] = 'Le code doit contenir au moins 2 caractères';
+        }
+        break;
+
+      case 1: // Étape 2: Classification
+      // Optionnel, pas d'erreurs bloquantes
+        break;
+
+      case 2: // Étape 3: Gestion de stock
+        if (data.manageStock) {
+          if (data.minStockLevel < 0) {
+            errors['minStockLevel'] = 'Le stock minimum doit être positif';
+          }
+          if (data.maxStockLevel < 0) {
+            errors['maxStockLevel'] = 'Le stock maximum doit être positif';
+          }
+          if (data.maxStockLevel > 0 && data.maxStockLevel < data.minStockLevel) {
+            errors['maxStockLevel'] = 'Le stock max doit être > au stock min';
+          }
+        }
+
+        if (!data.isSellable && !data.isPurchasable) {
+          errors['general'] = 'L\'article doit être vendable ou achetable';
+        }
+        break;
+
+      case 3: // Étape 4: Prix et fournisseur
+        if (data.purchasePrice < 0) {
+          errors['purchasePrice'] = 'Le prix d\'achat doit être positif';
+        }
+        if (data.sellingPrice < 0) {
+          errors['sellingPrice'] = 'Le prix de vente doit être positif';
+        }
+        if (data.sellingPrice > 0 && data.sellingPrice < data.purchasePrice) {
+          errors['sellingPrice'] = 'Le prix de vente devrait être > au prix d\'achat';
+        }
+        break;
+
+      case 4: // Étape 5: Métadonnées avancées
+        if (data.weight < 0) {
+          errors['weight'] = 'Le poids doit être positif';
+        }
+        if (data.length < 0) {
+          errors['length'] = 'La longueur doit être positive';
+        }
+        if (data.width < 0) {
+          errors['width'] = 'La largeur doit être positive';
+        }
+        if (data.height < 0) {
+          errors['height'] = 'La hauteur doit être positive';
+        }
+
+        // Vérification variantes
+        if (data.articleType == 'variant' &&
+            (data.parentArticleId == null || data.parentArticleId!.isEmpty)) {
+          errors['parentArticleId'] = 'Un article variante doit avoir un parent';
+        }
+        break;
+    }
+
+    return errors;
+  }
+
+  /// Validation finale avant soumission
+  Map<String, String> _validateAll(ArticleFormData data) {
+    final errors = <String, String>{};
+
+    // Valider toutes les étapes
+    for (int i = 0; i < 5; i++) {
+      final stepErrors = _validateFormData(data, i);
+      errors.addAll(stepErrors);
+    }
+
+    return errors;
   }
 
   // ==================== SOUMISSION ====================
@@ -414,48 +490,43 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     if (currentState is! ArticleFormReady) return;
 
     // Validation finale
-    final errors = _validateFormData(currentState.formData);
+    final errors = _validateAll(currentState.formData);
     if (errors.isNotEmpty) {
-      logger.w('⚠️ Formulaire invalide: $errors');
+      logger.e('❌ Erreurs de validation: $errors');
       state = currentState.copyWith(errors: errors);
       return;
     }
 
-    logger.d('📤 Soumission formulaire (mode: $mode)');
+    logger.i('📝 Soumission du formulaire en mode ${mode.name}');
+
     state = ArticleFormSubmitting(
       mode: mode,
       formData: currentState.formData,
     );
 
-    try {
-      if (mode == ArticleFormMode.create) {
-        await _createArticle(currentState.formData);
-      } else {
-        await _updateArticle(currentState.formData);
-      }
-    } catch (e) {
-      logger.e('❌ Erreur soumission: $e');
-      state = ArticleFormError(
-        message: 'Erreur inattendue: $e',
-        mode: mode,
-        formData: currentState.formData,
-      );
+    if (mode == ArticleFormMode.create) {
+      await _createArticle(currentState.formData);
+    } else {
+      await _updateArticle(currentState.formData);
     }
   }
 
   /// Crée un nouvel article
   Future<void> _createArticle(ArticleFormData data) async {
+    logger.d('📝 Création article: ${data.name}');
+
     final params = CreateArticleParams(
       name: data.name,
       code: data.code,
-      description: data.description,
+      description: data.description.isNotEmpty ? data.description : null,
+      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : null,
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
       supplierReference: data.supplierReference.isNotEmpty ? data.supplierReference : null,
-      categoryId: data.categoryId,
+      categoryId: data.categoryId.isNotEmpty ? data.categoryId : null,
       brandId: data.brandId.isNotEmpty ? data.brandId : null,
-      unitOfMeasureId: data.unitOfMeasureId,
+      unitOfMeasureId: data.unitOfMeasureId.isNotEmpty ? data.unitOfMeasureId : null,
       mainSupplierId: data.mainSupplierId.isNotEmpty ? data.mainSupplierId : null,
       purchasePrice: data.purchasePrice,
       sellingPrice: data.sellingPrice,
@@ -467,6 +538,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isSellable: data.isSellable,
       isPurchasable: data.isPurchasable,
       allowNegativeStock: data.allowNegativeStock,
+      parentArticleId: data.parentArticleId,
+      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
       imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
       weight: data.weight > 0 ? data.weight : null,
       length: data.length > 0 ? data.length : null,
@@ -501,26 +574,30 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
   /// Met à jour un article existant
   Future<void> _updateArticle(ArticleFormData data) async {
     if (articleId == null) {
+      logger.e('❌ articleId manquant pour la mise à jour');
       state = ArticleFormError(
-        message: 'ID article manquant pour la mise à jour',
+        message: 'Erreur: ID article manquant',
         mode: mode,
         formData: data,
       );
       return;
     }
 
+    logger.d('📝 Mise à jour article: $articleId');
+
     final params = UpdateArticleParams(
       id: articleId!,
       name: data.name,
       code: data.code,
-      description: data.description,
+      description: data.description.isNotEmpty ? data.description : null,
+      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : null,
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
       supplierReference: data.supplierReference.isNotEmpty ? data.supplierReference : null,
-      categoryId: data.categoryId,
+      categoryId: data.categoryId.isNotEmpty ? data.categoryId : null,
       brandId: data.brandId.isNotEmpty ? data.brandId : null,
-      unitOfMeasureId: data.unitOfMeasureId,
+      unitOfMeasureId: data.unitOfMeasureId.isNotEmpty ? data.unitOfMeasureId : null,
       mainSupplierId: data.mainSupplierId.isNotEmpty ? data.mainSupplierId : null,
       purchasePrice: data.purchasePrice,
       sellingPrice: data.sellingPrice,
@@ -532,9 +609,9 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isSellable: data.isSellable,
       isPurchasable: data.isPurchasable,
       allowNegativeStock: data.allowNegativeStock,
-      imagePath: data.imagePath.isNotEmpty && !data.imagePath.startsWith('http')
-          ? data.imagePath
-          : null,
+      parentArticleId: data.parentArticleId,
+      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
+      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
       weight: data.weight > 0 ? data.weight : null,
       length: data.length > 0 ? data.length : null,
       width: data.width > 0 ? data.width : null,
