@@ -7,6 +7,7 @@
 import 'package:equatable/equatable.dart';
 import 'category_entity.dart';
 import 'brand_entity.dart';
+import 'supplier_entity.dart';
 import 'unit_of_measure_entity.dart';
 import 'article_entity.dart';
 import 'article_image_entity.dart';
@@ -31,7 +32,7 @@ class ArticleDetailEntity extends Equatable {
   final CategoryEntity? category;
   final BrandEntity? brand;
   final UnitOfMeasureEntity? unitOfMeasure;
-  final dynamic mainSupplier; // ⭐ NOUVEAU (Entity à créer plus tard)
+  final SupplierEntity? mainSupplier;
 
   // ==================== SECTION 3 : GESTION DE STOCK ====================
   final bool manageStock;
@@ -73,9 +74,9 @@ class ArticleDetailEntity extends Equatable {
   final List<ArticleEntity> variants; // ⭐ NOUVEAU
 
   // ==================== INFORMATIONS DE STOCK ====================
-  final String currentStock;
-  final String availableStock;
-  final String? reservedStock; // ⭐ NOUVEAU
+  final double currentStock;
+  final double availableStock;
+  final double? reservedStock; // ⭐ NOUVEAU
   final bool isLowStock;
 
   // ==================== CALCULS ====================
@@ -138,7 +139,7 @@ class ArticleDetailEntity extends Equatable {
     required this.marginPercent,
     this.allBarcodes = '',
     this.variantsCount = 0,
-    this.createdBy,
+    this.createdBy = '',
     required this.createdAt,
     this.updatedBy,
     required this.updatedAt,
@@ -188,14 +189,8 @@ class ArticleDetailEntity extends Equatable {
 
   /// Stock en pourcentage du stock maximum
   double get stockPercentage {
-    final stockAsDouble = double.tryParse(currentStock);
-
-    if (stockAsDouble == null || maxStockLevel <= 0) {
-      return 0;
-    }
-
-    // 3. Maintenant, on peut faire le calcul en toute sécurité.
-    return (stockAsDouble / maxStockLevel * 100).clamp(0, 100);
+    if (maxStockLevel <= 0) return 0;
+    return (currentStock / maxStockLevel * 100).clamp(0, 100);
   }
 
   @override

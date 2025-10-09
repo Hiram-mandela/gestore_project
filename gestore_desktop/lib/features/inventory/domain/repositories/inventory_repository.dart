@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/domain/repositories/inventory_repository.dart
-// Interface du repository pour la gestion de l'inventaire
-// MISE À JOUR : Ajout de getArticleDetailById
+// Repository abstrait pour l'inventaire
+// VERSION CORRIGÉE - Signatures cohérentes
 // ========================================
 
 import '../entities/article_entity.dart';
@@ -10,26 +10,12 @@ import '../entities/category_entity.dart';
 import '../entities/brand_entity.dart';
 import '../entities/unit_of_measure_entity.dart';
 import '../entities/paginated_response_entity.dart';
-import '../usecases/create_article_usecase.dart';
-import '../usecases/update_article_usecase.dart';
 
-/// Repository interface pour la gestion de l'inventaire
-/// Définit les contrats que l'implémentation doit respecter
+/// Repository abstrait pour l'inventaire
+/// Contrat entre Domain Layer et Data Layer
 abstract class InventoryRepository {
-  // ==================== ARTICLES ====================
+  // ==================== ARTICLES - LECTURE ====================
 
-  /// Récupère la liste paginée des articles
-  ///
-  /// [page] : Numéro de page (défaut: 1)
-  /// [pageSize] : Nombre d'éléments par page (défaut: 20)
-  /// [search] : Terme de recherche (optionnel)
-  /// [categoryId] : Filtrer par catégorie (optionnel)
-  /// [brandId] : Filtrer par marque (optionnel)
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  /// [isLowStock] : Filtrer les articles en stock bas (optionnel)
-  /// [ordering] : Champ de tri (ex: '-created_at', 'name')
-  ///
-  /// Returns: [PaginatedResponseEntity<ArticleEntity>] ou une erreur
   Future<(PaginatedResponseEntity<ArticleEntity>?, String?)> getArticles({
     int page = 1,
     int pageSize = 20,
@@ -41,134 +27,62 @@ abstract class InventoryRepository {
     String? ordering,
   });
 
-  /// Récupère un article par son ID (version liste simplifiée)
-  ///
-  /// [id] : ID de l'article
-  ///
-  /// Returns: [ArticleEntity] ou une erreur
   Future<(ArticleEntity?, String?)> getArticleById(String id);
-
-  /// Récupère le détail complet d'un article par son ID
-  /// ⭐ NOUVEAU - Retourne ArticleDetailEntity avec toutes les relations
-  ///
-  /// [id] : ID de l'article
-  ///
-  /// Returns: [ArticleDetailEntity] ou une erreur
   Future<(ArticleDetailEntity?, String?)> getArticleDetailById(String id);
 
-  /// Recherche des articles
-  ///
-  /// [query] : Terme de recherche
-  /// [page] : Numéro de page
-  ///
-  /// Returns: [PaginatedResponseEntity<ArticleEntity>] ou une erreur
   Future<(PaginatedResponseEntity<ArticleEntity>?, String?)> searchArticles({
     required String query,
     int page = 1,
   });
 
-  /// Récupère les articles avec stock bas
-  ///
-  /// Returns: [List<ArticleEntity>] ou une erreur
   Future<(List<ArticleEntity>?, String?)> getLowStockArticles();
-
-  /// Récupère les articles proches de la péremption
-  ///
-  /// Returns: [List<ArticleEntity>] ou une erreur
   Future<(List<ArticleEntity>?, String?)> getExpiringSoonArticles();
 
   // ==================== CRUD ARTICLES ====================
+  // ⭐ CORRECTION: Signatures cohérentes avec Map + imagePath
 
   /// Crée un nouvel article
-  ///
-  /// [params] : Paramètres de création
-  ///
-  /// Returns: [ArticleEntity] créé ou une erreur
-  Future<(ArticleEntity?, String?)> createArticle(CreateArticleParams params);
+  /// [data] : Map contenant les données
+  /// [imagePath] : Chemin optionnel de l'image
+  Future<(ArticleEntity?, String?)> createArticle(
+      Map<String, dynamic> data,
+      String? imagePath,
+      );
 
   /// Met à jour un article existant
-  ///
-  /// [params] : Paramètres de mise à jour (avec ID)
-  ///
-  /// Returns: [ArticleEntity] mis à jour ou une erreur
-  Future<(ArticleEntity?, String?)> updateArticle(UpdateArticleParams params);
+  /// [id] : ID de l'article
+  /// [data] : Map contenant les données à mettre à jour
+  /// [imagePath] : Chemin optionnel de la nouvelle image
+  Future<(ArticleEntity?, String?)> updateArticle(
+      String id,
+      Map<String, dynamic> data,
+      String? imagePath,
+      );
 
   /// Supprime un article
-  ///
-  /// [articleId] : ID de l'article à supprimer
-  ///
-  /// Returns: void ou une erreur
   Future<(void, String?)> deleteArticle(String articleId);
 
   // ==================== CATEGORIES - CRUD ====================
 
-  /// Récupère toutes les catégories
-  ///
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  ///
-  /// Returns: [List<CategoryEntity>] ou une erreur
-  Future<(List<CategoryEntity>?, String?)> getCategories({
-    bool? isActive,
-  });
-
-  /// Récupère une catégorie par son ID
-  ///
-  /// [id] : ID de la catégorie
-  ///
-  /// Returns: [CategoryEntity] ou une erreur
+  Future<(List<CategoryEntity>?, String?)> getCategories({bool? isActive});
   Future<(CategoryEntity?, String?)> getCategoryById(String id);
-
-  /// Crée une nouvelle catégorie
   Future<(CategoryEntity?, String?)> createCategory(Map<String, dynamic> data);
-
-  /// Met à jour une catégorie
   Future<(CategoryEntity?, String?)> updateCategory(String id, Map<String, dynamic> data);
-
-  /// Supprime une catégorie
   Future<(void, String?)> deleteCategory(String id);
 
   // ==================== BRANDS - CRUD ====================
 
-  /// Récupère toutes les marques
-  ///
-  /// [isActive] : Filtrer par statut actif (optionnel)
-  ///
-  /// Returns: [List<BrandEntity>] ou une erreur
-  Future<(List<BrandEntity>?, String?)> getBrands({
-    bool? isActive,
-  });
-
-  /// Récupère une marque par son ID
-  ///
-  /// [id] : ID de la marque
-  ///
-  /// Returns: [BrandEntity] ou une erreur
+  Future<(List<BrandEntity>?, String?)> getBrands({bool? isActive});
   Future<(BrandEntity?, String?)> getBrandById(String id);
-
-  /// Crée une nouvelle marque
   Future<(BrandEntity?, String?)> createBrand(Map<String, dynamic> data, String? logoPath);
-
-  /// Met à jour une marque
   Future<(BrandEntity?, String?)> updateBrand(String id, Map<String, dynamic> data, String? logoPath);
-
-  /// Supprime une marque
   Future<(void, String?)> deleteBrand(String id);
-
 
   // ==================== UNITS OF MEASURE - CRUD ====================
 
-  /// Récupère toutes les unités de mesure
   Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({bool? isActive});
-
-  /// Récupère une unité de mesure par ID
-  Future<(UnitOfMeasureEntity?, String?)> getUnitById(String id);
-
-  /// Crée une nouvelle unité de mesure
-  Future<(UnitOfMeasureEntity?, String?)> createUnit(Map<String, dynamic> data);
-
-  /// Met à jour une unité de mesure
-  Future<(UnitOfMeasureEntity?, String?)> updateUnit(String id, Map<String, dynamic> data);
-
-  /// Supprime une unité de mesure
-  Future<(void, String?)> deleteUnit(String id);
+  Future<(UnitOfMeasureEntity?, String?)> getUnitOfMeasureById(String id);
+  Future<(UnitOfMeasureEntity?, String?)> createUnitOfMeasure(Map<String, dynamic> data);
+  Future<(UnitOfMeasureEntity?, String?)> updateUnitOfMeasure(String id, Map<String, dynamic> data);
+  Future<(void, String?)> deleteUnitOfMeasure(String id);
 }

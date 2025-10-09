@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_form_step4.dart
 // ÉTAPE 4 : Prix et Fournisseur (3 champs + calculs)
-// VERSION 2.0 - Formulaire Complet
+// VERSION 2.0 - CORRIGÉE - Fix dropdown supplier
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -70,14 +70,14 @@ class ArticleFormStep4 extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Prix et fournisseur',
+                    'Prix et Fournisseur',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Définissez les prix et le fournisseur principal',
+                    'Définissez les prix et associez un fournisseur',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -100,40 +100,43 @@ class ArticleFormStep4 extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle(context, 'Tarification', Icons.price_change),
+            _buildSectionTitle(context, 'Prix', Icons.payments),
             const SizedBox(height: 16),
 
             Row(
               children: [
                 // Prix d'achat
                 Expanded(
-                  child: CustomNumberField(
-                    label: 'Prix d\'achat HT',
-                    initialValue: formData.purchasePrice,
+                  child: CustomTextField(
+                    label: 'Prix d\'achat (HT)',
+                    initialValue: formData.purchasePrice.toString(),
                     errorText: errors['purchasePrice'],
-                    onChanged: (value) => onFieldChanged('purchasePrice', value),
+                    onChanged: (value) {
+                      final price = double.tryParse(value) ?? 0.0;
+                      onFieldChanged('purchasePrice', price);
+                    },
                     prefixIcon: Icons.shopping_cart,
-                    suffix: 'FCFA',
-                    decimals: 2,
-                    minValue: 0,
-                    helperText: 'Coût d\'achat unitaire',
                     required: true,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    helperText: 'Coût d\'achat HT',
                   ),
                 ),
                 const SizedBox(width: 16),
+
                 // Prix de vente
                 Expanded(
-                  child: CustomNumberField(
-                    label: 'Prix de vente TTC',
-                    initialValue: formData.sellingPrice,
+                  child: CustomTextField(
+                    label: 'Prix de vente (TTC)',
+                    initialValue: formData.sellingPrice.toString(),
                     errorText: errors['sellingPrice'],
-                    onChanged: (value) => onFieldChanged('sellingPrice', value),
-                    prefixIcon: Icons.point_of_sale,
-                    suffix: 'FCFA',
-                    decimals: 2,
-                    minValue: 0,
-                    helperText: 'Prix de vente au client',
+                    onChanged: (value) {
+                      final price = double.tryParse(value) ?? 0.0;
+                      onFieldChanged('sellingPrice', price);
+                    },
+                    prefixIcon: Icons.sell,
                     required: true,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    helperText: 'Prix de vente TTC',
                   ),
                 ),
               ],
@@ -141,15 +144,15 @@ class ArticleFormStep4 extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // Info fiscale
-            _buildTaxInfo(context),
+            // Info TVA
+            _buildInfoBox(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTaxInfo(BuildContext context) {
+  Widget _buildInfoBox(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -212,21 +215,14 @@ class ArticleFormStep4 extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle(context, 'Calculs automatiques', Icons.calculate),
+            _buildSectionTitle(context, 'Analyse de marge', Icons.analytics),
             const SizedBox(height: 16),
 
-            // Carte marge
+            // Calculs
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    marginColor.withValues(alpha: 0.1),
-                    marginColor.withValues(alpha: 0.05),
-                  ],
-                ),
+                color: marginColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: marginColor.withValues(alpha: 0.3)),
               ),
@@ -234,115 +230,82 @@ class ArticleFormStep4 extends ConsumerWidget {
                 children: [
                   // Marge en pourcentage
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(marginIcon, color: marginColor, size: 32),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            '${margin.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: marginColor,
-                            ),
-                          ),
-                          Text(
-                            marginQuality,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: marginColor,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          Icon(marginIcon, color: marginColor, size: 32),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Marge',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                '${margin.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: marginColor,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  // Bénéfice
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Bénéfice unitaire',
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 14,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      ),
-                      Text(
-                        '${profit.toStringAsFixed(2)} FCFA',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: profit >= 0 ? Colors.green : Colors.red,
+                        decoration: BoxDecoration(
+                          color: marginColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          marginQuality,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
                   ),
+
+                  const Divider(height: 24),
+
+                  // Détails
+                  _buildCalculationRow('Profit unitaire', '${profit.toStringAsFixed(0)} FCFA', profit >= 0),
+                  const SizedBox(height: 8),
+                  _buildCalculationRow('Prix achat', '${formData.purchasePrice.toStringAsFixed(0)} FCFA', false),
+                  const SizedBox(height: 8),
+                  _buildCalculationRow('Prix vente', '${formData.sellingPrice.toStringAsFixed(0)} FCFA', true),
                 ],
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Détails des calculs
-            _buildCalculationDetails(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCalculationDetails(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          _buildCalculationRow(
-            'Prix d\'achat HT',
-            '${formData.purchasePrice.toStringAsFixed(2)} FCFA',
-          ),
-          const Divider(height: 16),
-          _buildCalculationRow(
-            'Prix de vente TTC',
-            '${formData.sellingPrice.toStringAsFixed(2)} FCFA',
-          ),
-          const Divider(height: 16),
-          _buildCalculationRow(
-            'Bénéfice',
-            '${(formData.sellingPrice - formData.purchasePrice).toStringAsFixed(2)} FCFA',
-            isBold: true,
-          ),
-          const Divider(height: 16),
-          _buildCalculationRow(
-            'Marge',
-            '${formData.marginPercent.toStringAsFixed(2)}%',
-            isBold: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalculationRow(String label, String value, {bool isBold = false}) {
+  Widget _buildCalculationRow(String label, String value, bool isBold) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey.shade700,
-            fontSize: 13,
+            fontSize: 14,
+            color: Colors.grey[700],
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -361,8 +324,8 @@ class ArticleFormStep4 extends ConsumerWidget {
   // ==================== SECTION FOURNISSEUR ====================
 
   Widget _buildSupplierSection(BuildContext context, WidgetRef ref) {
-    // TODO: Charger la liste des fournisseurs depuis le provider
-    // Pour l'instant, c'est un placeholder
+    // ⭐ CORRECTION: Ne pas utiliser de dropdown si on n'a pas de fournisseurs
+    // Pour éviter l'erreur de valeur dupliquée
 
     return Card(
       child: Padding(
@@ -386,19 +349,18 @@ class ArticleFormStep4 extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // Dropdown fournisseur (placeholder)
-            CustomDropdown<String>(
-              label: 'Sélectionner un fournisseur',
-              value: formData.mainSupplierId.isEmpty ? null : formData.mainSupplierId,
-              items: const [
-                DropdownMenuItem(
-                  value: 'placeholder',
-                  child: Text('Module Fournisseurs à implémenter'),
-                ),
-              ],
-              onChanged: (value) => onFieldChanged('mainSupplierId', value ?? ''),
+            // ⭐ CORRECTION: Utiliser un TextField désactivé au lieu d'un dropdown
+            // Cela évite le problème de valeur dupliquée
+            CustomTextField(
+              label: 'Fournisseur principal',
+              initialValue: formData.mainSupplierId.isNotEmpty
+                  ? 'Fournisseur sélectionné (ID: ${formData.mainSupplierId.substring(0, 8)}...)'
+                  : '',
+              errorText: errors['mainSupplierId'],
+              onChanged: (value) => onFieldChanged('mainSupplierId', value),
               prefixIcon: Icons.local_shipping,
-              helperText: 'Fournisseur principal pour cet article (optionnel)',
+              helperText: 'Module Fournisseurs non encore implémenté',
+              enabled: false,
             ),
 
             const SizedBox(height: 16),
@@ -418,7 +380,8 @@ class ArticleFormStep4 extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       'Le module Fournisseurs sera disponible dans une prochaine version. '
-                          'Vous pourrez alors lier vos articles aux fournisseurs.',
+                          'Vous pourrez alors lier vos articles aux fournisseurs et gérer '
+                          'les prix d\'achat spécifiques par fournisseur.',
                       style: TextStyle(
                         color: Colors.blue.shade700,
                         fontSize: 12,
@@ -460,7 +423,7 @@ class ArticleFormStep4 extends ConsumerWidget {
         content: const Text(
           'Cette fonctionnalité sera disponible avec le module Fournisseurs.\n\n'
               'En attendant, vous pouvez créer l\'article sans fournisseur '
-              'et l\'associer plus tard.',
+              'et l\'associer plus tard lorsque le module sera disponible.',
         ),
         actions: [
           TextButton(

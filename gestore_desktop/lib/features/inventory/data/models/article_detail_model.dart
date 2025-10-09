@@ -8,6 +8,7 @@ import '../../domain/entities/article_detail_entity.dart';
 import '../../domain/entities/article_entity.dart';
 import 'category_model.dart';
 import 'brand_model.dart';
+import 'supplier_model.dart';
 import 'unit_of_measure_model.dart';
 import 'article_model.dart';
 import 'article_image_model.dart';
@@ -66,9 +67,9 @@ class ArticleDetailModel {
   final List<ArticleModel> variants;
 
   // ==================== INFORMATIONS DE STOCK ====================
-  final String currentStock;
-  final String availableStock;
-  final String? reservedStock;
+  final double currentStock;
+  final double availableStock;
+  final double? reservedStock;
   final bool isLowStock;
 
   // ==================== CALCULS ====================
@@ -131,9 +132,9 @@ class ArticleDetailModel {
     required this.marginPercent,
     this.allBarcodes = '',
     this.variantsCount = 0,
-    this.createdBy,
+    this.createdBy = '',
     required this.createdAt,
-    this.updatedBy,
+    this.updatedBy = '',
     required this.updatedAt,
     this.syncStatus,
     required this.needsSync,
@@ -151,7 +152,9 @@ class ArticleDetailModel {
       barcode: json['barcode'] as String?,
       internalReference: json['internal_reference'] as String?,
       supplierReference: json['supplier_reference'] as String?,
-      tags: json['tags'] as String?,
+
+      // ⭐ CORRECTION: tags peut être String, List ou null
+      tags: _parseStringOrList(json['tags']),
       notes: json['notes'] as String?,
 
       // Classification
@@ -164,7 +167,9 @@ class ArticleDetailModel {
       unitOfMeasure: json['unit_of_measure'] != null
           ? UnitOfMeasureModel.fromJson(json['unit_of_measure'] as Map<String, dynamic>)
           : null,
-      mainSupplier: json['main_supplier'], // TODO: Créer SupplierModel
+      mainSupplier: json['main_supplier'] != null
+          ? SupplierModel.fromJson(json['main_supplier'] as Map<String, dynamic>)
+          : null,
 
       // Stock
       manageStock: json['manage_stock'] as bool? ?? true,
@@ -176,11 +181,11 @@ class ArticleDetailModel {
       isPurchasable: json['is_purchasable'] as bool? ?? true,
       allowNegativeStock: json['allow_negative_stock'] as bool? ?? false,
 
-      // Prix
+      // Prix - ⭐ CORRECTION: Parse String ou num
       purchasePrice: _parsePrice(json['purchase_price']),
       sellingPrice: _parsePrice(json['selling_price']),
 
-      // Dimensions
+      // Dimensions - ⭐ CORRECTION: Parse String ou num
       weight: _parseDouble(json['weight']),
       length: _parseDouble(json['length']),
       width: _parseDouble(json['width']),
@@ -190,7 +195,7 @@ class ArticleDetailModel {
       parentArticle: json['parent_article'] != null
           ? ArticleModel.fromJson(json['parent_article'] as Map<String, dynamic>)
           : null,
-      variantAttributes: json['variant_attributes'] as String?,
+      variantAttributes: _parseStringOrNull(json['variant_attributes']),
 
       // Images
       image: json['image'] as String?,
@@ -216,14 +221,14 @@ class ArticleDetailModel {
           [],
 
       // Stock
-      currentStock: json['current_stock']?.toString() ?? '0',
-      availableStock: json['available_stock']?.toString() ?? '0',
-      reservedStock: json['reserved_stock']?.toString(),
+      currentStock: _parseDouble(json['current_stock']) ?? 0.0,
+      availableStock: _parseDouble(json['available_stock']) ?? 0.0,
+      reservedStock: _parseDouble(json['reserved_stock']),
       isLowStock: _parseBool(json['is_low_stock']),
 
-      // Calculs
+      // Calculs - ⭐ CORRECTION: all_barcodes peut être List ou String
       marginPercent: _parseDouble(json['margin_percent']) ?? 0.0,
-      allBarcodes: json['all_barcodes'] as String? ?? '',
+      allBarcodes: _parseStringOrList(json['all_barcodes']) ?? '',
       variantsCount: _parseInt(json['variants_count']) ?? 0,
 
       // Audit
@@ -253,7 +258,7 @@ class ArticleDetailModel {
       category: category?.toEntity(),
       brand: brand?.toEntity(),
       unitOfMeasure: unitOfMeasure?.toEntity(),
-      mainSupplier: mainSupplier,
+      mainSupplier: mainSupplier?.toEntity(),
       manageStock: manageStock,
       minStockLevel: minStockLevel,
       maxStockLevel: maxStockLevel,
@@ -294,42 +299,82 @@ class ArticleDetailModel {
     );
   }
 
-  // ==================== HELPERS ====================
+  // ==================== HELPERS DE PARSING ====================
 
+  /// Parse un prix depuis String, num ou null
   static double _parsePrice(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
-      return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+      final cleaned = value.replaceAll(',', '').replaceAll(' ', '');
+      return double.tryParse(cleaned) ?? 0.0;
     }
     return 0.0;
   }
 
+  /// Parse un double depuis String, num ou null
   static double? _parseDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
-      return double.tryParse(value.replaceAll(',', ''));
+      if (value.isEmpty) return null;
+      final cleaned = value.replaceAll(',', '').replaceAll(' ', '');
+      return double.tryParse(cleaned);
     }
     return null;
   }
 
+  /// Parse un int depuis String, num ou null
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
-    if (value is String) return int.tryParse(value);
+    if (value is double) return value.toInt();
+    if (value is String) {
+      if (value.isEmpty) return null;
+      return int.tryParse(value);
+    }
     return null;
   }
 
+  /// Parse un bool depuis diverses sources
   static bool _parseBool(dynamic value) {
     if (value == null) return false;
     if (value is bool) return value;
     if (value is String) {
       return value.toLowerCase() == 'true' || value == '1';
     }
-    if (value is int) return value == 1;
+    if (value is int) return value != 0;
     return false;
+  }
+
+  /// Parse String ou null (gère les objets JSON vides)
+  static String? _parseStringOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      return value.isEmpty ? null : value;
+    }
+    if (value is Map && value.isEmpty) return null; // {} vide
+    if (value is List && value.isEmpty) return null; // [] vide
+    return value.toString();
+  }
+
+  /// ⭐ NOUVEAU: Parse une valeur qui peut être String, List ou null
+  /// Si c'est une List, la convertit en String séparé par des virgules
+  static String? _parseStringOrList(dynamic value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      return value.isEmpty ? null : value;
+    }
+
+    if (value is List) {
+      if (value.isEmpty) return null;
+      // Convertir la liste en string séparé par des virgules
+      return value.map((e) => e.toString()).join(', ');
+    }
+
+    return value.toString();
   }
 }

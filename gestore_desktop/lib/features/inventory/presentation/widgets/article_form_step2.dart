@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_form_step2.dart
 // ÉTAPE 2 : Classification (3 champs)
-// VERSION 2.0 - Formulaire Complet
+// VERSION 2.0 - CORRIGÉE - Fix layout constraints
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -166,6 +166,7 @@ class ArticleFormStep2 extends ConsumerWidget {
         return DropdownMenuItem<String>(
           value: category.id,
           child: Row(
+            mainAxisSize: MainAxisSize.min, // ⭐ FIX: Shrink-wrap
             children: [
               // Couleur de la catégorie
               Container(
@@ -177,9 +178,10 @@ class ArticleFormStep2 extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              // ⭐ FIX: Utiliser Flexible au lieu de Expanded
+              Flexible(
                 child: Text(
-                  category.fullPath ?? category.name,
+                  category.fullPath,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -260,12 +262,13 @@ class ArticleFormStep2 extends ConsumerWidget {
     final brands = state.brands;
 
     return CustomDropdown<String>(
-      label: 'Sélectionner une marque',
+      label: 'Sélectionner une marque (optionnel)',
       value: formData.brandId.isEmpty ? null : formData.brandId,
       items: brands.map((brand) {
         return DropdownMenuItem<String>(
           value: brand.id,
           child: Row(
+            mainAxisSize: MainAxisSize.min, // ⭐ FIX: Shrink-wrap
             children: [
               // Logo de la marque (si disponible)
               if (brand.logoUrl != null && brand.logoUrl!.isNotEmpty)
@@ -282,7 +285,8 @@ class ArticleFormStep2 extends ConsumerWidget {
               else
                 const Icon(Icons.branding_watermark, size: 24),
               const SizedBox(width: 12),
-              Expanded(
+              // ⭐ FIX: Utiliser Flexible au lieu de Expanded
+              Flexible(
                 child: Text(
                   brand.name,
                   overflow: TextOverflow.ellipsis,
@@ -371,6 +375,7 @@ class ArticleFormStep2 extends ConsumerWidget {
         return DropdownMenuItem<String>(
           value: unit.id,
           child: Row(
+            mainAxisSize: MainAxisSize.min, // ⭐ FIX: Shrink-wrap
             children: [
               Text(
                 unit.symbol,
@@ -380,13 +385,15 @@ class ArticleFormStep2 extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              // ⭐ FIX: Utiliser Flexible au lieu de Expanded
+              Flexible(
                 child: Text(
                   unit.name,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (unit.isDecimal)
+              if (unit.isDecimal) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -398,6 +405,7 @@ class ArticleFormStep2 extends ConsumerWidget {
                     style: TextStyle(fontSize: 10, color: Colors.blue),
                   ),
                 ),
+              ],
             ],
           ),
         );

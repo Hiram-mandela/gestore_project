@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/data/models/article_model.dart
 // Model pour le mapping JSON <-> Entity Article
-// Correspond au ArticleListSerializer du backend
+// VERSION CORRIGÉE - Parse les strings en numbers
 // ========================================
 
 import '../../domain/entities/article_entity.dart';
@@ -67,19 +67,56 @@ class ArticleModel {
       categoryColor: json['category_color'] as String? ?? '#000000',
       brandName: json['brand_name'] as String?,
       unitSymbol: json['unit_symbol'] as String,
-      purchasePrice: (json['purchase_price'] as num).toDouble(),
-      sellingPrice: (json['selling_price'] as num).toDouble(),
+
+      // ⭐ CORRECTION: Parser les prix (peuvent être String ou num)
+      purchasePrice: _parsePrice(json['purchase_price']),
+      sellingPrice: _parsePrice(json['selling_price']),
+
       imageUrl: json['image_url'] as String?,
-      currentStock: (json['current_stock'] as num?)?.toDouble() ?? 0.0,
-      availableStock: (json['available_stock'] as num?)?.toDouble() ?? 0.0,
+
+      // ⭐ CORRECTION: Parser les stocks (peuvent être String, num ou null)
+      currentStock: _parseDouble(json['current_stock']) ?? 0.0,
+      availableStock: _parseDouble(json['available_stock']) ?? 0.0,
+
       isLowStock: json['is_low_stock'] as bool? ?? false,
-      marginPercent: (json['margin_percent'] as num?)?.toDouble() ?? 0.0,
+
+      // ⭐ CORRECTION: Parser la marge
+      marginPercent: _parseDouble(json['margin_percent']) ?? 0.0,
+
       isSellable: json['is_sellable'] as bool? ?? true,
       isActive: json['is_active'] as bool? ?? true,
       statusDisplay: json['status_display'] as String? ?? 'Inactif',
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
     );
+  }
+
+  // ==================== HELPERS DE PARSING ====================
+
+  /// Parse un prix depuis String, num ou null
+  static double _parsePrice(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      // Gérer les virgules et espaces
+      final cleaned = value.replaceAll(',', '').replaceAll(' ', '');
+      return double.tryParse(cleaned) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  /// Parse un double depuis String, num ou null
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      if (value.isEmpty) return null;
+      final cleaned = value.replaceAll(',', '').replaceAll(' ', '');
+      return double.tryParse(cleaned);
+    }
+    return null;
   }
 
   /// Convertit le Model en JSON pour l'API

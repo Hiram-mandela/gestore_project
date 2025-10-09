@@ -71,10 +71,6 @@ class ArticleImageInline(admin.TabularInline):
     fields = ['image', 'alt_text', 'is_primary', 'order']
 
 
-# REMARQUE: ArticleSupplierInline supprimé
-# Utiliser SupplierArticleInline de l'app suppliers à la place
-
-
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = [
@@ -88,7 +84,7 @@ class ArticleAdmin(admin.ModelAdmin):
     search_fields = ['name', 'code', 'barcode', 'internal_reference', 'description']
     ordering = ['category__name', 'name']
     raw_id_fields = ['category', 'brand', 'unit_of_measure', 'main_supplier', 'parent_article']
-    inlines = [ArticleBarcodeInline, ArticleImageInline]  # ArticleSupplierInline retiré
+    inlines = [ArticleBarcodeInline, ArticleImageInline]
     
     fieldsets = (
         ('Identification', {
@@ -126,16 +122,34 @@ class ArticleAdmin(admin.ModelAdmin):
         }),
     )
     
+    # ⭐ CORRECTION: Méthode margin_display
     def margin_display(self, obj):
+        """
+        Affiche la marge avec couleur
+        CORRECTION: Utiliser {:.1f} directement sans format_html imbriqué
+        """
         margin = obj.get_margin_percent()
-        color = 'green' if margin > 20 else 'orange' if margin > 10 else 'red'
+        
+        # Déterminer la couleur selon la marge
+        if margin > 20:
+            color = 'green'
+        elif margin > 10:
+            color = 'orange'
+        else:
+            color = 'red'
+        
+        # ✅ SOLUTION 1: Formatter la valeur AVANT format_html
+        margin_formatted = f"{margin:.1f}"
         return format_html(
-            '<span style="color: {};">{:.1f}%</span>',
-            color, margin
+            '<span style="color: {};">{}%</span>',
+            color,
+            margin_formatted
         )
+    
     margin_display.short_description = 'Marge'
     
     def stock_status(self, obj):
+        """Affiche le statut du stock avec couleur"""
         if not obj.manage_stock:
             return format_html('<span style="color: gray;">Non géré</span>')
         
@@ -146,6 +160,7 @@ class ArticleAdmin(admin.ModelAdmin):
             return format_html('<span style="color: orange;">{}</span>', stock)
         else:
             return format_html('<span style="color: green;">{}</span>', stock)
+    
     stock_status.short_description = 'Stock'
 
 

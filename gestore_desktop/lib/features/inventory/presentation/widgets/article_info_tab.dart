@@ -221,10 +221,10 @@ class ArticleInfoTab extends StatelessWidget {
           _InfoCard(
             child: Column(
               children: [
-                _InfoRow('Créé par', article.createdBy!),
+                _InfoRow('Créé par', article.createdBy ?? ''),
                 _InfoRow('Créé le', _formatDate(article.createdAt)),
                 if (article.updatedBy != null)
-                  _InfoRow('Modifié par', article.updatedBy!),
+                  _InfoRow('Modifié par', article.updatedBy ?? ''),
                 _InfoRow('Modifié le', _formatDate(article.updatedAt)),
               ],
             ),

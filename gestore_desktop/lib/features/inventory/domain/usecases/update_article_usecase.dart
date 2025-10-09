@@ -232,7 +232,8 @@ class UpdateArticleUseCase implements UseCase<ArticleEntity, UpdateArticleParams
       return (null, validationError);
     }
 
-    // Appel repository
+    // ⭐ CORRECTION: Appel repository avec params.id, params.toJson(), et params.imagePath
+    // Au lieu de passer params directement
     return await repository.updateArticle(
       params.id,
       params.toJson(),

@@ -101,17 +101,20 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
           isPrimary: img.isPrimary,
           order: img.order,
         );
-      }).toList() ?? [];
+      }).toList();
 
-      // Mapper les codes-barres additionnels
+      // ⭐ CORRECTION FINALE: Mapper les codes-barres additionnels
+      // Le problème : barcode.barcodeType est de type BarcodeType (enum)
+      // AdditionalBarcodeData attend un String
+      // Solution : Utiliser .value pour extraire la valeur String de l'enum
       final additionalBarcodes = article.additionalBarcodes.map((barcode) {
         return AdditionalBarcodeData(
           id: barcode.id,
           barcode: barcode.barcode,
-          barcodeType: barcode.barcodeType,
+          barcodeType: barcode.barcodeType.value,  // ✅ Utiliser .value pour convertir enum en String
           isPrimary: barcode.isPrimary,
         );
-      }).toList() ?? [];
+      }).toList();
 
       // Remplir le formulaire avec les données de l'article
       final formData = ArticleFormData(
@@ -119,7 +122,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         name: article.name,
         code: article.code,
         description: article.description,
-        shortDescription: article.shortDescription ?? '',
+        shortDescription: article.shortDescription,
         articleType: article.articleType.value,
         barcode: article.barcode ?? '',
         internalReference: article.internalReference ?? '',
@@ -518,8 +521,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     final params = CreateArticleParams(
       name: data.name,
       code: data.code,
-      description: data.description.isNotEmpty ? data.description : null,
-      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : null,
+      description: data.description.isNotEmpty ? data.description : '',  // ⭐ CORRECTION
+      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : '',
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
@@ -550,6 +553,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isActive: data.isActive,
     );
 
+    // ⭐ CORRECTION: Appel avec params.toJson() et params.imagePath
     final result = await createArticleUseCase(params);
     final error = result.$2;
     final article = result.$1;
@@ -589,8 +593,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       id: articleId!,
       name: data.name,
       code: data.code,
-      description: data.description.isNotEmpty ? data.description : null,
-      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : null,
+      description: data.description.isNotEmpty ? data.description : '',  // ⭐ CORRECTION
+      shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : '',
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
@@ -621,6 +625,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isActive: data.isActive,
     );
 
+    // ⭐ CORRECTION: Appel avec params
     final result = await updateArticleUseCase(params);
     final error = result.$2;
     final article = result.$1;

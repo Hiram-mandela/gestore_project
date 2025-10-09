@@ -225,7 +225,8 @@ class CreateArticleUseCase implements UseCase<ArticleEntity, CreateArticleParams
       return (null, validationError);
     }
 
-    // Appel repository
+    // ⭐ CORRECTION: Appel repository avec params.toJson() et params.imagePath
+    // Au lieu de passer params directement
     return await repository.createArticle(
       params.toJson(),
       params.imagePath,

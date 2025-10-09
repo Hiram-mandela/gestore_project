@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/data/repositories/inventory_repository_impl.dart
 // Implémentation du repository inventory
-// VERSION COMPLÈTE avec CRUD
+// VERSION CORRIGÉE - Signatures cohérentes
 // ========================================
 
 import 'package:injectable/injectable.dart';
@@ -13,12 +13,8 @@ import '../../domain/entities/brand_entity.dart';
 import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/entities/paginated_response_entity.dart';
 import '../../domain/repositories/inventory_repository.dart';
-import '../../domain/usecases/create_article_usecase.dart';
-import '../../domain/usecases/update_article_usecase.dart';
 import '../datasources/inventory_remote_datasource.dart';
 
-/// Implémentation du repository inventory
-/// Fait le pont entre le DataSource et le Domain Layer
 @LazySingleton(as: InventoryRepository)
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryRemoteDataSource remoteDataSource;
@@ -56,13 +52,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
         ordering: ordering,
       );
 
-      // Convertir le model en entity
       final responseEntity = responseModel.toEntity(
             (articleModel) => articleModel.toEntity(),
       );
 
       logger.i('✅ Repository: ${responseEntity.count} articles récupérés');
-
       return (responseEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -75,16 +69,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(ArticleEntity?, String?)> getArticleById(String id) async {
     try {
       logger.d('📦 Repository: Récupération article $id');
-
       final articleModel = await remoteDataSource.getArticleById(id);
       final articleEntity = articleModel.toEntity();
-
       logger.i('✅ Repository: Article ${articleEntity.name} récupéré');
-
       return (articleEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
-      logger.e('❌ Repository: Erreur récupération article: $errorMessage');
+      logger.e('❌ Repository: Erreur article: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }
@@ -92,23 +83,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<(ArticleDetailEntity?, String?)> getArticleDetailById(String id) async {
     try {
-      logger.d('📦 Repository: Récupération détail article $id');
-
+      logger.d('📦 Repository: Récupération détails article $id');
       final articleDetailModel = await remoteDataSource.getArticleDetailById(id);
       final articleDetailEntity = articleDetailModel.toEntity();
-
-      logger.i('✅ Repository: Détail article ${articleDetailEntity.name} récupéré');
-      logger.d('   - Catégorie: ${articleDetailEntity.category?.name ?? "N/A"}');
-      logger.d('   - Marque: ${articleDetailEntity.brand?.name ?? "N/A"}');
-      logger.d('   - Stock: ${articleDetailEntity.currentStock}');
-      logger.d('   - Images: ${articleDetailEntity.images.length}');
-      logger.d('   - Variantes: ${articleDetailEntity.variants.length}');
-      logger.d('   - Historique prix: ${articleDetailEntity.priceHistory.length}');
-
+      logger.i('✅ Repository: Détails article ${articleDetailEntity.name} récupérés');
       return (articleDetailEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
-      logger.e('❌ Repository: Erreur récupération détail article: $errorMessage');
+      logger.e('❌ Repository: Erreur détails article: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }
@@ -119,19 +101,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
     int page = 1,
   }) async {
     try {
-      logger.d('🔍 Repository: Recherche "$query"');
-
+      logger.d('📦 Repository: Recherche articles "$query"');
       final responseModel = await remoteDataSource.searchArticles(
         query: query,
         page: page,
       );
-
       final responseEntity = responseModel.toEntity(
             (articleModel) => articleModel.toEntity(),
       );
-
-      logger.i('✅ Repository: ${responseEntity.count} résultats trouvés');
-
+      logger.i('✅ Repository: ${responseEntity.count} articles trouvés');
       return (responseEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -144,13 +122,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(List<ArticleEntity>?, String?)> getLowStockArticles() async {
     try {
       logger.d('📦 Repository: Récupération articles stock bas');
-
       final articlesModel = await remoteDataSource.getLowStockArticles();
-      final articlesEntity =
-      articlesModel.map((model) => model.toEntity()).toList();
-
+      final articlesEntity = articlesModel.map((model) => model.toEntity()).toList();
       logger.i('✅ Repository: ${articlesEntity.length} articles stock bas');
-
       return (articlesEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -163,13 +137,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(List<ArticleEntity>?, String?)> getExpiringSoonArticles() async {
     try {
       logger.d('📦 Repository: Récupération articles péremption proche');
-
       final articlesModel = await remoteDataSource.getExpiringSoonArticles();
-      final articlesEntity =
-      articlesModel.map((model) => model.toEntity()).toList();
-
+      final articlesEntity = articlesModel.map((model) => model.toEntity()).toList();
       logger.i('✅ Repository: ${articlesEntity.length} articles péremption proche');
-
       return (articlesEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -179,29 +149,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   // ==================== ARTICLES - CRUD ====================
+  // ⭐ CORRECTION: Signatures cohérentes
 
   @override
   Future<(ArticleEntity?, String?)> createArticle(
-      CreateArticleParams params,
+      Map<String, dynamic> data,
+      String? imagePath,
       ) async {
     try {
-      logger.d('📦 Repository: Création article "${params.name}"');
-      logger.d('   Code: ${params.code}');
-      logger.d('   Catégorie: ${params.categoryId}');
-      logger.d('   Prix vente: ${params.sellingPrice} FCFA');
+      logger.d('📦 Repository: Création article "${data['name']}"');
+      logger.d('   Code: ${data['code']}');
+      logger.d('   Prix vente: ${data['selling_price']} FCFA');
 
-      final data = params.toJson();
-      final articleModel = await remoteDataSource.createArticle(
-        data,
-        params.imagePath,
-      );
-
+      final articleModel = await remoteDataSource.createArticle(data, imagePath);
       final articleEntity = articleModel.toEntity();
 
       logger.i('✅ Repository: Article "${articleEntity.name}" créé avec succès');
-      logger.d('   ID: ${articleEntity.id}');
-      logger.d('   Code: ${articleEntity.code}');
-
       return (articleEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -212,24 +175,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   @override
   Future<(ArticleEntity?, String?)> updateArticle(
-      UpdateArticleParams params,
+      String id,
+      Map<String, dynamic> data,
+      String? imagePath,
       ) async {
     try {
-      logger.d('📦 Repository: Mise à jour article "${params.name}" (ID: ${params.id})');
-      logger.d('   Code: ${params.code}');
-      logger.d('   Prix vente: ${params.sellingPrice} FCFA');
+      logger.d('📦 Repository: Mise à jour article "${data['name']}" (ID: $id)');
+      logger.d('   Code: ${data['code']}');
+      logger.d('   Prix vente: ${data['selling_price']} FCFA');
 
-      final data = params.toJson();
-      final articleModel = await remoteDataSource.updateArticle(
-        params.id,
-        data,
-        params.imagePath,
-      );
-
+      final articleModel = await remoteDataSource.updateArticle(id, data, imagePath);
       final articleEntity = articleModel.toEntity();
 
       logger.i('✅ Repository: Article "${articleEntity.name}" mis à jour');
-
       return (articleEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -242,11 +200,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(void, String?)> deleteArticle(String articleId) async {
     try {
       logger.d('📦 Repository: Suppression article (ID: $articleId)');
-
       await remoteDataSource.deleteArticle(articleId);
-
       logger.i('✅ Repository: Article supprimé avec succès');
-
       return (null, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -258,21 +213,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   // ==================== CATEGORIES ====================
 
   @override
-  Future<(List<CategoryEntity>?, String?)> getCategories({
-    bool? isActive,
-  }) async {
+  Future<(List<CategoryEntity>?, String?)> getCategories({bool? isActive}) async {
     try {
       logger.d('📦 Repository: Récupération catégories');
-
-      final categoriesModel = await remoteDataSource.getCategories(
-        isActive: isActive,
-      );
-
-      final categoriesEntity =
-      categoriesModel.map((model) => model.toEntity()).toList();
-
+      final categoriesModel = await remoteDataSource.getCategories(isActive: isActive);
+      final categoriesEntity = categoriesModel.map((model) => model.toEntity()).toList();
       logger.i('✅ Repository: ${categoriesEntity.length} catégories récupérées');
-
       return (categoriesEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -285,12 +231,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(CategoryEntity?, String?)> getCategoryById(String id) async {
     try {
       logger.d('📦 Repository: Récupération catégorie $id');
-
       final categoryModel = await remoteDataSource.getCategoryById(id);
       final categoryEntity = categoryModel.toEntity();
-
       logger.i('✅ Repository: Catégorie ${categoryEntity.name} récupérée');
-
       return (categoryEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -303,12 +246,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(CategoryEntity?, String?)> createCategory(Map<String, dynamic> data) async {
     try {
       logger.d('📦 Repository: Création catégorie "${data['name']}"');
-
       final categoryModel = await remoteDataSource.createCategory(data);
       final categoryEntity = categoryModel.toEntity();
-
       logger.i('✅ Repository: Catégorie "${categoryEntity.name}" créée');
-
       return (categoryEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -321,12 +261,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(CategoryEntity?, String?)> updateCategory(String id, Map<String, dynamic> data) async {
     try {
       logger.d('📦 Repository: Mise à jour catégorie $id');
-
       final categoryModel = await remoteDataSource.updateCategory(id, data);
       final categoryEntity = categoryModel.toEntity();
-
-      logger.i('✅ Repository: Catégorie "${categoryEntity.name}" mise à jour');
-
+      logger.i('✅ Repository: Catégorie mise à jour');
       return (categoryEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -339,11 +276,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(void, String?)> deleteCategory(String id) async {
     try {
       logger.d('📦 Repository: Suppression catégorie $id');
-
       await remoteDataSource.deleteCategory(id);
-
       logger.i('✅ Repository: Catégorie supprimée');
-
       return (null, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -355,21 +289,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   // ==================== BRANDS ====================
 
   @override
-  Future<(List<BrandEntity>?, String?)> getBrands({
-    bool? isActive,
-  }) async {
+  Future<(List<BrandEntity>?, String?)> getBrands({bool? isActive}) async {
     try {
       logger.d('📦 Repository: Récupération marques');
-
-      final brandsModel = await remoteDataSource.getBrands(
-        isActive: isActive,
-      );
-
-      final brandsEntity =
-      brandsModel.map((model) => model.toEntity()).toList();
-
+      final brandsModel = await remoteDataSource.getBrands(isActive: isActive);
+      final brandsEntity = brandsModel.map((model) => model.toEntity()).toList();
       logger.i('✅ Repository: ${brandsEntity.length} marques récupérées');
-
       return (brandsEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -382,12 +307,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(BrandEntity?, String?)> getBrandById(String id) async {
     try {
       logger.d('📦 Repository: Récupération marque $id');
-
       final brandModel = await remoteDataSource.getBrandById(id);
       final brandEntity = brandModel.toEntity();
-
       logger.i('✅ Repository: Marque ${brandEntity.name} récupérée');
-
       return (brandEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -400,12 +322,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(BrandEntity?, String?)> createBrand(Map<String, dynamic> data, String? logoPath) async {
     try {
       logger.d('📦 Repository: Création marque "${data['name']}"');
-
       final brandModel = await remoteDataSource.createBrand(data, logoPath);
       final brandEntity = brandModel.toEntity();
-
       logger.i('✅ Repository: Marque "${brandEntity.name}" créée');
-
       return (brandEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -418,12 +337,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(BrandEntity?, String?)> updateBrand(String id, Map<String, dynamic> data, String? logoPath) async {
     try {
       logger.d('📦 Repository: Mise à jour marque $id');
-
       final brandModel = await remoteDataSource.updateBrand(id, data, logoPath);
       final brandEntity = brandModel.toEntity();
-
-      logger.i('✅ Repository: Marque "${brandEntity.name}" mise à jour');
-
+      logger.i('✅ Repository: Marque mise à jour');
       return (brandEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -436,11 +352,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<(void, String?)> deleteBrand(String id) async {
     try {
       logger.d('📦 Repository: Suppression marque $id');
-
       await remoteDataSource.deleteBrand(id);
-
       logger.i('✅ Repository: Marque supprimée');
-
       return (null, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -452,21 +365,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   // ==================== UNITS OF MEASURE ====================
 
   @override
-  Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({
-    bool? isActive,
-  }) async {
+  Future<(List<UnitOfMeasureEntity>?, String?)> getUnitsOfMeasure({bool? isActive}) async {
     try {
       logger.d('📦 Repository: Récupération unités de mesure');
-
-      final unitsModel = await remoteDataSource.getUnitsOfMeasure(
-        isActive: isActive,
-      );
-
-      final unitsEntity =
-      unitsModel.map((model) => model.toEntity()).toList();
-
+      final unitsModel = await remoteDataSource.getUnitsOfMeasure(isActive: isActive);
+      final unitsEntity = unitsModel.map((model) => model.toEntity()).toList();
       logger.i('✅ Repository: ${unitsEntity.length} unités récupérées');
-
       return (unitsEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -476,33 +380,27 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<(UnitOfMeasureEntity?, String?)> getUnitById(String id) async {
+  Future<(UnitOfMeasureEntity?, String?)> getUnitOfMeasureById(String id) async {
     try {
       logger.d('📦 Repository: Récupération unité $id');
-
-      final unitModel = await remoteDataSource.getUnitById(id);
+      final unitModel = await remoteDataSource.getUnitOfMeasureById(id);
       final unitEntity = unitModel.toEntity();
-
       logger.i('✅ Repository: Unité ${unitEntity.name} récupérée');
-
       return (unitEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
-      logger.e('❌ Repository: Erreur récupération unité: $errorMessage');
+      logger.e('❌ Repository: Erreur unité: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }
 
   @override
-  Future<(UnitOfMeasureEntity?, String?)> createUnit(Map<String, dynamic> data) async {
+  Future<(UnitOfMeasureEntity?, String?)> createUnitOfMeasure(Map<String, dynamic> data) async {
     try {
       logger.d('📦 Repository: Création unité "${data['name']}"');
-
-      final unitModel = await remoteDataSource.createUnit(data);
+      final unitModel = await remoteDataSource.createUnitOfMeasure(data);
       final unitEntity = unitModel.toEntity();
-
       logger.i('✅ Repository: Unité "${unitEntity.name}" créée');
-
       return (unitEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -512,15 +410,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<(UnitOfMeasureEntity?, String?)> updateUnit(String id, Map<String, dynamic> data) async {
+  Future<(UnitOfMeasureEntity?, String?)> updateUnitOfMeasure(String id, Map<String, dynamic> data) async {
     try {
       logger.d('📦 Repository: Mise à jour unité $id');
-
-      final unitModel = await remoteDataSource.updateUnit(id, data);
+      final unitModel = await remoteDataSource.updateUnitOfMeasure(id, data);
       final unitEntity = unitModel.toEntity();
-
-      logger.i('✅ Repository: Unité "${unitEntity.name}" mise à jour');
-
+      logger.i('✅ Repository: Unité mise à jour');
       return (unitEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -530,14 +425,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<(void, String?)> deleteUnit(String id) async {
+  Future<(void, String?)> deleteUnitOfMeasure(String id) async {
     try {
       logger.d('📦 Repository: Suppression unité $id');
-
-      await remoteDataSource.deleteUnit(id);
-
+      await remoteDataSource.deleteUnitOfMeasure(id);
       logger.i('✅ Repository: Unité supprimée');
-
       return (null, null);
     } catch (e) {
       final errorMessage = e.toString();
@@ -546,17 +438,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
     }
   }
 
-  // ==================== UTILITAIRES ====================
+  // ==================== UTILS ====================
 
-  /// Extrait un message d'erreur lisible pour l'utilisateur
-  String _extractErrorMessage(String error) {
-    // Nettoyer le message d'erreur
-    if (error.contains('Exception:')) {
-      return error.split('Exception:').last.trim();
+  String _extractErrorMessage(String errorMessage) {
+    if (errorMessage.contains('DioException')) {
+      if (errorMessage.contains('401')) return 'Non autorisé';
+      if (errorMessage.contains('403')) return 'Accès refusé';
+      if (errorMessage.contains('404')) return 'Ressource introuvable';
+      if (errorMessage.contains('500')) return 'Erreur serveur';
     }
-    if (error.contains('Error:')) {
-      return error.split('Error:').last.trim();
-    }
-    return error;
+    return errorMessage;
   }
 }

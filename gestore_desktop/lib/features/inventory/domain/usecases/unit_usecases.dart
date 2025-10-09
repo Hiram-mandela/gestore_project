@@ -71,7 +71,7 @@ class CreateUnitUseCase implements UseCase<UnitOfMeasureEntity, CreateUnitParams
     }
 
     // Appel repository
-    return await repository.createUnit(params.toJson());
+    return await repository.createUnitOfMeasure(params.toJson());
   }
 }
 
@@ -143,7 +143,7 @@ class UpdateUnitUseCase implements UseCase<UnitOfMeasureEntity, UpdateUnitParams
     }
 
     // Appel repository
-    return await repository.updateUnit(params.id, params.toJson());
+    return await repository.updateUnitOfMeasure(params.id, params.toJson());
   }
 }
 
@@ -169,7 +169,7 @@ class DeleteUnitUseCase implements UseCase<void, DeleteUnitParams> {
       return (null, 'ID de l\'unité requis');
     }
 
-    return await repository.deleteUnit(params.unitId);
+    return await repository.deleteUnitOfMeasure(params.unitId);
   }
 }
 
@@ -217,6 +217,6 @@ class GetUnitByIdUseCase implements UseCase<UnitOfMeasureEntity, GetUnitByIdPara
       return (null, 'ID de l\'unité requis');
     }
 
-    return await repository.getUnitById(params.unitId);
+    return await repository.getUnitOfMeasureById(params.unitId);
   }
 }

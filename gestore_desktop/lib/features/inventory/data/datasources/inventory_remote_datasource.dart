@@ -65,10 +65,10 @@ abstract class InventoryRemoteDataSource {
   // ==================== UNITS OF MEASURE ====================
 
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive});
-  Future<UnitOfMeasureModel> getUnitById(String id);
-  Future<UnitOfMeasureModel> createUnit(Map<String, dynamic> data);
-  Future<UnitOfMeasureModel> updateUnit(String id, Map<String, dynamic> data);
-  Future<void> deleteUnit(String id);
+  Future<UnitOfMeasureModel> getUnitOfMeasureById(String id);
+  Future<UnitOfMeasureModel> createUnitOfMeasure(Map<String, dynamic> data);
+  Future<UnitOfMeasureModel> updateUnitOfMeasure(String id, Map<String, dynamic> data);
+  Future<void> deleteUnitOfMeasure(String id);
 }
 
 /// Implémentation du DataSource avec Dio
@@ -568,7 +568,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<UnitOfMeasureModel> getUnitById(String id) async {
+  Future<UnitOfMeasureModel> getUnitOfMeasureById(String id) async {
     try {
       logger.d('📡 API Call: GET /units/$id');
 
@@ -584,7 +584,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<UnitOfMeasureModel> createUnit(Map<String, dynamic> data) async {
+  Future<UnitOfMeasureModel> createUnitOfMeasure(Map<String, dynamic> data) async {
     try {
       logger.d('📡 API Call: POST /units');
 
@@ -603,7 +603,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<UnitOfMeasureModel> updateUnit(String id, Map<String, dynamic> data) async {
+  Future<UnitOfMeasureModel> updateUnitOfMeasure(String id, Map<String, dynamic> data) async {
     try {
       logger.d('📡 API Call: PUT /units/$id');
 
@@ -622,7 +622,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<void> deleteUnit(String id) async {
+  Future<void> deleteUnitOfMeasure(String id) async {
     try {
       logger.d('📡 API Call: DELETE /units/$id');
 
