@@ -13,7 +13,7 @@ import '../models/article_model.dart';
 import '../models/article_detail_model.dart';
 import '../models/category_model.dart';
 import '../models/brand_model.dart';
-import '../models/paginated_response_model.dart';
+import '../../../../core/network/paginated_response_model.dart';
 import '../models/unit_of_measure_model.dart';
 
 /// DataSource abstraite pour les opérations d'inventaire

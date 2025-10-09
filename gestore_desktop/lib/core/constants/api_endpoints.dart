@@ -101,8 +101,8 @@ class ApiEndpoints {
   static String saleItemDetail(String id) => '/sales/sale-items/$id/';
 
   /// Payments
-  static const String payments = '/sales/payments/';
-  static String paymentDetail(String id) => '/sales/payments/$id/';
+  static const String paymentMethods = '/sales/payments/';
+  static String paymentMethodDetail(String id) => '/sales/payments/$id/';
 
   /// Discounts
   static const String discounts = '/sales/discounts/';

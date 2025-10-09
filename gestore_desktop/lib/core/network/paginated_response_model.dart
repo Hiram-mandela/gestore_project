@@ -3,7 +3,7 @@
 // Model générique pour les réponses paginées de l'API
 // ========================================
 
-import '../../domain/entities/paginated_response_entity.dart';
+import '../../features/inventory/domain/entities/paginated_response_entity.dart';
 
 /// Model pour le mapping des réponses paginées depuis/vers l'API
 /// Structure Django REST Framework standard
