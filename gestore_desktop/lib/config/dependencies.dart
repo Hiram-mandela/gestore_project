@@ -1,8 +1,8 @@
 // ========================================
 // lib/config/dependencies.dart
 // Configuration complète de l'injection de dépendances
-// VERSION MISE À JOUR - Inventory 100% (Articles + Catégories + Marques + Unités)
-// Date: 04 Octobre 2025
+// VERSION COMPLÈTE - Tous modules (Auth + Settings + Inventory + Sales)
+// Date: 10 Octobre 2025
 // ========================================
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -65,6 +65,31 @@ import '../features/inventory/domain/usecases/brand_usecases.dart';
 
 // Use Cases - Unités de mesure
 import '../features/inventory/domain/usecases/unit_usecases.dart';
+
+// ==================== SALES ====================
+// Data Layer
+import '../features/sales/data/datasources/sales_remote_datasource.dart';
+import '../features/sales/data/repositories/sales_repository_impl.dart';
+
+// Domain Layer
+import '../features/sales/domain/repositories/sales_repository.dart';
+
+// Use Cases - Customers
+import '../features/sales/domain/usecases/customer_usecases.dart';
+
+// Use Cases - Payment Methods
+import '../features/sales/domain/usecases/payment_method_usecases.dart';
+
+// Use Cases - Sales
+import '../features/sales/domain/usecases/get_sales_usecase.dart';
+import '../features/sales/domain/usecases/get_sale_detail_usecase.dart';
+import '../features/sales/domain/usecases/void_sale_usecase.dart';
+import '../features/sales/domain/usecases/get_daily_summary_usecase.dart';
+
+// Use Cases - POS
+import '../features/sales/domain/usecases/pos_checkout_usecase.dart';
+import '../features/sales/domain/usecases/calculate_sale_usecase.dart';
+import '../features/sales/domain/usecases/get_active_discounts_usecase.dart';
 
 /// Instance globale de GetIt
 final getIt = GetIt.instance;
@@ -132,7 +157,7 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  logger.i('✅ Core dependencies configurées (7 services)');
+  logger.i('✅ Core dependencies configurées (8 services)');
 
   // ========================================
   // AUTHENTICATION FEATURE
@@ -250,7 +275,6 @@ Future<void> configureDependencies() async {
   // ==================== ARTICLES ====================
   logger.d('  → Articles Use Cases...');
 
-  // Lecture
   getIt.registerLazySingleton(
         () => GetArticlesUseCase(getIt<InventoryRepository>()),
   );
@@ -263,7 +287,6 @@ Future<void> configureDependencies() async {
         () => SearchArticlesUseCase(getIt<InventoryRepository>()),
   );
 
-  // CRUD
   getIt.registerLazySingleton(
         () => CreateArticleUseCase(repository: getIt<InventoryRepository>()),
   );
@@ -281,12 +304,10 @@ Future<void> configureDependencies() async {
   // ==================== CATÉGORIES ====================
   logger.d('  → Catégories Use Cases...');
 
-  // Liste
   getIt.registerLazySingleton(
         () => GetCategoriesUseCase(getIt<InventoryRepository>()),
   );
 
-  // CRUD
   getIt.registerLazySingleton(
         () => CreateCategoryUseCase(repository: getIt<InventoryRepository>()),
   );
@@ -308,12 +329,10 @@ Future<void> configureDependencies() async {
   // ==================== MARQUES ====================
   logger.d('  → Marques Use Cases...');
 
-  // Liste
   getIt.registerLazySingleton(
         () => GetBrandsUseCase(getIt<InventoryRepository>()),
   );
 
-  // CRUD
   getIt.registerLazySingleton(
         () => CreateBrandUseCase(repository: getIt<InventoryRepository>()),
   );
@@ -335,12 +354,10 @@ Future<void> configureDependencies() async {
   // ==================== UNITÉS DE MESURE ====================
   logger.d('  → Unités de mesure Use Cases...');
 
-  // Liste
   getIt.registerLazySingleton(
         () => GetUnitsUseCase(repository: getIt<InventoryRepository>()),
   );
 
-  // CRUD
   getIt.registerLazySingleton(
         () => CreateUnitUseCase(repository: getIt<InventoryRepository>()),
   );
@@ -360,123 +377,157 @@ Future<void> configureDependencies() async {
   logger.d('    ✓ 5 Use Cases Unités');
 
   logger.i('✅ Module Inventory configuré (23 services)');
-  logger.i('   - 6 Articles (Get, Detail, Search, Create, Update, Delete)');
-  logger.i('   - 5 Catégories (Get, Create, Update, Delete, GetById)');
-  logger.i('   - 5 Marques (Get, Create, Update, Delete, GetById)');
-  logger.i('   - 5 Unités (Get, Create, Update, Delete, GetById)');
 
   // ========================================
-  // AUTRES FEATURES À VENIR
+  // SALES FEATURE - MODULE COMPLET
   // ========================================
-  // - Sales (POS)
-  // - Suppliers
-  // - Reporting
-  // - Licensing
+
+  logger.d('Configuration module Sales (complet)...');
+
+  // Repository
+  getIt.registerLazySingleton<SalesRepository>(
+        () => SalesRepositoryImpl(
+      remoteDataSource: getIt<SalesRemoteDataSource>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  // ==================== CUSTOMERS ====================
+  logger.d('  → Customers Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetCustomersUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetCustomerByIdUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => CreateCustomerUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateCustomerUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteCustomerUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetCustomerLoyaltyUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 6 Use Cases Customers');
+
+  // ==================== PAYMENT METHODS ====================
+  logger.d('  → Payment Methods Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetPaymentMethodsUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetPaymentMethodByIdUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 2 Use Cases Payment Methods');
+
+  // ==================== SALES & POS ====================
+  logger.d('  → Sales & POS Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetSalesUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetSaleDetailUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => VoidSaleUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetDailySummaryUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => PosCheckoutUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => CalculateSaleUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetActiveDiscountsUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 7 Use Cases Sales & POS');
+
+  logger.i('✅ Module Sales configuré (17 services)');
+  logger.i('   - 6 Customers');
+  logger.i('   - 2 Payment Methods');
+  logger.i('   - 7 Sales & POS');
+
+  // ========================================
+  // RÉCAPITULATIF
+  // ========================================
 
   logger.i('');
   logger.i('🎉 Toutes les dépendances configurées avec succès');
-  logger.i('📊 Total services enregistrés: ~44');
+  logger.i('📊 TOTAL: ~62 services enregistrés');
+  logger.i('   ✅ Core: 8 services');
+  logger.i('   ✅ Authentication: 8 services');
+  logger.i('   ✅ Settings: 6 services');
+  logger.i('   ✅ Inventory: 23 services');
+  logger.i('   ✅ Sales: 17 services');
   logger.i('');
 }
-
-// ========================================
-// RÉCAPITULATIF DES DÉPENDANCES
-// ========================================
-
-/*
-═══════════════════════════════════════════════════════════════════════
-                    GESTORE - DEPENDENCY INJECTION
-═══════════════════════════════════════════════════════════════════════
-
-CORE (7 services):
-  ✅ Logger
-  ✅ AppEnvironment
-  ✅ FlutterSecureStorage
-  ✅ SharedPreferences
-  ✅ Connectivity
-  ✅ NetworkInfo
-  ✅ JwtHelper
-  ✅ ApiClient
-
-AUTHENTICATION (8 services):
-  ✅ AuthLocalDataSource
-  ✅ AuthRemoteDataSource
-  ✅ AuthRepository
-  ✅ LoginUseCase
-  ✅ LogoutUseCase
-  ✅ RefreshTokenUseCase
-  ✅ GetCurrentUserUseCase
-  ✅ CheckAuthStatusUseCase
-
-SETTINGS (6 services):
-  ✅ SettingsLocalDataSource
-  ✅ SettingsRepository
-  ✅ GetConnectionConfigUseCase
-  ✅ SaveConnectionConfigUseCase
-  ✅ ValidateConnectionUseCase
-  ✅ GetConnectionHistoryUseCase
-
-INVENTORY (23 services):
-  DataSource & Repository:
-    ✅ InventoryRemoteDataSource
-    ✅ InventoryRepository
-
-  Articles (6):
-    ✅ GetArticlesUseCase
-    ✅ GetArticleDetailUseCase
-    ✅ SearchArticlesUseCase
-    ✅ CreateArticleUseCase
-    ✅ UpdateArticleUseCase
-    ✅ DeleteArticleUseCase
-
-  Catégories (5):
-    ✅ GetCategoriesUseCase
-    ✅ CreateCategoryUseCase
-    ✅ UpdateCategoryUseCase
-    ✅ DeleteCategoryUseCase
-    ✅ GetCategoryByIdUseCase
-
-  Marques (5):
-    ✅ GetBrandsUseCase
-    ✅ CreateBrandUseCase
-    ✅ UpdateBrandUseCase
-    ✅ DeleteBrandUseCase
-    ✅ GetBrandByIdUseCase
-
-  Unités de mesure (5):
-    ✅ GetUnitsUseCase
-    ✅ CreateUnitUseCase
-    ✅ UpdateUnitUseCase
-    ✅ DeleteUnitUseCase
-    ✅ GetUnitByIdUseCase
-
-═══════════════════════════════════════════════════════════════════════
-TOTAL: 44 services enregistrés
-═══════════════════════════════════════════════════════════════════════
-
-USAGE DANS LE CODE:
-
-  // Récupérer un service
-  final logger = getIt<Logger>();
-  final apiClient = getIt<ApiClient>();
-  final loginUseCase = getIt<LoginUseCase>();
-
-  // Dans les providers Riverpod
-  final articlesProvider = StateNotifierProvider((ref) {
-    return ArticlesNotifier(
-      getArticlesUseCase: getIt<GetArticlesUseCase>(),
-      logger: getIt<Logger>(),
-    );
-  });
-
-  // Dans les widgets
-  @override
-  Widget build(BuildContext context) {
-    final useCase = getIt<CreateArticleUseCase>();
-    // ...
-  }
-
-═══════════════════════════════════════════════════════════════════════
-                        DÉVELOPPÉ AVEC ❤️ POUR GESTORE
-═══════════════════════════════════════════════════════════════════════
-*/

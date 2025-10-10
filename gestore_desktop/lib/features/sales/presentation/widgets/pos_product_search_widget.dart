@@ -1,12 +1,13 @@
 // ========================================
 // lib/features/sales/presentation/widgets/pos_product_search_widget.dart
-// Widget de recherche de produits pour POS
+// Widget de recherche de produits pour POS - VERSION CORRIGÉE
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../inventory/presentation/providers/articles_provider.dart';
+import '../../../inventory/presentation/providers/inventory_state.dart';
 import '../../../inventory/domain/entities/article_entity.dart';
 
 /// Widget de recherche et sélection de produits
@@ -58,59 +59,102 @@ class _PosProductSearchWidgetState
   Widget build(BuildContext context) {
     final articlesState = ref.watch(articlesProvider);
 
-    return articlesState.when(
-      initial: () => const Center(child: Text('Prêt à rechercher')),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      loaded: (articles, hasMore) => _buildArticlesGrid(articles),
-      error: (message) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
+    // ⭐ CORRECTION: Utiliser switch au lieu de .when()
+    return switch (articlesState) {
+      InventoryInitial() => const Center(
+        child: Text(
+          'Prêt à rechercher des produits',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      ),
+      InventoryLoading() => const Center(
+        child: CircularProgressIndicator(),
+      ),
+      InventoryLoaded(:final articles) when articles.isEmpty => _buildEmptyState(),
+      InventoryLoaded(:final articles) => _buildArticlesGrid(articles),
+      InventoryLoadingMore(:final currentArticles) => _buildArticlesGrid(currentArticles),
+      InventoryError(:final message) => _buildErrorState(message),
+      _ => const Center(
+        child: Text('État inconnu'),
+      ),
+    };
+  }
+
+  /// État vide
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aucun produit trouvé',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[500],
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(articlesProvider.notifier).loadArticles();
-              },
-              child: const Text('RÉESSAYER'),
+          ),
+          if (widget.searchController.text.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Essayez une autre recherche',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[400],
+              ),
             ),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+
+  /// État d'erreur
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: AppColors.error),
+          const SizedBox(height: 16),
+          Text(
+            'Erreur',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.error,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              ref.read(articlesProvider.notifier).loadArticles();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('RÉESSAYER'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   /// Grille d'articles
   Widget _buildArticlesGrid(List<ArticleEntity> articles) {
-    if (articles.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: Colors.grey[300],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Aucun produit trouvé',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[500],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -128,7 +172,6 @@ class _PosProductSearchWidgetState
 
   /// Carte article
   Widget _buildArticleCard(ArticleEntity article) {
-
     return InkWell(
       onTap: () => widget.onArticleSelected(article),
       borderRadius: BorderRadius.circular(12),
