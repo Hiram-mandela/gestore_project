@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/constants/app_colors.dart';
-import '../../../../shared/widgets/app_layout.dart';
 import '../providers/customers_provider.dart';
 import '../providers/customers_state.dart';
 import '../../domain/entities/customer_entity.dart';
@@ -58,22 +57,20 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(customersProvider);
 
-    return AppLayout(
-      currentRoute: '/sales/customers',
-      child: Column(
-        children: [
-          // Header avec recherche et actions
-          _buildHeader(state),
+    // ✅ CORRECTION: Retirer AppLayout, juste le contenu
+    return Column(
+      children: [
+        // Header avec recherche et actions
+        _buildHeader(state),
 
-          // Statistiques
-          if (state is CustomersLoaded) _buildStats(state),
+        // Statistiques
+        if (state is CustomersLoaded) _buildStats(state),
 
-          // Liste des clients
-          Expanded(
-            child: _buildBody(state),
-          ),
-        ],
-      ),
+        // Liste des clients
+        Expanded(
+          child: _buildBody(state),
+        ),
+      ],
     );
   }
 

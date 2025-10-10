@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../shared/constants/app_colors.dart';
-import '../../../../shared/widgets/app_layout.dart';
 import '../providers/sales_history_provider.dart';
 import '../providers/sales_history_state.dart';
 import '../../domain/entities/sale_entity.dart';
@@ -63,22 +62,20 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(salesHistoryProvider);
 
-    return AppLayout(
-      currentRoute: '/sales/history',
-      child: Column(
-        children: [
-          // Header avec recherche et filtres
-          _buildHeader(state),
+    // ✅ CORRECTION: Retirer AppLayout, juste le contenu
+    return Column(
+      children: [
+        // Header avec recherche et filtres
+        _buildHeader(state),
 
-          // Statistiques du jour
-          if (state is SalesHistoryLoaded) _buildDailyStats(state),
+        // Statistiques du jour
+        if (state is SalesHistoryLoaded) _buildDailyStats(state),
 
-          // Liste des ventes
-          Expanded(
-            child: _buildBody(state),
-          ),
-        ],
-      ),
+        // Liste des ventes
+        Expanded(
+          child: _buildBody(state),
+        ),
+      ],
     );
   }
 

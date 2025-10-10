@@ -24,7 +24,7 @@ class LoginScreen extends ConsumerWidget {
 
       if (next is AuthAuthenticated) {
         // Naviguer vers l'écran principal avec GoRouter
-        context.go('/home');
+        context.go('/dashboard');
       }
     });
 

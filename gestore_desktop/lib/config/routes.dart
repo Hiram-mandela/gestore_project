@@ -1,7 +1,8 @@
 // ========================================
 // lib/config/routes.dart
 // Configuration complète des routes avec GoRouter
-// VERSION COMPLÈTE - Avec Inventory, Categories, Brands, Units
+// VERSION COMPLÈTE - Inventory + Sales + Settings
+// Date: 10 Octobre 2025
 // ========================================
 
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,8 @@ import '../core/network/connection_mode.dart';
 import '../features/authentication/presentation/screens/login_screen.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
+
+// ==================== INVENTORY ====================
 import '../features/inventory/presentation/screens/articles_list_screen.dart';
 import '../features/inventory/presentation/screens/article_detail_screen.dart';
 import '../features/inventory/presentation/screens/article_form_screen.dart';
@@ -23,8 +26,19 @@ import '../features/inventory/presentation/providers/unit_state.dart';
 import '../features/inventory/presentation/widgets/brand_form_screen.dart';
 import '../features/inventory/presentation/widgets/category_form_screen.dart';
 import '../features/inventory/presentation/widgets/unit_form_screen.dart';
+
+// ==================== SALES ====================
+import '../features/sales/presentation/screens/pos_screen.dart';
+import '../features/sales/presentation/screens/customers_screen.dart';
+import '../features/sales/presentation/screens/customer_form_screen.dart';
+import '../features/sales/presentation/screens/sales_history_screen.dart';
+import '../features/sales/presentation/screens/sale_detail_screen.dart';
+
+// ==================== SETTINGS ====================
 import '../features/settings/presentation/screens/connection_config_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
+
+// ==================== SHARED ====================
 import '../shared/widgets/app_layout.dart';
 
 /// Configuration des routes avec GoRouter
@@ -54,10 +68,10 @@ final goRouter = GoRouter(
     // ROUTES PROTÉGÉES (avec layout)
     // ========================================
 
-    // Home/Dashboard
+    // Dashboard
     GoRoute(
-      path: '/home',
-      name: 'home',
+      path: '/dashboard',
+      name: 'dashboard',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
         child: const DashboardScreen(),
@@ -69,14 +83,14 @@ final goRouter = GoRouter(
     // ========================================
 
     GoRoute(
-      path: '/inventory',
-      name: 'inventory',
+      path: '/inventory/articles',
+      name: 'articles',
       builder: (context, state) => AppLayout(
         currentRoute: state.matchedLocation,
         child: const ArticlesListScreen(),
       ),
       routes: [
-        // ==================== CRÉATION ARTICLE ====================
+        // Créer un article
         GoRoute(
           path: 'new',
           name: 'article-create',
@@ -88,9 +102,9 @@ final goRouter = GoRouter(
           ),
         ),
 
-        // ==================== DÉTAIL + ÉDITION ARTICLE ====================
+        // Détail article
         GoRoute(
-          path: 'article/:id',
+          path: ':id',
           name: 'article-detail',
           builder: (context, state) {
             final articleId = state.pathParameters['id']!;
@@ -100,6 +114,7 @@ final goRouter = GoRouter(
             );
           },
           routes: [
+            // Éditer article
             GoRoute(
               path: 'edit',
               name: 'article-edit',
@@ -289,6 +304,99 @@ final goRouter = GoRouter(
               },
             ),
           ],
+        ),
+      ],
+    ),
+
+    // ========================================
+    // SALES - POS (POINT OF SALE) ROUTE
+    // ========================================
+
+    GoRoute(
+      path: '/sales/pos',
+      name: 'pos',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const PosScreen(),
+      ),
+    ),
+
+    // ========================================
+    // SALES - CUSTOMERS ROUTES
+    // ========================================
+
+    GoRoute(
+      path: '/sales/customers',
+      name: 'customers',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const CustomersScreen(),
+      ),
+      routes: [
+        // Créer un client
+        GoRoute(
+          path: 'new',
+          name: 'customer-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const CustomerFormScreen(
+            ),
+          ),
+        ),
+
+        // Détail/Édition client
+        GoRoute(
+          path: ':id',
+          name: 'customer-detail',
+          builder: (context, state) {
+            final customerId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: CustomerFormScreen(
+                customerId: customerId,
+              ),
+            );
+          },
+          routes: [
+            // Éditer client
+            GoRoute(
+              path: 'edit',
+              name: 'customer-edit',
+              builder: (context, state) {
+                final customerId = state.pathParameters['id']!;
+                return AppLayout(
+                  currentRoute: state.matchedLocation,
+                  child: CustomerFormScreen(
+                    customerId: customerId,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    ),
+
+    // ========================================
+    // SALES - SALES HISTORY ROUTES
+    // ========================================
+
+    GoRoute(
+      path: '/sales/history',
+      name: 'sales-history',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const SalesHistoryScreen(),
+      ),
+      routes: [
+        // Détail d'une vente
+        GoRoute(
+          path: ':id',
+          name: 'sale-detail',
+          builder: (context, state) {
+            final saleId = state.pathParameters['id']!;
+            return SaleDetailScreen(saleId: saleId);
+          },
         ),
       ],
     ),

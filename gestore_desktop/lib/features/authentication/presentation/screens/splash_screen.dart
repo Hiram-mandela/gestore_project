@@ -1,6 +1,6 @@
 // ========================================
 // features/authentication/presentation/screens/splash_screen.dart
-// VERSION CORRIGÉE AVEC GOROUTER
+// VERSION CORRIGÉE - Redirection vers /dashboard
 // ========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,8 +40,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!mounted) return;
 
       if (next is AuthAuthenticated) {
-        // Naviguer vers l'écran principal avec GoRouter
-        context.go('/home');
+        // ✅ CORRECTION: Naviguer vers /dashboard au lieu de /home
+        context.go('/dashboard');
       } else if (next is AuthUnauthenticated) {
         // Naviguer vers l'écran de login avec GoRouter
         context.go('/login');
@@ -76,19 +76,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               const SizedBox(height: 24),
 
               // Nom de l'application
-              Text(
+              const Text(
                 'GESTORE',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: Colors.white,
+                style: TextStyle(
+                  fontSize: 48,
                   fontWeight: FontWeight.bold,
+                  color: Colors.white,
                   letterSpacing: 2,
                 ),
               ),
               const SizedBox(height: 8),
 
-              Text(
-                'Gestion Intégrée pour Commerces',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              // Slogan
+              const Text(
+                'Gestion Intelligente de Commerce',
+                style: TextStyle(
+                  fontSize: 16,
                   color: Colors.white70,
                 ),
               ),
@@ -97,14 +100,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               // Indicateur de chargement
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-              const SizedBox(height: 24),
-
-              Text(
-                'Chargement...',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white70,
-                ),
               ),
             ],
           ),

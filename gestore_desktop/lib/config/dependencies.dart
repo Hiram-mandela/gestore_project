@@ -2,7 +2,7 @@
 // lib/config/dependencies.dart
 // Configuration complète de l'injection de dépendances
 // VERSION COMPLÈTE - Tous modules (Auth + Settings + Inventory + Sales)
-// Date: 10 Octobre 2025
+// Date: 10 Octobre 2025 - CORRIGÉ
 // ========================================
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -80,6 +80,9 @@ import '../features/sales/domain/usecases/customer_usecases.dart';
 // Use Cases - Payment Methods
 import '../features/sales/domain/usecases/payment_method_usecases.dart';
 
+// Use Cases - Discounts
+import '../features/sales/domain/usecases/get_active_discounts_usecase.dart';
+
 // Use Cases - Sales
 import '../features/sales/domain/usecases/get_sales_usecase.dart';
 import '../features/sales/domain/usecases/get_sale_detail_usecase.dart';
@@ -89,7 +92,6 @@ import '../features/sales/domain/usecases/get_daily_summary_usecase.dart';
 // Use Cases - POS
 import '../features/sales/domain/usecases/pos_checkout_usecase.dart';
 import '../features/sales/domain/usecases/calculate_sale_usecase.dart';
-import '../features/sales/domain/usecases/get_active_discounts_usecase.dart';
 
 /// Instance globale de GetIt
 final getIt = GetIt.instance;
@@ -384,6 +386,14 @@ Future<void> configureDependencies() async {
 
   logger.d('Configuration module Sales (complet)...');
 
+  // Data Sources
+  getIt.registerLazySingleton<SalesRemoteDataSource>(
+        () => SalesRemoteDataSource(
+      apiClient: getIt<ApiClient>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
   // Repository
   getIt.registerLazySingleton<SalesRepository>(
         () => SalesRepositoryImpl(
@@ -458,8 +468,27 @@ Future<void> configureDependencies() async {
 
   logger.d('    ✓ 2 Use Cases Payment Methods');
 
-  // ==================== SALES & POS ====================
-  logger.d('  → Sales & POS Use Cases...');
+  // ==================== DISCOUNTS ====================
+  logger.d('  → Discounts Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetActiveDiscountsUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetDiscountByIdUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 2 Use Cases Discounts');
+
+  // ==================== SALES ====================
+  logger.d('  → Sales Use Cases...');
 
   getIt.registerLazySingleton(
         () => GetSalesUseCase(
@@ -489,6 +518,11 @@ Future<void> configureDependencies() async {
     ),
   );
 
+  logger.d('    ✓ 4 Use Cases Sales');
+
+  // ==================== POS ====================
+  logger.d('  → POS Use Cases...');
+
   getIt.registerLazySingleton(
         () => PosCheckoutUseCase(
       repository: getIt<SalesRepository>(),
@@ -503,31 +537,26 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  getIt.registerLazySingleton(
-        () => GetActiveDiscountsUseCase(
-      repository: getIt<SalesRepository>(),
-      logger: getIt<Logger>(),
-    ),
-  );
+  logger.d('    ✓ 2 Use Cases POS');
 
-  logger.d('    ✓ 7 Use Cases Sales & POS');
-
-  logger.i('✅ Module Sales configuré (17 services)');
-  logger.i('   - 6 Customers');
-  logger.i('   - 2 Payment Methods');
-  logger.i('   - 7 Sales & POS');
+  logger.i('✅ Module Sales configuré (18 services)');
 
   // ========================================
-  // RÉCAPITULATIF
+  // RÉSUMÉ FINAL
   // ========================================
 
-  logger.i('');
-  logger.i('🎉 Toutes les dépendances configurées avec succès');
-  logger.i('📊 TOTAL: ~62 services enregistrés');
-  logger.i('   ✅ Core: 8 services');
-  logger.i('   ✅ Authentication: 8 services');
-  logger.i('   ✅ Settings: 6 services');
-  logger.i('   ✅ Inventory: 23 services');
-  logger.i('   ✅ Sales: 17 services');
-  logger.i('');
+  logger.i('''
+  
+  ╔═══════════════════════════════════════════════════════╗
+  ║  ✅ CONFIGURATION DES DÉPENDANCES TERMINÉE           ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  📦 Core:            8 services                       ║
+  ║  🔐 Authentication:  8 services                       ║
+  ║  ⚙️  Settings:        6 services                       ║
+  ║  📦 Inventory:       23 services                      ║
+  ║  💰 Sales:           18 services                      ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  🎉 TOTAL:           63 SERVICES ENREGISTRÉS          ║
+  ╚═══════════════════════════════════════════════════════╝
+  ''');
 }

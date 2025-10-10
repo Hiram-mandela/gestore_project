@@ -1,7 +1,8 @@
 // ========================================
 // lib/shared/widgets/app_layout.dart
 // Layout principal avec sidebar navigation
-// VERSION COMPLÈTE - Avec tous les modules Inventory
+// VERSION COMPLÈTE - Inventory + Sales + Settings
+// Date: 10 Octobre 2025
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -107,18 +108,18 @@ class _Sidebar extends ConsumerWidget {
                 _MenuItem(
                   icon: Icons.dashboard,
                   label: 'Tableau de bord',
-                  route: '/home',
+                  route: '/dashboard',
                   currentRoute: currentRoute,
                 ),
 
                 const SizedBox(height: 8),
-                _SectionHeader(title: 'INVENTAIRE'),
+                const _SectionHeader(title: 'INVENTAIRE'),
 
                 // Articles
                 _MenuItem(
                   icon: Icons.inventory_2,
                   label: 'Articles',
-                  route: '/inventory',
+                  route: '/inventory/articles',
                   currentRoute: currentRoute,
                 ),
 
@@ -147,19 +148,34 @@ class _Sidebar extends ConsumerWidget {
                 ),
 
                 const SizedBox(height: 8),
-                _SectionHeader(title: 'VENTES'),
+                const _SectionHeader(title: 'VENTES'),
 
-                // Point de vente (TODO)
+                // Point de vente (POS)
                 _MenuItem(
                   icon: Icons.point_of_sale,
                   label: 'Point de vente',
                   route: '/sales/pos',
                   currentRoute: currentRoute,
-                  enabled: false, // À activer plus tard
+                ),
+
+                // Clients
+                _MenuItem(
+                  icon: Icons.people,
+                  label: 'Clients',
+                  route: '/sales/customers',
+                  currentRoute: currentRoute,
+                ),
+
+                // Historique des ventes
+                _MenuItem(
+                  icon: Icons.history,
+                  label: 'Historique',
+                  route: '/sales/history',
+                  currentRoute: currentRoute,
                 ),
 
                 const SizedBox(height: 8),
-                _SectionHeader(title: 'SYSTÈME'),
+                const _SectionHeader(title: 'SYSTÈME'),
 
                 // Paramètres
                 _MenuItem(
@@ -187,7 +203,7 @@ class _Sidebar extends ConsumerWidget {
                         child: Text(
                           user.username.isNotEmpty
                               ? user.username[0].toUpperCase()
-                              : 'U',
+                              : '?',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
@@ -200,7 +216,7 @@ class _Sidebar extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user.username,
+                              user.fullName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
@@ -227,14 +243,12 @@ class _Sidebar extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      _showLogoutConfirmation(context, ref);
-                    },
+                    onPressed: () => _showLogoutDialog(context, ref),
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text('Déconnexion'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red.shade300),
+                      side: const BorderSide(color: Colors.red),
                     ),
                   ),
                 ),
@@ -246,8 +260,8 @@ class _Sidebar extends ConsumerWidget {
     );
   }
 
-  /// Affiche la confirmation de déconnexion
-  Future<void> _showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
+  /// Affiche le dialogue de confirmation de déconnexion
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -363,7 +377,7 @@ class _MenuItem extends StatelessWidget {
     // Exact match
     if (currentRoute == route) return true;
 
-    // Parent route match (ex: /inventory/categories correspond à /inventory/categories/*)
+    // Parent route match (ex: /sales/customers correspond à /sales/customers/*)
     if (currentRoute.startsWith('$route/')) return true;
 
     return false;
