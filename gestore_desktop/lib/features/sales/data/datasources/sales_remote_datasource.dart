@@ -180,6 +180,109 @@ class SalesRemoteDataSource {
     }
   }
 
+  /// Crée un nouveau moyen de paiement
+  Future<PaymentMethodModel> createPaymentMethod(
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📡 API: POST ${ApiEndpoints.paymentMethods}');
+      logger.d('Data: $data');
+
+      final response = await apiClient.post(
+        ApiEndpoints.paymentMethods,
+        data: data,
+      );
+
+      logger.i('✅ API: Moyen de paiement créé avec succès');
+      return PaymentMethodModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur création moyen de paiement: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          // Extraire le premier message d'erreur
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la création du moyen de paiement');
+    } catch (e) {
+      logger.e('❌ API: Exception création moyen de paiement: $e');
+      throw Exception('Erreur inattendue lors de la création');
+    }
+  }
+
+  /// Met à jour un moyen de paiement
+  Future<PaymentMethodModel> updatePaymentMethod(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📡 API: PUT ${ApiEndpoints.paymentMethodDetail(id)}');
+      logger.d('Data: $data');
+
+      final response = await apiClient.put(
+        ApiEndpoints.paymentMethodDetail(id),
+        data: data,
+      );
+
+      logger.i('✅ API: Moyen de paiement modifié avec succès');
+      return PaymentMethodModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur modification moyen de paiement: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la modification du moyen de paiement');
+    } catch (e) {
+      logger.e('❌ API: Exception modification moyen de paiement: $e');
+      throw Exception('Erreur inattendue lors de la modification');
+    }
+  }
+
+  /// Supprime un moyen de paiement
+  Future<void> deletePaymentMethod(String id) async {
+    try {
+      logger.d('📡 API: DELETE ${ApiEndpoints.paymentMethodDetail(id)}');
+
+      await apiClient.delete(ApiEndpoints.paymentMethodDetail(id));
+
+      logger.i('✅ API: Moyen de paiement supprimé avec succès');
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur suppression moyen de paiement: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          if (errorData.containsKey('detail')) {
+            throw Exception(errorData['detail'].toString());
+          }
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la suppression du moyen de paiement');
+    } catch (e) {
+      logger.e('❌ API: Exception suppression moyen de paiement: $e');
+      throw Exception('Erreur inattendue lors de la suppression');
+    }
+  }
+
   // ==================== DISCOUNTS ====================
 
   /// Récupère les remises actives

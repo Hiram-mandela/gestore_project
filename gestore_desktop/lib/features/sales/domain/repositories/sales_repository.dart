@@ -42,6 +42,19 @@ abstract class SalesRepository {
 
   Future<(PaymentMethodEntity?, String?)> getPaymentMethodById(String id);
 
+  Future<(PaymentMethodEntity?, String?)> createPaymentMethod(
+      Map<String, dynamic> data,
+      );
+
+  /// Met à jour un moyen de paiement existant
+  Future<(PaymentMethodEntity?, String?)> updatePaymentMethod(
+      String id,
+      Map<String, dynamic> data,
+      );
+
+  /// Supprime un moyen de paiement
+  Future<(void, String?)> deletePaymentMethod(String id);
+
   // ==================== DISCOUNTS ====================
 
   Future<(List<DiscountEntity>?, String?)> getActiveDiscounts();

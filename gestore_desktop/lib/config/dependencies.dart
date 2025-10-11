@@ -79,6 +79,10 @@ import '../features/sales/domain/usecases/customer_usecases.dart';
 
 // Use Cases - Payment Methods
 import '../features/sales/domain/usecases/payment_method_usecases.dart';
+import '../features/sales/domain/usecases/create_payment_method_usecase.dart';
+import '../features/sales/domain/usecases/update_payment_method_usecase.dart';
+import '../features/sales/domain/usecases/delete_payment_method_usecase.dart';
+
 
 // Use Cases - Discounts
 import '../features/sales/domain/usecases/get_active_discounts_usecase.dart';
@@ -466,7 +470,29 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  logger.d('    ✓ 2 Use Cases Payment Methods');
+  // 🆕 NOUVEAUX Use Cases CRUD
+  getIt.registerLazySingleton(
+        () => CreatePaymentMethodUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdatePaymentMethodUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeletePaymentMethodUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 5 Use Cases Payment Methods');
 
   // ==================== DISCOUNTS ====================
   logger.d('  → Discounts Use Cases...');

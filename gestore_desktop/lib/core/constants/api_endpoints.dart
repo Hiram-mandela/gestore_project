@@ -1,3 +1,5 @@
+// lib/core/constants/api_endpoint.dart
+
 /// Définition de tous les endpoints de l'API GESTORE
 /// Basé sur l'API Django backend
 class ApiEndpoints {
@@ -100,9 +102,12 @@ class ApiEndpoints {
   static const String saleItems = '/sales/sale-items/';
   static String saleItemDetail(String id) => '/sales/sale-items/$id/';
 
-  /// Payments
-  static const String paymentMethods = '/sales/payments/';
-  static String paymentMethodDetail(String id) => '/sales/payments/$id/';
+  static const String paymentMethods = '/sales/payment-methods/';
+  static String paymentMethodDetail(String id) => '/sales/payment-methods/$id/';
+
+  /// Payments (Paiements d'une vente)
+  static const String payments = '/sales/payments/';
+  static String paymentDetail(String id) => '/sales/payments/$id/';
 
   /// Discounts
   static const String discounts = '/sales/discounts/';

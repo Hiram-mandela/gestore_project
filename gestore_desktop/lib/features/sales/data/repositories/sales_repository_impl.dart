@@ -200,6 +200,62 @@ class SalesRepositoryImpl implements SalesRepository {
     }
   }
 
+  @override
+  Future<(PaymentMethodEntity?, String?)> createPaymentMethod(
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Création moyen de paiement');
+
+      final paymentMethodModel = await remoteDataSource.createPaymentMethod(data);
+      final paymentMethodEntity = paymentMethodModel.toEntity();
+
+      logger.i('✅ Repository: Moyen de paiement ${paymentMethodEntity.name} créé');
+      return (paymentMethodEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création moyen de paiement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(PaymentMethodEntity?, String?)> updatePaymentMethod(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Modification moyen de paiement $id');
+
+      final paymentMethodModel =
+      await remoteDataSource.updatePaymentMethod(id, data);
+      final paymentMethodEntity = paymentMethodModel.toEntity();
+
+      logger.i('✅ Repository: Moyen de paiement ${paymentMethodEntity.name} modifié');
+      return (paymentMethodEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur modification moyen de paiement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deletePaymentMethod(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression moyen de paiement $id');
+
+      await remoteDataSource.deletePaymentMethod(id);
+
+      logger.i('✅ Repository: Moyen de paiement supprimé');
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression moyen de paiement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
   // ==================== DISCOUNTS ====================
 
   @override
