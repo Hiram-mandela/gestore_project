@@ -1,421 +1,49 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/form_field_widgets.dart
-//
-// MODIFICATIONS APPORTÉES (Correction Visuelle GESTORE) :
-// - Ajout de `helperStyle` pour garantir la visibilité du texte d'aide (helperText).
-// - Ajout de `dropdownColor` au CustomDropdown pour forcer un fond clair sur le menu déroulant.
-// - Application de la palette AppColors pour tous les textes (labels, input, subtitles) afin d'assurer une lisibilité maximale (contraste élevé).
-// - Uniformisation du style de l'InputDecoration pour tous les champs (TextField, Dropdown) en utilisant les couleurs GESTORE pour les fonds, bordures et icônes.
-// - Refonte du CustomSwitchTile pour utiliser les fonds, bordures et couleurs de texte GESTORE, corrigeant le texte invisible.
-// - Standardisation des couleurs pour les états activé/désactivé des champs.
+// Widgets de formulaire réutilisables avec support validation inline
+// VERSION 3.0 - AMÉLIORATIONS COMPLÈTES
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../shared/constants/app_colors.dart';
 
-// --- Décoration de champ réutilisable pour le style GESTORE ---
-InputDecoration _gestoreInputDecoration({
-  required String label,
-  required bool isRequired,
-  String? errorText,
-  String? helperText,
-  IconData? prefixIcon,
-  String? suffixText,
-  bool isEnabled = true,
-}) {
-  return InputDecoration(
-    labelText: isRequired ? '$label *' : label,
-    labelStyle: const TextStyle(color: AppColors.textSecondary),
-    helperText: helperText,
-    // ✨ CORRECTION : Ajout du style pour le helperText pour garantir sa visibilité.
-    helperStyle: const TextStyle(color: AppColors.textSecondary),
-    errorText: errorText,
-    prefixIcon: prefixIcon != null
-        ? Icon(prefixIcon, color: AppColors.textSecondary)
-        : null,
-    suffixText: suffixText,
-    filled: true,
-    fillColor: isEnabled ? AppColors.surfaceLight : AppColors.backgroundLight,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    // Bordures
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.error, width: 2),
-    ),
-    errorStyle: const TextStyle(color: AppColors.error),
-  );
-}
-
 // ==================== CUSTOM TEXT FIELD ====================
-class CustomTextField extends StatefulWidget {
+
+class CustomTextField extends StatelessWidget {
   final String label;
   final String? initialValue;
+  final Function(String) onChanged;
   final String? errorText;
   final String? helperText;
   final IconData? prefixIcon;
+  final String? suffixText;
   final bool required;
   final bool enabled;
   final int maxLines;
-  final TextInputType? keyboardType;
+  final int? maxLength;
+  final TextInputType keyboardType;
   final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
-  final Function(String) onChanged;
+  final AutovalidateMode autovalidateMode; // ✨ NOUVEAU
 
   const CustomTextField({
     super.key,
     required this.label,
     this.initialValue,
+    required this.onChanged,
     this.errorText,
     this.helperText,
     this.prefixIcon,
+    this.suffixText,
     this.required = false,
     this.enabled = true,
     this.maxLines = 1,
-    this.keyboardType,
+    this.maxLength,
+    this.keyboardType = TextInputType.text,
     this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
-    required this.onChanged,
-  });
-
-  @override
-  State<CustomTextField> createState() => _CustomTextFieldState();
-}
-
-class _CustomTextFieldState extends State<CustomTextField> {
-  late TextEditingController _controller;
-  final FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue ?? '');
-    _controller.addListener(_onControllerChanged);
-  }
-
-  @override
-  void didUpdateWidget(CustomTextField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.initialValue != oldWidget.initialValue &&
-        widget.initialValue != _controller.text &&
-        !_focusNode.hasFocus) {
-      final currentSelection = _controller.selection;
-      _controller.text = widget.initialValue ?? '';
-      if (currentSelection.baseOffset <= _controller.text.length) {
-        _controller.selection = currentSelection;
-      }
-    }
-  }
-
-  void _onControllerChanged() {
-    // Note: Le onChanged est maintenant déclenché en temps réel.
-    // La vérification _focusNode.hasFocus a été retirée pour un comportement plus standard.
-    widget.onChanged(_controller.text);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: _controller,
-      focusNode: _focusNode,
-      enabled: widget.enabled,
-      maxLines: widget.maxLines,
-      keyboardType: widget.keyboardType,
-      textCapitalization: widget.textCapitalization,
-      inputFormatters: widget.inputFormatters,
-      style: TextStyle(
-          color: widget.enabled
-              ? AppColors.textPrimary
-              : AppColors.textTertiary),
-      decoration: _gestoreInputDecoration(
-        label: widget.label,
-        isRequired: widget.required,
-        errorText: widget.errorText,
-        helperText: widget.helperText,
-        prefixIcon: widget.prefixIcon,
-        isEnabled: widget.enabled,
-      ),
-    );
-  }
-}
-
-// ==================== CUSTOM NUMBER FIELD ====================
-class CustomNumberField extends StatefulWidget {
-  final String label;
-  final double? initialValue;
-  final String? errorText;
-  final String? helperText;
-  final IconData? prefixIcon;
-  final String? suffix;
-  final bool required;
-  final bool enabled;
-  final int decimals;
-  final double? minValue;
-  final double? maxValue;
-  final Function(double) onChanged;
-
-  const CustomNumberField({
-    super.key,
-    required this.label,
-    this.initialValue,
-    this.errorText,
-    this.helperText,
-    this.prefixIcon,
-    this.suffix,
-    this.required = false,
-    this.enabled = true,
-    this.decimals = 2,
-    this.minValue,
-    this.maxValue,
-    required this.onChanged,
-  });
-
-  @override
-  State<CustomNumberField> createState() => _CustomNumberFieldState();
-}
-
-class _CustomNumberFieldState extends State<CustomNumberField> {
-  late TextEditingController _controller;
-  final FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    final initialText = widget.initialValue != null && widget.initialValue! > 0
-        ? widget.initialValue!.toStringAsFixed(widget.decimals)
-        : '';
-    _controller = TextEditingController(text: initialText);
-    _controller.addListener(_onControllerChanged);
-  }
-
-  @override
-  void didUpdateWidget(CustomNumberField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.initialValue != oldWidget.initialValue && !_focusNode.hasFocus) {
-      final newText = widget.initialValue != null && widget.initialValue! > 0
-          ? widget.initialValue!.toStringAsFixed(widget.decimals)
-          : '';
-      if (_controller.text != newText) {
-        final currentSelection = _controller.selection;
-        _controller.text = newText;
-        if (currentSelection.baseOffset <= _controller.text.length) {
-          _controller.selection = currentSelection;
-        }
-      }
-    }
-  }
-
-  void _onControllerChanged() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) {
-      widget.onChanged(0.0);
-      return;
-    }
-    final value = double.tryParse(text) ?? 0.0;
-
-    if (widget.minValue != null && value < widget.minValue!) {
-      return;
-    }
-    if (widget.maxValue != null && value > widget.maxValue!) {
-      return;
-    }
-    widget.onChanged(value);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: _controller,
-      focusNode: _focusNode,
-      enabled: widget.enabled,
-      keyboardType: TextInputType.numberWithOptions(
-        decimal: widget.decimals > 0,
-        signed: (widget.minValue ?? 0) < 0,
-      ),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(
-          RegExp(r'^\d*\.?\d{0,' + widget.decimals.toString() + r'}'),
-        ),
-      ],
-      style: TextStyle(
-          color: widget.enabled
-              ? AppColors.textPrimary
-              : AppColors.textTertiary),
-      decoration: _gestoreInputDecoration(
-        label: widget.label,
-        isRequired: widget.required,
-        errorText: widget.errorText,
-        helperText: widget.helperText,
-        prefixIcon: widget.prefixIcon,
-        suffixText: widget.suffix,
-        isEnabled: widget.enabled,
-      ),
-    );
-  }
-}
-
-// ==================== CUSTOM DROPDOWN ====================
-class CustomDropdown<T> extends StatelessWidget {
-  final String label;
-  final T? value;
-  final List<DropdownMenuItem<T>> items;
-  final String? errorText;
-  final String? helperText;
-  final IconData? prefixIcon;
-  final bool required;
-  final bool enabled;
-  final Function(T?) onChanged;
-
-  const CustomDropdown({
-    super.key,
-    required this.label,
-    this.value,
-    required this.items,
-    this.errorText,
-    this.helperText,
-    this.prefixIcon,
-    this.required = false,
-    this.enabled = true,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<T>(
-      initialValue: value,
-      items: items,
-      onChanged: enabled ? onChanged : null,
-      // ✨ CORRECTION : Ajout de la couleur de fond pour le menu déroulant.
-      dropdownColor: AppColors.surfaceLight,
-      style: TextStyle(
-          color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
-          overflow: TextOverflow.ellipsis),
-      decoration: _gestoreInputDecoration(
-        label: label,
-        isRequired: required,
-        errorText: errorText,
-        helperText: helperText,
-        prefixIcon: prefixIcon,
-        isEnabled: enabled,
-      ),
-    );
-  }
-}
-
-// ==================== CUSTOM SWITCH TILE ====================
-class CustomSwitchTile extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final bool value;
-  final IconData? icon;
-  final bool enabled;
-  final Function(bool) onChanged;
-
-  const CustomSwitchTile({
-    super.key,
-    required this.title,
-    this.subtitle,
-    required this.value,
-    this.icon,
-    this.enabled = true,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: SwitchListTile.adaptive(
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
-          ),
-        ),
-        subtitle: subtitle != null
-            ? Text(subtitle!,
-            style: TextStyle(
-              color: enabled
-                  ? AppColors.textSecondary
-                  : AppColors.textTertiary,
-            ))
-            : null,
-        value: value,
-        onChanged: enabled ? onChanged : null,
-        secondary: icon != null
-            ? Icon(icon,
-            color: value ? AppColors.primary : AppColors.textTertiary)
-            : null,
-        activeThumbColor: AppColors.surfaceLight,
-        activeTrackColor: AppColors.primary,
-        inactiveThumbColor: AppColors.surfaceLight,
-        inactiveTrackColor: AppColors.border,
-      ),
-    );
-  }
-}
-
-// ==================== IMAGE PICKER PLACEHOLDER ====================
-class CustomImagePicker extends StatelessWidget {
-  final String label;
-  final String? imagePath;
-  final String? errorText;
-  final bool enabled;
-  final VoidCallback onTap;
-  final VoidCallback? onClear;
-
-  const CustomImagePicker({
-    super.key,
-    required this.label,
-    this.imagePath,
-    this.errorText,
-    this.enabled = true,
-    required this.onTap,
-    this.onClear,
+    this.autovalidateMode = AutovalidateMode.disabled, // ✨ PAR DÉFAUT: disabled
   });
 
   @override
@@ -423,126 +51,381 @@ class CustomImagePicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 200,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: errorText != null ? AppColors.error : AppColors.border,
-              width: errorText != null ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            color: enabled ? AppColors.surfaceLight : AppColors.backgroundLight,
-          ),
-          child: Stack(
-            children: [
-              // Prévisualisation ou placeholder
-              if (imagePath != null && imagePath!.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
-                  child: Image.network(
-                    imagePath!,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildPlaceholder(context);
-                    },
-                  ),
-                )
-              else
-                _buildPlaceholder(context),
-              // Bouton de sélection
-              Positioned.fill(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: enabled ? onTap : null,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            imagePath != null && imagePath!.isNotEmpty
-                                ? Icons.edit_outlined
-                                : Icons.add_photo_alternate_outlined,
-                            size: 48,
-                            color: enabled
-                                ? AppColors.primary
-                                : AppColors.textTertiary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            imagePath != null && imagePath!.isNotEmpty
-                                ? 'Modifier l\'image'
-                                : 'Ajouter une image',
-                            style: TextStyle(
-                              color: enabled
-                                  ? AppColors.primary
-                                  : AppColors.textTertiary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Bouton de suppression
-              if (imagePath != null && imagePath!.isNotEmpty && onClear != null)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    onPressed: enabled ? onClear : null,
-                    icon: const Icon(Icons.close),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.error.withValues(alpha: 0.8),
-                      foregroundColor: AppColors.surfaceLight,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        if (errorText != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8, left: 12),
-            child: Text(
-              errorText!,
-              style: const TextStyle(
-                color: AppColors.error,
-                fontSize: 12,
-              ),
+        // Label personnalisé avec astérisque
+        if (label.isNotEmpty) ...[
+          Text(
+            required ? '$label *' : label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(height: 8),
+        ],
+
+        // Champ de texte
+        TextFormField(
+          initialValue: initialValue,
+          onChanged: onChanged,
+          enabled: enabled,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
+          inputFormatters: inputFormatters,
+          autovalidateMode: autovalidateMode, // ✨ VALIDATION INLINE
+          validator: errorText != null ? (_) => errorText : null,
+          decoration: InputDecoration(
+            prefixIcon: prefixIcon != null
+                ? Icon(
+              prefixIcon,
+              color: enabled ? AppColors.textSecondary : AppColors.textTertiary,
+              size: 20,
+            )
+                : null,
+            suffixText: suffixText,
+            hintText: 'Saisir $label',
+            errorText: errorText,
+            helperText: helperText,
+            helperStyle: const TextStyle(color: AppColors.textSecondary),
+            filled: true,
+            fillColor: enabled
+                ? AppColors.surfaceLight
+                : AppColors.surfaceLight.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.border,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.border,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.primary,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
       ],
     );
   }
+}
 
-  Widget _buildPlaceholder(BuildContext context) {
+// ==================== CUSTOM DROPDOWN ====================
+
+class CustomDropdown<T> extends StatelessWidget {
+  final String label;
+  final T? value;
+  final List<DropdownMenuItem<T>> items;
+  final Function(T?) onChanged;
+  final String? errorText;
+  final String? helperText;
+  final IconData? prefixIcon;
+  final bool required;
+  final bool enabled;
+
+  const CustomDropdown({
+    super.key,
+    required this.label,
+    this.value,
+    required this.items,
+    required this.onChanged,
+    this.errorText,
+    this.helperText,
+    this.prefixIcon,
+    this.required = false,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty) ...[
+          Text(
+            required ? '$label *' : label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        DropdownButtonFormField<T>(
+          initialValue: value,
+          items: items,
+          onChanged: enabled ? onChanged : null,
+          decoration: InputDecoration(
+            prefixIcon: prefixIcon != null
+                ? Icon(
+              prefixIcon,
+              color: enabled ? AppColors.textSecondary : AppColors.textTertiary,
+              size: 20,
+            )
+                : null,
+            errorText: errorText,
+            helperText: helperText,
+            helperStyle: const TextStyle(color: AppColors.textSecondary),
+            filled: true,
+            fillColor: enabled
+                ? AppColors.surfaceLight
+                : AppColors.surfaceLight.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.border,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.border,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: errorText != null ? AppColors.error : AppColors.primary,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          dropdownColor: Colors.white,
+        ),
+      ],
+    );
+  }
+}
+
+// ==================== CUSTOM SWITCH TILE ====================
+
+class CustomSwitchTile extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final Function(bool) onChanged;
+  final IconData? icon;
+  final bool enabled;
+
+  const CustomSwitchTile({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+    this.icon,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 64,
-          color: AppColors.border,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border,
         ),
       ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: value
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: value ? AppColors.primary : AppColors.textSecondary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: enabled ? onChanged : null,
+            activeThumbColor: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== CUSTOM NUMBER FIELD ====================
+
+class CustomNumberField extends StatelessWidget {
+  final String label;
+  final double? initialValue;
+  final Function(double) onChanged;
+  final String? errorText;
+  final String? helperText;
+  final IconData? prefixIcon;
+  final String? suffixText;
+  final bool required;
+  final bool enabled;
+  final double min;
+  final double max;
+  final int decimals;
+  final AutovalidateMode autovalidateMode; // ✨ NOUVEAU
+
+  const CustomNumberField({
+    super.key,
+    required this.label,
+    this.initialValue,
+    required this.onChanged,
+    this.errorText,
+    this.helperText,
+    this.prefixIcon,
+    this.suffixText,
+    this.required = false,
+    this.enabled = true,
+    this.min = 0,
+    this.max = double.infinity,
+    this.decimals = 2,
+    this.autovalidateMode = AutovalidateMode.disabled, // ✨ PAR DÉFAUT: disabled
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomTextField(
+      label: label,
+      initialValue: initialValue != null && initialValue! > 0
+          ? initialValue!.toStringAsFixed(decimals)
+          : '',
+      onChanged: (value) {
+        final number = double.tryParse(value) ?? 0.0;
+        onChanged(number.clamp(min, max));
+      },
+      errorText: errorText,
+      helperText: helperText,
+      prefixIcon: prefixIcon,
+      suffixText: suffixText,
+      required: required,
+      enabled: enabled,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,' + decimals.toString() + r'}')),
+      ],
+      autovalidateMode: autovalidateMode, // ✨ VALIDATION INLINE
+    );
+  }
+}
+
+// ==================== CUSTOM INTEGER FIELD ====================
+
+class CustomIntegerField extends StatelessWidget {
+  final String label;
+  final int? initialValue;
+  final Function(int) onChanged;
+  final String? errorText;
+  final String? helperText;
+  final IconData? prefixIcon;
+  final String? suffixText;
+  final bool required;
+  final bool enabled;
+  final int min;
+  final int max;
+  final AutovalidateMode autovalidateMode; // ✨ NOUVEAU
+
+  const CustomIntegerField({
+    super.key,
+    required this.label,
+    this.initialValue,
+    required this.onChanged,
+    this.errorText,
+    this.helperText,
+    this.prefixIcon,
+    this.suffixText,
+    this.required = false,
+    this.enabled = true,
+    this.min = 0,
+    this.max = 999999,
+    this.autovalidateMode = AutovalidateMode.disabled, // ✨ PAR DÉFAUT: disabled
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomTextField(
+      label: label,
+      initialValue: initialValue != null && initialValue! > 0
+          ? initialValue.toString()
+          : '',
+      onChanged: (value) {
+        final number = int.tryParse(value) ?? 0;
+        onChanged(number.clamp(min, max));
+      },
+      errorText: errorText,
+      helperText: helperText,
+      prefixIcon: prefixIcon,
+      suffixText: suffixText,
+      required: required,
+      enabled: enabled,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
+      autovalidateMode: autovalidateMode, // ✨ VALIDATION INLINE
     );
   }
 }

@@ -23,11 +23,11 @@ class ArticleInfoTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         // Description
-        if (article.description.isNotEmpty) ...[
+        if (article.description!.isNotEmpty) ...[
           const _SectionTitle(title: 'Description'),
           _InfoCard(
             child: Text(
-              article.description,
+              article.description!,
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 height: 1.5,

@@ -1,6 +1,6 @@
 // ========================================
 // lib/features/inventory/presentation/providers/categories_brands_providers.dart
-// MISE À JOUR - Ajout du provider Units
+// VERSION AMÉLIORÉE - Avec mise en cache automatique (.keepAlive())
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,9 +32,13 @@ class CategoriesError extends CategoriesState {
   CategoriesError(this.message);
 }
 
-/// Provider pour les catégories
+/// Provider pour les catégories AVEC CACHE (.keepAlive())
+/// Les données restent en mémoire même si plus aucun widget ne les écoute
 final categoriesProvider =
 StateNotifierProvider<CategoriesNotifier, CategoriesState>((ref) {
+  // ✨ ACTIVATION DU CACHE
+  ref.keepAlive();
+
   return CategoriesNotifier(
     getCategoriesUseCase: getIt<GetCategoriesUseCase>(),
     logger: getIt<Logger>(),
@@ -50,10 +54,11 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     required this.getCategoriesUseCase,
     required this.logger,
   }) : super(CategoriesInitial()) {
+    // Chargement automatique au premier accès
     loadCategories();
   }
 
-  /// Charge les catégories
+  /// Charge les catégories (avec cache)
   Future<void> loadCategories({bool? isActive}) async {
     try {
       logger.d('📂 Chargement catégories...');
@@ -71,7 +76,7 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
         return;
       }
 
-      logger.i('✅ ${categories.length} catégories chargées');
+      logger.i('✅ ${categories.length} catégories chargées (mise en cache)');
       state = CategoriesLoaded(categories);
     } catch (e) {
       logger.e('❌ Exception: $e');
@@ -79,7 +84,7 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     }
   }
 
-  /// Rafraîchit les catégories
+  /// Rafraîchit les catégories (force le rechargement)
   Future<void> refresh() => loadCategories();
 }
 
@@ -102,9 +107,12 @@ class BrandsError extends BrandsState {
   BrandsError(this.message);
 }
 
-/// Provider pour les marques
+/// Provider pour les marques AVEC CACHE (.keepAlive())
 final brandsProvider =
 StateNotifierProvider<BrandsNotifier, BrandsState>((ref) {
+  // ✨ ACTIVATION DU CACHE
+  ref.keepAlive();
+
   return BrandsNotifier(
     getBrandsUseCase: getIt<GetBrandsUseCase>(),
     logger: getIt<Logger>(),
@@ -123,7 +131,7 @@ class BrandsNotifier extends StateNotifier<BrandsState> {
     loadBrands();
   }
 
-  /// Charge les marques
+  /// Charge les marques (avec cache)
   Future<void> loadBrands({bool? isActive}) async {
     try {
       logger.d('🏷️ Chargement marques...');
@@ -141,7 +149,7 @@ class BrandsNotifier extends StateNotifier<BrandsState> {
         return;
       }
 
-      logger.i('✅ ${brands.length} marques chargées');
+      logger.i('✅ ${brands.length} marques chargées (mise en cache)');
       state = BrandsLoaded(brands);
     } catch (e) {
       logger.e('❌ Exception: $e');
@@ -153,9 +161,9 @@ class BrandsNotifier extends StateNotifier<BrandsState> {
   Future<void> refresh() => loadBrands();
 }
 
-// ==================== UNITS OF MEASURE (NOUVEAU) ====================
+// ==================== UNITS ====================
 
-/// État pour les unités de mesure
+/// État pour les unités
 sealed class UnitsState {}
 
 class UnitsInitial extends UnitsState {}
@@ -172,16 +180,19 @@ class UnitsError extends UnitsState {
   UnitsError(this.message);
 }
 
-/// Provider pour les unités de mesure
+/// Provider pour les unités AVEC CACHE (.keepAlive())
 final unitsProvider =
 StateNotifierProvider<UnitsNotifier, UnitsState>((ref) {
+  // ✨ ACTIVATION DU CACHE
+  ref.keepAlive();
+
   return UnitsNotifier(
     getUnitsUseCase: getIt<GetUnitsUseCase>(),
     logger: getIt<Logger>(),
   );
 });
 
-/// Notifier pour les unités de mesure
+/// Notifier pour les unités
 class UnitsNotifier extends StateNotifier<UnitsState> {
   final GetUnitsUseCase getUnitsUseCase;
   final Logger logger;
@@ -193,10 +204,10 @@ class UnitsNotifier extends StateNotifier<UnitsState> {
     loadUnits();
   }
 
-  /// Charge les unités de mesure
+  /// Charge les unités (avec cache)
   Future<void> loadUnits({bool? isActive}) async {
     try {
-      logger.d('📏 Chargement unités de mesure...');
+      logger.d('📏 Chargement unités...');
       state = UnitsLoading();
 
       final params = GetUnitsParams(isActive: isActive);
@@ -211,7 +222,7 @@ class UnitsNotifier extends StateNotifier<UnitsState> {
         return;
       }
 
-      logger.i('✅ ${units.length} unités chargées');
+      logger.i('✅ ${units.length} unités chargées (mise en cache)');
       state = UnitsLoaded(units);
     } catch (e) {
       logger.e('❌ Exception: $e');

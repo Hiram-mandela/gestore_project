@@ -1,11 +1,12 @@
 // ========================================
 // lib/features/inventory/presentation/providers/article_form_provider.dart
 // Provider Riverpod pour le formulaire article
-// VERSION 2.0 - Support complet 40+ champs + 5 étapes
+// VERSION 3.2 FINALE - Utilisation correcte de CreateArticleParams et UpdateArticleParams
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
+import 'package:dio/dio.dart';
 import '../../../../config/dependencies.dart';
 import '../../domain/usecases/create_article_usecase.dart';
 import '../../domain/usecases/update_article_usecase.dart';
@@ -13,9 +14,8 @@ import '../../domain/usecases/delete_article_usecase.dart';
 import '../../domain/usecases/get_article_detail_usecase.dart';
 import 'article_form_state.dart';
 
-/// Provider pour le formulaire article
-/// Prend en paramètres : mode et articleId (null si création)
-final articleFormProvider = StateNotifierProvider.family<
+/// Provider pour le formulaire article avec cache
+final articleFormProvider = StateNotifierProvider.family.autoDispose<
     ArticleFormNotifier,
     ArticleFormState,
     (ArticleFormMode, String?)>((ref, params) {
@@ -58,22 +58,20 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
   /// Initialise le formulaire
   Future<void> _initialize() async {
     if (mode == ArticleFormMode.edit && articleId != null) {
-      // Mode édition : charger l'article
       await _loadArticleForEdit();
     } else {
-      // Mode création : formulaire vide
       state = ArticleFormReady(
         mode: mode,
         formData: const ArticleFormData(),
       );
-      logger.d('📝 Formulaire prêt pour création (5 étapes)');
+      logger.d('📝 Formulaire prêt pour création');
     }
   }
 
   /// Charge l'article pour édition
   Future<void> _loadArticleForEdit() async {
     try {
-      logger.d('📝 Chargement article pour édition: $articleId');
+      logger.d('📝 Chargement article: $articleId');
       state = ArticleFormLoading(articleId: articleId!);
 
       final params = GetArticleDetailParams(articleId: articleId!);
@@ -83,59 +81,45 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       final article = result.$1;
 
       if (error != null || article == null) {
-        logger.e('❌ Erreur chargement article: $error');
-        state = ArticleFormError(
-          message: error ?? 'Article non trouvé',
-          mode: mode,
-        );
+        logger.e('❌ Erreur: $error');
+        state = ArticleFormError(message: error ?? 'Erreur inconnue', mode: mode);
         return;
       }
 
-      // Mapper les images
-      final images = article.images.map((img) {
-        return ArticleImageData(
-          id: img.id,
-          imagePath: img.imageUrl,
-          altText: img.altText,
-          caption: img.caption,
-          isPrimary: img.isPrimary,
-          order: img.order,
-        );
-      }).toList();
+      // Conversion des images
+      final images = article.images
+          .map((img) => ArticleImageData(
+        imagePath: img.imageUrl,
+        caption: img.caption,
+        altText: img.altText,
+        order: img.order,
+        isPrimary: img.isPrimary,
+      ))
+          .toList();
 
-      // ⭐ CORRECTION FINALE: Mapper les codes-barres additionnels
-      // Le problème : barcode.barcodeType est de type BarcodeType (enum)
-      // AdditionalBarcodeData attend un String
-      // Solution : Utiliser .value pour extraire la valeur String de l'enum
-      final additionalBarcodes = article.additionalBarcodes.map((barcode) {
-        return AdditionalBarcodeData(
-          id: barcode.id,
-          barcode: barcode.barcode,
-          barcodeType: barcode.barcodeType.value,  // ✅ Utiliser .value pour convertir enum en String
-          isPrimary: barcode.isPrimary,
-        );
-      }).toList();
+      // ✅ Conversion correcte des codes-barres additionnels
+      final additionalBarcodes = article.additionalBarcodes
+          .map((barcode) => AdditionalBarcodeData(
+        barcode: barcode.barcode,
+        barcodeType: barcode.barcodeType.value, // ✅ enum -> String
+        isPrimary: barcode.isPrimary,
+      ))
+          .toList();
 
-      // Remplir le formulaire avec les données de l'article
       final formData = ArticleFormData(
-        // Section 1: Informations de base
         name: article.name,
         code: article.code,
-        description: article.description,
-        shortDescription: article.shortDescription,
-        articleType: article.articleType.value,
+        description: article.description ?? '',
+        shortDescription: article.shortDescription ?? '',
+        articleType: article.articleType.value, // ✅ enum -> String
         barcode: article.barcode ?? '',
         internalReference: article.internalReference ?? '',
         supplierReference: article.supplierReference ?? '',
         tags: article.tags ?? '',
         notes: article.notes ?? '',
-
-        // Section 2: Classification
         categoryId: article.category?.id ?? '',
         brandId: article.brand?.id ?? '',
         unitOfMeasureId: article.unitOfMeasure?.id ?? '',
-
-        // Section 3: Gestion de stock
         manageStock: article.manageStock,
         minStockLevel: article.minStockLevel,
         maxStockLevel: article.maxStockLevel,
@@ -144,13 +128,9 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         isSellable: article.isSellable,
         isPurchasable: article.isPurchasable,
         allowNegativeStock: article.allowNegativeStock,
-
-        // Section 4: Prix et fournisseur
         purchasePrice: article.purchasePrice,
         sellingPrice: article.sellingPrice,
         mainSupplierId: article.mainSupplier?.id ?? '',
-
-        // Section 5: Métadonnées avancées
         weight: article.weight ?? 0.0,
         length: article.length ?? 0.0,
         width: article.width ?? 0.0,
@@ -159,41 +139,36 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         variantAttributes: article.variantAttributes ?? '',
         isActive: article.isActive,
         imagePath: article.imageUrl ?? '',
-
-        // Tableaux
         images: images,
         additionalBarcodes: additionalBarcodes,
       );
 
-      state = ArticleFormReady(
-        mode: mode,
-        articleId: articleId,
-        formData: formData,
-      );
-
-      logger.i('✅ Article chargé pour édition: ${article.name}');
+      state = ArticleFormReady(mode: mode, articleId: articleId, formData: formData);
+      logger.i('✅ Article chargé: ${article.name}');
     } catch (e) {
-      logger.e('❌ Exception chargement article: $e');
-      state = ArticleFormError(
-        message: 'Erreur lors du chargement: $e',
-        mode: mode,
-      );
+      logger.e('❌ Exception: $e');
+      state = ArticleFormError(message: 'Erreur: $e', mode: mode);
     }
   }
 
   // ==================== GESTION DES CHAMPS ====================
 
-  /// Met à jour un champ du formulaire
+  /// Met à jour un champ avec validation inline
   void updateField(String field, dynamic value) {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
 
-    logger.d('📝 Mise à jour champ: $field = $value');
+    final Map<String, String> newErrors = Map.from(currentState.errors);
+    final fieldError = _validateField(field, value);
+
+    if (fieldError != null) {
+      newErrors[field] = fieldError;
+    } else {
+      newErrors.remove(field);
+    }
 
     ArticleFormData updatedData;
-
     switch (field) {
-    // Section 1: Informations de base
       case 'name':
         updatedData = currentState.formData.copyWith(name: value as String);
         break;
@@ -224,8 +199,6 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'notes':
         updatedData = currentState.formData.copyWith(notes: value as String);
         break;
-
-    // Section 2: Classification
       case 'categoryId':
         updatedData = currentState.formData.copyWith(categoryId: value as String);
         break;
@@ -235,8 +208,6 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'unitOfMeasureId':
         updatedData = currentState.formData.copyWith(unitOfMeasureId: value as String);
         break;
-
-    // Section 3: Gestion de stock
       case 'manageStock':
         updatedData = currentState.formData.copyWith(manageStock: value as bool);
         break;
@@ -261,8 +232,6 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'allowNegativeStock':
         updatedData = currentState.formData.copyWith(allowNegativeStock: value as bool);
         break;
-
-    // Section 4: Prix et fournisseur
       case 'purchasePrice':
         updatedData = currentState.formData.copyWith(purchasePrice: value as double);
         break;
@@ -272,8 +241,6 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'mainSupplierId':
         updatedData = currentState.formData.copyWith(mainSupplierId: value as String);
         break;
-
-    // Section 5: Métadonnées avancées
       case 'weight':
         updatedData = currentState.formData.copyWith(weight: value as double);
         break;
@@ -298,241 +265,184 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       case 'imagePath':
         updatedData = currentState.formData.copyWith(imagePath: value as String);
         break;
-
-    // Tableaux complexes
       case 'images':
-        updatedData = currentState.formData.copyWith(
-          images: value as List<ArticleImageData>,
-        );
+        updatedData = currentState.formData.copyWith(images: value as List<ArticleImageData>);
         break;
       case 'additionalBarcodes':
-        updatedData = currentState.formData.copyWith(
-          additionalBarcodes: value as List<AdditionalBarcodeData>,
-        );
+        updatedData = currentState.formData.copyWith(additionalBarcodes: value as List<AdditionalBarcodeData>);
         break;
-
       default:
-        logger.w('⚠️ Champ inconnu: $field');
-        return;
+        updatedData = currentState.formData;
     }
 
-    // Valider et mettre à jour l'état
-    final errors = _validateFormData(updatedData, currentState.currentStep);
-
-    state = currentState.copyWith(
-      formData: updatedData,
-      errors: errors,
-    );
+    state = currentState.copyWith(formData: updatedData, errors: newErrors);
   }
 
-  // ==================== NAVIGATION ENTRE ÉTAPES ====================
+  /// Valide un champ
+  String? _validateField(String field, dynamic value) {
+    switch (field) {
+      case 'name':
+        if (value == null || (value as String).trim().isEmpty) return 'Le nom est obligatoire';
+        if (value.length < 3) return 'Minimum 3 caractères';
+        break;
+      case 'code':
+        if (value == null || (value as String).trim().isEmpty) return 'Le code est obligatoire';
+        if (value.length < 2) return 'Minimum 2 caractères';
+        break;
+      case 'shortDescription':
+        if (value != null && (value as String).length > 150) return 'Maximum 150 caractères';
+        break;
+      case 'categoryId':
+        if (value == null || (value as String).isEmpty) return 'La catégorie est obligatoire';
+        break;
+      case 'unitOfMeasureId':
+        if (value == null || (value as String).isEmpty) return 'L\'unité est obligatoire';
+        break;
+      case 'sellingPrice':
+      case 'purchasePrice':
+        if (value != null && (value as double) < 0) return 'Le prix doit être positif';
+        break;
+      case 'minStockLevel':
+      case 'maxStockLevel':
+        if (value != null && (value as int) < 0) return 'La valeur doit être positive';
+        break;
+    }
+    return null;
+  }
 
-  /// Passe à l'étape suivante
+  // ==================== NAVIGATION ====================
+
   void nextStep() {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
-
-    if (currentState.isLastStep) {
-      logger.w('⚠️ Déjà à la dernière étape');
-      return;
+    if (!currentState.isLastStep) {
+      state = currentState.copyWith(currentStep: currentState.currentStep + 1);
     }
-
-    // Valider l'étape actuelle avant de continuer
-    final errors = _validateFormData(currentState.formData, currentState.currentStep);
-
-    if (errors.isNotEmpty) {
-      logger.w('⚠️ Erreurs de validation, impossible de continuer');
-      state = currentState.copyWith(errors: errors);
-      return;
-    }
-
-    final nextStep = currentState.currentStep + 1;
-    logger.d('📝 Passage à l\'étape ${nextStep + 1}/5');
-
-    state = currentState.copyWith(
-      currentStep: nextStep,
-      errors: {},
-    );
   }
 
-  /// Revient à l'étape précédente
   void previousStep() {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
-
-    if (currentState.isFirstStep) {
-      logger.w('⚠️ Déjà à la première étape');
-      return;
+    if (!currentState.isFirstStep) {
+      state = currentState.copyWith(currentStep: currentState.currentStep - 1);
     }
-
-    final previousStep = currentState.currentStep - 1;
-    logger.d('📝 Retour à l\'étape ${previousStep + 1}/5');
-
-    state = currentState.copyWith(
-      currentStep: previousStep,
-      errors: {},
-    );
   }
 
-  /// Va directement à une étape spécifique
   void goToStep(int step) {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
-
-    if (step < 0 || step >= 5) {
-      logger.w('⚠️ Étape invalide: $step');
-      return;
+    if (step >= 0 && step < currentState.totalSteps) {
+      state = currentState.copyWith(currentStep: step);
     }
-
-    logger.d('📝 Navigation vers étape ${step + 1}/5');
-
-    state = currentState.copyWith(
-      currentStep: step,
-      errors: {},
-    );
-  }
-
-  // ==================== VALIDATION ====================
-
-  /// Valide les données du formulaire selon l'étape
-  Map<String, String> _validateFormData(ArticleFormData data, int step) {
-    final errors = <String, String>{};
-
-    switch (step) {
-      case 0: // Étape 1: Informations de base
-        if (data.name.trim().isEmpty) {
-          errors['name'] = 'Le nom est requis';
-        } else if (data.name.trim().length < 2) {
-          errors['name'] = 'Le nom doit contenir au moins 2 caractères';
-        }
-
-        if (data.code.trim().isEmpty) {
-          errors['code'] = 'Le code est requis';
-        } else if (data.code.trim().length < 2) {
-          errors['code'] = 'Le code doit contenir au moins 2 caractères';
-        }
-        break;
-
-      case 1: // Étape 2: Classification
-      // Optionnel, pas d'erreurs bloquantes
-        break;
-
-      case 2: // Étape 3: Gestion de stock
-        if (data.manageStock) {
-          if (data.minStockLevel < 0) {
-            errors['minStockLevel'] = 'Le stock minimum doit être positif';
-          }
-          if (data.maxStockLevel < 0) {
-            errors['maxStockLevel'] = 'Le stock maximum doit être positif';
-          }
-          if (data.maxStockLevel > 0 && data.maxStockLevel < data.minStockLevel) {
-            errors['maxStockLevel'] = 'Le stock max doit être > au stock min';
-          }
-        }
-
-        if (!data.isSellable && !data.isPurchasable) {
-          errors['general'] = 'L\'article doit être vendable ou achetable';
-        }
-        break;
-
-      case 3: // Étape 4: Prix et fournisseur
-        if (data.purchasePrice < 0) {
-          errors['purchasePrice'] = 'Le prix d\'achat doit être positif';
-        }
-        if (data.sellingPrice < 0) {
-          errors['sellingPrice'] = 'Le prix de vente doit être positif';
-        }
-        if (data.sellingPrice > 0 && data.sellingPrice < data.purchasePrice) {
-          errors['sellingPrice'] = 'Le prix de vente devrait être > au prix d\'achat';
-        }
-        break;
-
-      case 4: // Étape 5: Métadonnées avancées
-        if (data.weight < 0) {
-          errors['weight'] = 'Le poids doit être positif';
-        }
-        if (data.length < 0) {
-          errors['length'] = 'La longueur doit être positive';
-        }
-        if (data.width < 0) {
-          errors['width'] = 'La largeur doit être positive';
-        }
-        if (data.height < 0) {
-          errors['height'] = 'La hauteur doit être positive';
-        }
-
-        // Vérification variantes
-        if (data.articleType == 'variant' &&
-            (data.parentArticleId == null || data.parentArticleId!.isEmpty)) {
-          errors['parentArticleId'] = 'Un article variante doit avoir un parent';
-        }
-        break;
-    }
-
-    return errors;
-  }
-
-  /// Validation finale avant soumission
-  Map<String, String> _validateAll(ArticleFormData data) {
-    final errors = <String, String>{};
-
-    // Valider toutes les étapes
-    for (int i = 0; i < 5; i++) {
-      final stepErrors = _validateFormData(data, i);
-      errors.addAll(stepErrors);
-    }
-
-    return errors;
   }
 
   // ==================== SOUMISSION ====================
 
-  /// Soumet le formulaire (création ou mise à jour)
+  /// Soumet le formulaire
   Future<void> submit() async {
     final currentState = state;
     if (currentState is! ArticleFormReady) return;
 
-    // Validation finale
-    final errors = _validateAll(currentState.formData);
+    final errors = _validateForm(currentState.formData);
     if (errors.isNotEmpty) {
-      logger.e('❌ Erreurs de validation: $errors');
       state = currentState.copyWith(errors: errors);
+      logger.w('⚠️ Erreurs: $errors');
       return;
     }
 
-    logger.i('📝 Soumission du formulaire en mode ${mode.name}');
+    try {
+      logger.d('💾 Soumission...');
+      state = ArticleFormSubmitting(mode: mode, formData: currentState.formData);
 
-    state = ArticleFormSubmitting(
-      mode: mode,
-      formData: currentState.formData,
-    );
+      if (mode == ArticleFormMode.create) {
+        await _createArticle(currentState.formData);
+      } else {
+        await _updateArticle(currentState.formData);
+      }
+    } catch (e) {
+      logger.e('❌ Erreur: $e');
 
-    if (mode == ArticleFormMode.create) {
-      await _createArticle(currentState.formData);
-    } else {
-      await _updateArticle(currentState.formData);
+      // ✅ Gestion erreurs API par champ
+      if (e is DioException && e.response?.statusCode == 400) {
+        final responseData = e.response?.data;
+        if (responseData is Map<String, dynamic>) {
+          final fieldErrors = _extractFieldErrors(responseData);
+          if (fieldErrors.isNotEmpty) {
+            state = ArticleFormReady(
+              mode: mode,
+              articleId: articleId,
+              formData: currentState.formData,
+              currentStep: currentState.currentStep,
+              errors: fieldErrors,
+            );
+            return;
+          }
+        }
+      }
+
+      state = ArticleFormError(message: _getErrorMessage(e), mode: mode, formData: currentState.formData);
     }
   }
 
-  /// Crée un nouvel article
-  Future<void> _createArticle(ArticleFormData data) async {
-    logger.d('📝 Création article: ${data.name}');
+  /// Extrait les erreurs par champ de l'API
+  Map<String, String> _extractFieldErrors(Map<String, dynamic> responseData) {
+    final errors = <String, String>{};
+    responseData.forEach((key, value) {
+      if (value is List && value.isNotEmpty) {
+        errors[key] = value.first.toString();
+      } else if (value is String) {
+        errors[key] = value;
+      }
+    });
+    return errors;
+  }
 
+  /// Message d'erreur lisible
+  String _getErrorMessage(dynamic error) {
+    if (error is DioException) {
+      switch (error.response?.statusCode) {
+        case 400: return 'Données invalides';
+        case 409: return 'Cet article existe déjà';
+        case 404: return 'Article introuvable';
+        case 500: return 'Erreur serveur';
+      }
+    }
+    return 'Erreur: $error';
+  }
+
+  /// Valide le formulaire complet
+  Map<String, String> _validateForm(ArticleFormData data) {
+    final errors = <String, String>{};
+    if (data.name.trim().isEmpty) errors['name'] = 'Le nom est obligatoire';
+    if (data.code.trim().isEmpty) errors['code'] = 'Le code est obligatoire';
+    if (data.categoryId.isEmpty) errors['categoryId'] = 'La catégorie est obligatoire';
+    if (data.unitOfMeasureId.isEmpty) errors['unitOfMeasureId'] = 'L\'unité est obligatoire';
+    if (data.sellingPrice < 0) errors['sellingPrice'] = 'Prix invalide';
+    if (data.purchasePrice < 0) errors['purchasePrice'] = 'Prix invalide';
+    if (data.minStockLevel < 0) errors['minStockLevel'] = 'Valeur invalide';
+    if (data.maxStockLevel < data.minStockLevel) errors['maxStockLevel'] = 'Doit être >= stock minimum';
+    return errors;
+  }
+
+  // ==================== CRÉATION / MISE À JOUR ====================
+
+  /// ✅ Crée un article avec CreateArticleParams
+  Future<void> _createArticle(ArticleFormData data) async {
     final params = CreateArticleParams(
       name: data.name,
       code: data.code,
-      description: data.description.isNotEmpty ? data.description : '',  // ⭐ CORRECTION
+      description: data.description.isNotEmpty ? data.description : '',
       shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : '',
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
       supplierReference: data.supplierReference.isNotEmpty ? data.supplierReference : null,
+      tags: data.tags.isNotEmpty ? data.tags : null,
+      notes: data.notes.isNotEmpty ? data.notes : null,
       categoryId: data.categoryId.isNotEmpty ? data.categoryId : null,
       brandId: data.brandId.isNotEmpty ? data.brandId : null,
       unitOfMeasureId: data.unitOfMeasureId.isNotEmpty ? data.unitOfMeasureId : null,
       mainSupplierId: data.mainSupplierId.isNotEmpty ? data.mainSupplierId : null,
-      purchasePrice: data.purchasePrice,
-      sellingPrice: data.sellingPrice,
       manageStock: data.manageStock,
       minStockLevel: data.minStockLevel,
       maxStockLevel: data.maxStockLevel,
@@ -541,70 +451,52 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isSellable: data.isSellable,
       isPurchasable: data.isPurchasable,
       allowNegativeStock: data.allowNegativeStock,
-      parentArticleId: data.parentArticleId,
-      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
-      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
+      purchasePrice: data.purchasePrice,
+      sellingPrice: data.sellingPrice,
       weight: data.weight > 0 ? data.weight : null,
       length: data.length > 0 ? data.length : null,
       width: data.width > 0 ? data.width : null,
       height: data.height > 0 ? data.height : null,
-      tags: data.tags.isNotEmpty ? data.tags : null,
-      notes: data.notes.isNotEmpty ? data.notes : null,
+      parentArticleId: data.parentArticleId,
+      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
+      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
       isActive: data.isActive,
+      images: data.images.isNotEmpty ? _prepareImagesForApi(data.images) : null,
+      additionalBarcodes: data.additionalBarcodes.isNotEmpty ? _prepareBarcodesForApi(data.additionalBarcodes) : null,
     );
 
-    // ⭐ CORRECTION: Appel avec params.toJson() et params.imagePath
     final result = await createArticleUseCase(params);
     final error = result.$2;
     final article = result.$1;
 
     if (error != null || article == null) {
-      logger.e('❌ Erreur création article: $error');
-      state = ArticleFormError(
-        message: error ?? 'Erreur inconnue',
-        mode: mode,
-        formData: data,
-      );
-      return;
+      throw Exception(error ?? 'Erreur création');
     }
 
-    logger.i('✅ Article créé avec succès: ${article.name}');
-    state = ArticleFormSuccess(
-      article: article,
-      message: 'Article "${article.name}" créé avec succès',
-    );
+    state = ArticleFormSuccess(article: article, message: 'Article créé');
+    logger.i('✅ Créé: ${article.name}');
   }
 
-  /// Met à jour un article existant
+  /// ✅ Met à jour un article avec UpdateArticleParams
   Future<void> _updateArticle(ArticleFormData data) async {
-    if (articleId == null) {
-      logger.e('❌ articleId manquant pour la mise à jour');
-      state = ArticleFormError(
-        message: 'Erreur: ID article manquant',
-        mode: mode,
-        formData: data,
-      );
-      return;
-    }
-
-    logger.d('📝 Mise à jour article: $articleId');
+    if (articleId == null) throw Exception('ID manquant');
 
     final params = UpdateArticleParams(
       id: articleId!,
       name: data.name,
       code: data.code,
-      description: data.description.isNotEmpty ? data.description : '',  // ⭐ CORRECTION
+      description: data.description.isNotEmpty ? data.description : '',
       shortDescription: data.shortDescription.isNotEmpty ? data.shortDescription : '',
       articleType: data.articleType,
       barcode: data.barcode.isNotEmpty ? data.barcode : null,
       internalReference: data.internalReference.isNotEmpty ? data.internalReference : null,
       supplierReference: data.supplierReference.isNotEmpty ? data.supplierReference : null,
+      tags: data.tags.isNotEmpty ? data.tags : null,
+      notes: data.notes.isNotEmpty ? data.notes : null,
       categoryId: data.categoryId.isNotEmpty ? data.categoryId : null,
       brandId: data.brandId.isNotEmpty ? data.brandId : null,
       unitOfMeasureId: data.unitOfMeasureId.isNotEmpty ? data.unitOfMeasureId : null,
       mainSupplierId: data.mainSupplierId.isNotEmpty ? data.mainSupplierId : null,
-      purchasePrice: data.purchasePrice,
-      sellingPrice: data.sellingPrice,
       manageStock: data.manageStock,
       minStockLevel: data.minStockLevel,
       maxStockLevel: data.maxStockLevel,
@@ -613,38 +505,52 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       isSellable: data.isSellable,
       isPurchasable: data.isPurchasable,
       allowNegativeStock: data.allowNegativeStock,
-      parentArticleId: data.parentArticleId,
-      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
-      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
+      purchasePrice: data.purchasePrice,
+      sellingPrice: data.sellingPrice,
       weight: data.weight > 0 ? data.weight : null,
       length: data.length > 0 ? data.length : null,
       width: data.width > 0 ? data.width : null,
       height: data.height > 0 ? data.height : null,
-      tags: data.tags.isNotEmpty ? data.tags : null,
-      notes: data.notes.isNotEmpty ? data.notes : null,
+      parentArticleId: data.parentArticleId,
+      variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
+      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
       isActive: data.isActive,
+      images: data.images.isNotEmpty ? _prepareImagesForApi(data.images) : null,
+      additionalBarcodes: data.additionalBarcodes.isNotEmpty ? _prepareBarcodesForApi(data.additionalBarcodes) : null,
     );
 
-    // ⭐ CORRECTION: Appel avec params
     final result = await updateArticleUseCase(params);
     final error = result.$2;
     final article = result.$1;
 
     if (error != null || article == null) {
-      logger.e('❌ Erreur mise à jour article: $error');
-      state = ArticleFormError(
-        message: error ?? 'Erreur inconnue',
-        mode: mode,
-        formData: data,
-      );
-      return;
+      throw Exception(error ?? 'Erreur mise à jour');
     }
 
-    logger.i('✅ Article mis à jour avec succès: ${article.name}');
-    state = ArticleFormSuccess(
-      article: article,
-      message: 'Article "${article.name}" mis à jour avec succès',
-    );
+    state = ArticleFormSuccess(article: article, message: 'Article mis à jour');
+    logger.i('✅ Mis à jour: ${article.name}');
+  }
+
+  /// Prépare les images pour l'API
+  List<Map<String, dynamic>> _prepareImagesForApi(List<ArticleImageData> images) {
+    return images.map((img) => {
+      if (img.id != null) 'id': img.id,
+      'image_path': img.imagePath,
+      'alt_text': img.altText,
+      'caption': img.caption,
+      'is_primary': img.isPrimary,
+      'order': img.order,
+    }).toList();
+  }
+
+  /// Prépare les codes-barres pour l'API
+  List<Map<String, dynamic>> _prepareBarcodesForApi(List<AdditionalBarcodeData> barcodes) {
+    return barcodes.map((barcode) => {
+      if (barcode.id != null) 'id': barcode.id,
+      'barcode': barcode.barcode,
+      'barcode_type': barcode.barcodeType,
+      'is_primary': barcode.isPrimary,
+    }).toList();
   }
 
   /// Réinitialise le formulaire après une erreur

@@ -1,23 +1,19 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_form_step5.dart
-// ÉTAPE 5 : Métadonnées Avancées
-// VERSION 2.1 - Refonte visuelle GESTORE
-// --
-// Changements majeurs :
-// - Remplacement de toutes les Card par des conteneurs de section stylisés (fond, bordure, ombre).
-// - Application de la palette GESTORE (AppColors) pour une cohérence totale des couleurs.
-// - Refonte des bannières d'information (variantes, statut) avec les couleurs de statut GESTORE.
-// - Amélioration de l'en-tête et des boîtes de dialogue pour correspondre au design GESTORE.
+// ÉTAPE 5 : Métadonnées Avancées avec ImageGalleryWidget
+// VERSION 3.0 - AMÉLIORATIONS COMPLÈTES
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../shared/constants/app_colors.dart';
+import '../../../../shared/widgets/image_gallery_widget.dart';
+import '../../../../shared/widgets/barcode_input_field.dart';
 import '../providers/article_form_state.dart';
 import 'form_field_widgets.dart';
-import 'advanced_form_widgets.dart';
 
-class ArticleFormStep5 extends ConsumerWidget {
+class ArticleFormStep5 extends ConsumerStatefulWidget {
   final ArticleFormData formData;
   final Map<String, String> errors;
   final Function(String, dynamic) onFieldChanged;
@@ -30,7 +26,29 @@ class ArticleFormStep5 extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArticleFormStep5> createState() => _ArticleFormStep5State();
+}
+
+class _ArticleFormStep5State extends ConsumerState<ArticleFormStep5> {
+  // Liste temporaire des codes-barres pour gestion locale
+  List<AdditionalBarcodeData> _tempBarcodes = [];
+  final TextEditingController _newBarcodeController = TextEditingController();
+  String _selectedBarcodeType = 'ean13';
+
+  @override
+  void initState() {
+    super.initState();
+    _tempBarcodes = List.from(widget.formData.additionalBarcodes);
+  }
+
+  @override
+  void dispose() {
+    _newBarcodeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -38,25 +56,40 @@ class ArticleFormStep5 extends ConsumerWidget {
         _buildHeader(context),
         const SizedBox(height: 24),
 
-        // Section 1 : Dimensions physiques
-        _buildDimensionsSection(),
+        // Section 1 : Images
+        _buildSectionContainer(
+          context: context,
+          title: 'Images de l\'article',
+          icon: Icons.photo_library_outlined,
+          child: _buildImagesSection(),
+        ),
         const SizedBox(height: 24),
 
-        // Section 2 : Images multiples
-        _buildImagesSection(),
+        // Section 2 : Codes-barres additionnels
+        _buildSectionContainer(
+          context: context,
+          title: 'Codes-barres additionnels',
+          icon: Icons.qr_code_2_outlined,
+          child: _buildAdditionalBarcodesSection(),
+        ),
         const SizedBox(height: 24),
 
-        // Section 3 : Codes-barres additionnels
-        _buildBarcodesSection(),
+        // Section 3 : Dimensions physiques
+        _buildSectionContainer(
+          context: context,
+          title: 'Dimensions et poids',
+          icon: Icons.straighten_outlined,
+          child: _buildDimensionsSection(),
+        ),
         const SizedBox(height: 24),
 
-        // Section 4 : Variantes (si applicable)
-        if (formData.articleType != 'variant') _buildVariantsSection(context),
-        if (formData.articleType == 'variant') _buildVariantInfoSection(),
-        const SizedBox(height: 24),
-
-        // Section 5 : Statut
-        _buildStatusSection(),
+        // Section 4 : Variantes et statut
+        _buildSectionContainer(
+          context: context,
+          title: 'Variantes et statut',
+          icon: Icons.tune_outlined,
+          child: _buildVariantsSection(),
+        ),
       ],
     );
   }
@@ -73,7 +106,7 @@ class ArticleFormStep5 extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(
-            Icons.auto_awesome_outlined,
+            Icons.tune_outlined,
             color: AppColors.primary,
             size: 28,
           ),
@@ -93,7 +126,7 @@ class ArticleFormStep5 extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Informations complémentaires pour une gestion optimale.',
+                'Images, codes-barres additionnels, dimensions et variantes.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
@@ -106,206 +139,9 @@ class ArticleFormStep5 extends ConsumerWidget {
     );
   }
 
-  // ==================== SECTIONS ====================
-
-  Widget _buildDimensionsSection() {
-    return _buildSectionContainer(
-      title: 'Dimensions et poids',
-      icon: Icons.straighten_outlined,
-      child: Column(
-        children: [
-          // Poids
-          CustomNumberField(
-            label: 'Poids',
-            initialValue: formData.weight,
-            errorText: errors['weight'],
-            onChanged: (value) => onFieldChanged('weight', value),
-            prefixIcon: Icons.monitor_weight_outlined,
-            suffix: 'kg',
-            decimals: 2,
-            minValue: 0,
-            helperText: 'Poids unitaire de l\'article',
-          ),
-          const SizedBox(height: 16),
-          // Dimensions (L x l x h)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: CustomNumberField(
-                  label: 'Longueur',
-                  initialValue: formData.length,
-                  errorText: errors['length'],
-                  onChanged: (value) => onFieldChanged('length', value),
-                  prefixIcon: Icons.straighten_outlined,
-                  suffix: 'cm',
-                  decimals: 1,
-                  minValue: 0,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomNumberField(
-                  label: 'Largeur',
-                  initialValue: formData.width,
-                  errorText: errors['width'],
-                  onChanged: (value) => onFieldChanged('width', value),
-                  prefixIcon: Icons.width_normal_outlined,
-                  suffix: 'cm',
-                  decimals: 1,
-                  minValue: 0,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomNumberField(
-                  label: 'Hauteur',
-                  initialValue: formData.height,
-                  errorText: errors['height'],
-                  onChanged: (value) => onFieldChanged('height', value),
-                  prefixIcon: Icons.height_outlined,
-                  suffix: 'cm',
-                  decimals: 1,
-                  minValue: 0,
-                ),
-              ),
-            ],
-          ),
-          if (formData.weight > 0 || formData.length > 0)
-            _buildDimensionsSummary(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImagesSection() {
-    return _buildSectionContainer(
-      title: 'Images',
-      icon: Icons.image_outlined,
-      child: MultiImageManager(
-        images: formData.images,
-        onImagesChanged: (images) => onFieldChanged('images', images),
-      ),
-    );
-  }
-
-  Widget _buildBarcodesSection() {
-    return _buildSectionContainer(
-      title: 'Codes-barres additionnels',
-      icon: Icons.qr_code_2_outlined,
-      child: AdditionalBarcodesManager(
-        barcodes: formData.additionalBarcodes,
-        onBarcodesChanged: (barcodes) =>
-            onFieldChanged('additionalBarcodes', barcodes),
-      ),
-    );
-  }
-
-  Widget _buildVariantsSection(BuildContext context) {
-    return _buildSectionContainer(
-      title: 'Variantes',
-      icon: Icons.dashboard_customize_outlined,
-      child: Column(
-        children: [
-          _buildInfoBanner(
-            message:
-            'Créez des déclinaisons (tailles, couleurs, etc.) d\'un produit. Créez d\'abord l\'article parent, puis les variantes depuis son écran de détail.',
-            color: AppColors.info,
-            icon: Icons.info_outline_rounded,
-            title: 'Gestion des variantes',
-          ),
-          const SizedBox(height: 16),
-          // Bouton de gestion (placeholder)
-          OutlinedButton.icon(
-            onPressed: () => _showVariantsInfo(context),
-            icon: const Icon(Icons.help_outline),
-            label: const Text('Comment créer des variantes ?'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: const BorderSide(color: AppColors.border),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVariantInfoSection() {
-    return _buildSectionContainer(
-      title: 'Information variante',
-      icon: Icons.link_outlined,
-      child: Column(
-        children: [
-          // Article parent (si c'est une variante)
-          if (formData.parentArticleId != null &&
-              formData.parentArticleId!.isNotEmpty)
-            _buildInfoBanner(
-                message: 'ID: ${formData.parentArticleId}',
-                color: AppColors.secondary,
-                icon: Icons.link,
-                title: 'Article Parent')
-          else
-            _buildInfoBanner(
-              message:
-              'Cet article est marqué comme variante mais n\'a pas d\'article parent. Veuillez le lier à un parent ou changer son type.',
-              color: AppColors.warning,
-              icon: Icons.warning_amber_rounded,
-            ),
-          const SizedBox(height: 16),
-          // Attributs de variante
-          CustomTextField(
-            label: 'Attributs de variante (JSON)',
-            initialValue: formData.variantAttributes,
-            errorText: errors['variantAttributes'],
-            onChanged: (value) => onFieldChanged('variantAttributes', value),
-            prefixIcon: Icons.data_object_outlined,
-            maxLines: 3,
-            helperText: 'Ex: {"couleur": "Rouge", "taille": "L"}',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusSection() {
-    return _buildSectionContainer(
-      title: 'Statut',
-      icon: Icons.toggle_on_outlined,
-      child: Column(
-        children: [
-          CustomSwitchTile(
-            title: 'Article actif',
-            subtitle: formData.isActive
-                ? 'Visible et utilisable dans toute l\'application'
-                : 'Masqué et non disponible',
-            value: formData.isActive,
-            icon: formData.isActive
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-            onChanged: (value) => onFieldChanged('isActive', value),
-          ),
-          if (!formData.isActive) ...[
-            const SizedBox(height: 16),
-            _buildInfoBanner(
-              message:
-              'Un article inactif ne peut pas être vendu ni acheté. Il reste visible dans les historiques et rapports.',
-              color: AppColors.warning,
-              icon: Icons.info_outline_rounded,
-            ),
-          ]
-        ],
-      ),
-    );
-  }
-
-  // ==================== WIDGETS RÉUTILISABLES ====================
-
+  // ==================== CONTAINER DE SECTION ====================
   Widget _buildSectionContainer({
+    required BuildContext context,
     required String title,
     required IconData icon,
     required Widget child,
@@ -313,23 +149,29 @@ class ArticleFormStep5 extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
-        boxShadow: [AppColors.subtleShadow()],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 22, color: AppColors.primary),
-              const SizedBox(width: 12),
+              Icon(icon, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
               ),
@@ -342,164 +184,381 @@ class ArticleFormStep5 extends ConsumerWidget {
     );
   }
 
-  Widget _buildDimensionsSummary() {
-    final volume = formData.length * formData.width * formData.height;
+  // ==================== SECTION IMAGES ==================== 
+  Widget _buildImagesSection() {
+    // Convertir ArticleImageData en GalleryImage pour ImageGalleryWidget
+    final galleryImages = widget.formData.images
+        .map((img) => GalleryImage(
+      path: img.imagePath.startsWith('http') ? null : img.imagePath,
+      url: img.imagePath.startsWith('http') ? img.imagePath : null,
+      isPrimary: img.isPrimary,
+    ))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Info
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.info.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: AppColors.info, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Ajoutez jusqu\'à 5 images. La première sera l\'image principale. Les images seront automatiquement compressées avant l\'envoi.',
+                  style: TextStyle(
+                    color: AppColors.info,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ImageGalleryWidget - Widget réutilisable existant ✨
+        ImageGalleryWidget(
+          initialImages: galleryImages,
+          onImagesChanged: (updatedImages) {
+            // Convertir GalleryImage en ArticleImageData
+            final articleImages = updatedImages
+                .asMap()
+                .entries
+                .map((entry) => ArticleImageData(
+              imagePath: entry.value.path ?? entry.value.url ?? '',
+              caption: '',
+              altText: '',
+              order: entry.key,
+              isPrimary: entry.value.isPrimary,
+            ))
+                .toList();
+
+            widget.onFieldChanged('images', articleImages);
+          },
+          maxImages: 5,
+          thumbnailSize: 120,
+          maxSizeMB: 5.0,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        ),
+      ],
+    );
+  }
+
+  // ==================== SECTION CODES-BARRES ADDITIONNELS ====================
+  Widget _buildAdditionalBarcodesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Info
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.info.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: AppColors.info, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Codes-barres supplémentaires pour cet article (différents formats ou emballages).',
+                  style: TextStyle(
+                    color: AppColors.info,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Formulaire d'ajout
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: BarcodeInputField(
+                label: 'Nouveau code-barres',
+                onChanged: (value) {
+                  _newBarcodeController.text = value;
+                },
+                helperText: 'Scanner ou saisir',
+                prefixIcon: Icons.qr_code_scanner,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: CustomDropdown<String>(
+                label: 'Type',
+                value: _selectedBarcodeType,
+                items: const [
+                  DropdownMenuItem(value: 'ean13', child: Text('EAN-13')),
+                  DropdownMenuItem(value: 'ean8', child: Text('EAN-8')),
+                  DropdownMenuItem(value: 'upc', child: Text('UPC')),
+                  DropdownMenuItem(value: 'code128', child: Text('Code 128')),
+                  DropdownMenuItem(value: 'qr', child: Text('QR Code')),
+                  DropdownMenuItem(value: 'other', child: Text('Autre')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedBarcodeType = value ?? 'ean13';
+                  });
+                },
+                prefixIcon: Icons.category,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              margin: const EdgeInsets.only(top: 24),
+              height: 50,
+              width: 50,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _addBarcode,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Liste des codes-barres
+        if (_tempBarcodes.isNotEmpty) ...[
+          const Divider(),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _tempBarcodes.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final barcode = _tempBarcodes[index];
+              return _buildBarcodeCard(barcode, index);
+            },
+          ),
+        ] else
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(Icons.qr_code_2_outlined, size: 48, color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Aucun code-barres additionnel',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBarcodeCard(AdditionalBarcodeData barcode, int index) {
     return Container(
-      margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.backgroundLight,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
-          if (formData.weight > 0)
-            _buildInfoRow(
-              'Poids total',
-              '${formData.weight.toStringAsFixed(2)} kg',
-            ),
-          if (volume > 0 && formData.weight > 0)
-            const Divider(height: 12, color: AppColors.border),
-          if (volume > 0) ...[
-            _buildInfoRow(
-              'Volume',
-              '${(volume / 1000).toStringAsFixed(2)} litres',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'monospace',
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoBanner({
-    required String message,
-    required Color color,
-    required IconData icon,
-    String? title,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.qr_code_2,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (title != null)
-                  Text(
-                    title,
-                    style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14),
-                  ),
-                if (title != null) const SizedBox(height: 4),
                 Text(
-                  message,
-                  style:
-                  TextStyle(color: color.withValues(alpha: 0.9), fontSize: 13),
+                  barcode.barcode,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  barcode.barcodeType.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ],
             ),
           ),
+          IconButton(
+            onPressed: () => _removeBarcode(index),
+            icon: const Icon(Icons.delete_outline),
+            color: AppColors.error,
+            iconSize: 20,
+          ),
         ],
       ),
     );
   }
 
-  void _showVariantsInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceLight,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          'Gestion des variantes',
-          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+  void _addBarcode() {
+    if (_newBarcodeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Veuillez saisir un code-barres'),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
         ),
-        content: SingleChildScrollView(
-          child: ListBody(
-            children: <Widget>[
-              const Text(
-                'Les variantes permettent de gérer des déclinaisons d\'un même produit.',
-                style: TextStyle(color: AppColors.textSecondary),
+      );
+      return;
+    }
+
+    setState(() {
+      _tempBarcodes.add(AdditionalBarcodeData(
+        barcode: _newBarcodeController.text.trim(),
+        barcodeType: _selectedBarcodeType,
+        isPrimary: false, // ✅ Corriger: isPrimary au lieu de isActive
+      ));
+      _newBarcodeController.clear();
+    });
+
+    widget.onFieldChanged('additionalBarcodes', _tempBarcodes);
+  }
+
+  void _removeBarcode(int index) {
+    setState(() {
+      _tempBarcodes.removeAt(index);
+    });
+    widget.onFieldChanged('additionalBarcodes', _tempBarcodes);
+  }
+
+  // ==================== SECTION DIMENSIONS ====================
+  Widget _buildDimensionsSection() {
+    return Column(
+      children: [
+        // Poids
+        CustomTextField(
+          label: 'Poids',
+          initialValue: widget.formData.weight > 0 ? widget.formData.weight.toString() : '',
+          errorText: widget.errors['weight'],
+          onChanged: (value) {
+            final weight = double.tryParse(value) ?? 0.0;
+            widget.onFieldChanged('weight', weight);
+          },
+          prefixIcon: Icons.scale_outlined,
+          suffixText: 'kg',
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          helperText: 'Poids de l\'article en kilogrammes',
+        ),
+        const SizedBox(height: 16),
+
+        // Dimensions (Longueur, Largeur, Hauteur)
+        Row(
+          children: [
+            Expanded(
+              child: CustomTextField(
+                label: 'Longueur',
+                initialValue: widget.formData.length > 0 ? widget.formData.length.toString() : '',
+                errorText: widget.errors['length'],
+                onChanged: (value) {
+                  final length = double.tryParse(value) ?? 0.0;
+                  widget.onFieldChanged('length', length);
+                },
+                suffixText: 'cm',
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
               ),
-              const SizedBox(height: 16),
-              const Text('Exemples :', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              const SizedBox(height: 8),
-              _buildExampleItem('T-shirt → Tailles (S, M, L)'),
-              _buildExampleItem('Peinture → Couleurs (Rouge, Bleu)'),
-              const SizedBox(height: 16),
-              const Text('Comment faire ?', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              const SizedBox(height: 8),
-              _buildStepItem('1. Créez et enregistrez l\'article "parent".'),
-              _buildStepItem('2. Depuis l\'écran de détail de cet article, utilisez l\'option pour générer des variantes.'),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomTextField(
+                label: 'Largeur',
+                initialValue: widget.formData.width > 0 ? widget.formData.width.toString() : '',
+                errorText: widget.errors['width'],
+                onChanged: (value) {
+                  final width = double.tryParse(value) ?? 0.0;
+                  widget.onFieldChanged('width', width);
+                },
+                suffixText: 'cm',
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomTextField(
+                label: 'Hauteur',
+                initialValue: widget.formData.height > 0 ? widget.formData.height.toString() : '',
+                errorText: widget.errors['height'],
+                onChanged: (value) {
+                  final height = double.tryParse(value) ?? 0.0;
+                  widget.onFieldChanged('height', height);
+                },
+                suffixText: 'cm',
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Compris'),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildExampleItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(children: [
-        const Icon(Icons.arrow_right, size: 16, color: AppColors.textTertiary),
-        const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-      ]),
-    );
-  }
+  // ==================== SECTION VARIANTES ====================
+  Widget _buildVariantsSection() {
+    return Column(
+      children: [
+        // Attributs de variante
+        CustomTextField(
+          label: 'Attributs de variante',
+          initialValue: widget.formData.variantAttributes,
+          errorText: widget.errors['variantAttributes'],
+          onChanged: (value) => widget.onFieldChanged('variantAttributes', value),
+          prefixIcon: Icons.tune_outlined,
+          helperText: 'Ex: Couleur=Rouge, Taille=L (format JSON pour variantes)',
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
 
-  Widget _buildStepItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(children: [
-        const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
-        const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-      ]),
+        // Statut actif
+        CustomSwitchTile(
+          title: 'Article actif',
+          subtitle: 'L\'article est visible et disponible à la vente',
+          value: widget.formData.isActive,
+          onChanged: (value) => widget.onFieldChanged('isActive', value),
+          icon: Icons.toggle_on_outlined,
+        ),
+      ],
     );
   }
 }

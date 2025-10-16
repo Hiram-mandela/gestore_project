@@ -18,8 +18,8 @@ class ArticleDetailEntity extends Equatable {
   // ==================== SECTION 1 : INFORMATIONS DE BASE ====================
   final String id;
   final String name;
-  final String description;
-  final String shortDescription; // ⭐ NOUVEAU
+  final String? description;
+  final String? shortDescription; // ⭐ NOUVEAU
   final String code;
   final ArticleType articleType;
   final String? barcode;
@@ -95,7 +95,7 @@ class ArticleDetailEntity extends Equatable {
   const ArticleDetailEntity({
     required this.id,
     required this.name,
-    required this.description,
+    this.description = '',
     this.shortDescription = '',
     required this.code,
     required this.articleType,

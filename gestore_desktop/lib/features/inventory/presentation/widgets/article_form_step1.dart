@@ -1,21 +1,16 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_form_step1.dart
-// ÉTAPE 1 : Informations de Base (10 champs)
-// VERSION 2.1 - Refonte visuelle GESTORE
-// --
-// Changements majeurs :
-// - Application de la palette GESTORE (AppColors) pour une cohérence totale.
-// - Remplacement des Card par défaut par des sections stylisées avec bordures.
-// - Amélioration de la typographie et des icônes pour une meilleure lisibilité.
-// - Standardisation des espacements et de la hiérarchie visuelle.
+// ÉTAPE 1 : Informations de Base avec validation inline et scanner de codes-barres
+// VERSION 3.0 - AMÉLIORATIONS COMPLÈTES
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/constants/app_colors.dart';
+import '../../../../shared/widgets/barcode_input_field.dart';
 import '../providers/article_form_state.dart';
-import 'form_field_widgets.dart'; // Supposé contenir CustomTextField, etc.
+import 'form_field_widgets.dart';
 
 class ArticleFormStep1 extends ConsumerWidget {
   final ArticleFormData formData;
@@ -66,6 +61,7 @@ class ArticleFormStep1 extends ConsumerWidget {
       ],
     );
   }
+
   // ==================== HEADER ====================
   Widget _buildHeader(BuildContext context) {
     return Row(
@@ -111,12 +107,57 @@ class ArticleFormStep1 extends ConsumerWidget {
     );
   }
 
+  // ==================== CONTAINER DE SECTION ====================
+  Widget _buildSectionContainer({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+
   // ==================== SECTIONS DE FORMULAIRE ====================
 
   Widget _buildIdentificationFields() {
     return Column(
       children: [
-        // Nom * (Requis)
+        // Nom * (Requis) - AVEC VALIDATION INLINE
         CustomTextField(
           label: 'Nom de l\'article',
           initialValue: formData.name,
@@ -125,9 +166,11 @@ class ArticleFormStep1 extends ConsumerWidget {
           prefixIcon: Icons.inventory_2_outlined,
           required: true,
           helperText: 'Nom commercial de l\'article',
+          autovalidateMode: AutovalidateMode.onUserInteraction, // ✨ VALIDATION INLINE
         ),
         const SizedBox(height: 16),
-        // Code * (Requis)
+
+        // Code * (Requis) - AVEC VALIDATION INLINE
         CustomTextField(
           label: 'Code article',
           initialValue: formData.code,
@@ -137,8 +180,10 @@ class ArticleFormStep1 extends ConsumerWidget {
           required: true,
           textCapitalization: TextCapitalization.characters,
           helperText: 'Code unique pour identifier l\'article (SKU)',
+          autovalidateMode: AutovalidateMode.onUserInteraction, // ✨ VALIDATION INLINE
         ),
         const SizedBox(height: 16),
+
         // Type d'article
         CustomDropdown<String>(
           label: 'Type d\'article',
@@ -154,15 +199,15 @@ class ArticleFormStep1 extends ConsumerWidget {
           helperText: 'Nature de l\'article',
         ),
         const SizedBox(height: 16),
-        // Code-barres principal
-        CustomTextField(
+
+        // Code-barres principal - AVEC SCANNER ✨
+        BarcodeInputField(
           label: 'Code-barres principal',
           initialValue: formData.barcode,
-          errorText: errors['barcode'],
           onChanged: (value) => onFieldChanged('barcode', value),
-          prefixIcon: Icons.qr_code_scanner,
+          errorText: errors['barcode'],
           helperText: 'EAN13, UPC ou autre (codes additionnels en étape 5)',
-          keyboardType: TextInputType.number,
+          prefixIcon: Icons.qr_code_scanner,
         ),
       ],
     );
@@ -171,7 +216,7 @@ class ArticleFormStep1 extends ConsumerWidget {
   Widget _buildDescriptionsFields() {
     return Column(
       children: [
-        // Description courte
+        // Description courte - AVEC VALIDATION INLINE
         CustomTextField(
           label: 'Description courte',
           initialValue: formData.shortDescription,
@@ -180,8 +225,10 @@ class ArticleFormStep1 extends ConsumerWidget {
           prefixIcon: Icons.short_text,
           maxLines: 2,
           helperText: 'Résumé pour les listes et recherches (150 caractères max)',
+          autovalidateMode: AutovalidateMode.onUserInteraction, // ✨ VALIDATION INLINE
         ),
         const SizedBox(height: 16),
+
         // Description complète
         CustomTextField(
           label: 'Description complète',
@@ -190,7 +237,7 @@ class ArticleFormStep1 extends ConsumerWidget {
           onChanged: (value) => onFieldChanged('description', value),
           prefixIcon: Icons.notes_outlined,
           maxLines: 4,
-          helperText: 'Description détaillée de l\'article',
+          helperText: 'Description détaillée pour la fiche produit',
         ),
       ],
     );
@@ -205,84 +252,42 @@ class ArticleFormStep1 extends ConsumerWidget {
           initialValue: formData.internalReference,
           errorText: errors['internalReference'],
           onChanged: (value) => onFieldChanged('internalReference', value),
-          prefixIcon: Icons.push_pin_outlined,
-          helperText: 'Référence utilisée en interne',
+          prefixIcon: Icons.tag,
+          helperText: 'Référence pour usage interne (optionnel)',
         ),
         const SizedBox(height: 16),
+
         // Référence fournisseur
         CustomTextField(
           label: 'Référence fournisseur',
           initialValue: formData.supplierReference,
           errorText: errors['supplierReference'],
           onChanged: (value) => onFieldChanged('supplierReference', value),
-          prefixIcon: Icons.business_center_outlined,
-          helperText: 'Référence du fournisseur principal',
+          prefixIcon: Icons.factory_outlined,
+          helperText: 'Référence du fournisseur principal (optionnel)',
         ),
         const SizedBox(height: 16),
+
         // Tags
         CustomTextField(
           label: 'Tags',
           initialValue: formData.tags,
           errorText: errors['tags'],
           onChanged: (value) => onFieldChanged('tags', value),
-          prefixIcon: Icons.label_outline,
+          prefixIcon: Icons.label_outlined,
           helperText: 'Mots-clés séparés par des virgules (ex: bio, promo, nouveau)',
         ),
         const SizedBox(height: 16),
+
         // Notes
         CustomTextField(
           label: 'Notes internes',
           initialValue: formData.notes,
           errorText: errors['notes'],
           onChanged: (value) => onFieldChanged('notes', value),
-          prefixIcon: Icons.sticky_note_2_outlined,
+          prefixIcon: Icons.note_outlined,
           maxLines: 3,
-          helperText: 'Notes visibles uniquement en interne',
-        ),
-      ],
-    );
-  }
-
-  // ==================== WIDGETS RÉUTILISABLES ====================
-
-  Widget _buildSectionContainer({
-    required BuildContext context,
-    required String title,
-    required IconData icon,
-    required Widget child,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [AppColors.subtleShadow()],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle(context, title, icon),
-          const SizedBox(height: 20),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(
-      BuildContext context, String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 22, color: AppColors.primary),
-        const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+          helperText: 'Informations complémentaires (non visibles publiquement)',
         ),
       ],
     );

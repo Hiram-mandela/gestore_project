@@ -1,13 +1,14 @@
 // ========================================
 // lib/shared/widgets/image_gallery_widget.dart
-// Widget pour gérer une galerie d'images
-// Support upload multiple, réordonnancement, définition principale
+// Widget pour gérer une galerie d'images avec compression automatique
+// VERSION 2.0 - AMÉLIORATIONS: Compression auto avant envoi
 // ========================================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
+import '../../core/utils/image_compression_helper.dart';
 
 /// Représente une image dans la galerie
 class GalleryImage {
@@ -37,7 +38,7 @@ class GalleryImage {
   }
 }
 
-/// Widget pour gérer une galerie d'images
+/// Widget pour gérer une galerie d'images avec compression automatique
 class ImageGalleryWidget extends StatefulWidget {
   /// Images initiales
   final List<GalleryImage> initialImages;
@@ -51,11 +52,19 @@ class ImageGalleryWidget extends StatefulWidget {
   /// Taille des thumbnails
   final double thumbnailSize;
 
-  /// Taille maximale par image en MB
+  /// Taille maximale par image en MB (avant compression)
   final double maxSizeMB;
 
   /// Extensions autorisées
   final List<String> allowedExtensions;
+
+  /// Activer la compression automatique
+  final bool enableAutoCompression;
+
+  /// Paramètres de compression
+  final int compressionMaxWidth;
+  final int compressionMaxHeight;
+  final int compressionQuality;
 
   const ImageGalleryWidget({
     super.key,
@@ -64,7 +73,11 @@ class ImageGalleryWidget extends StatefulWidget {
     this.maxImages = 5,
     this.thumbnailSize = 120,
     this.maxSizeMB = 5.0,
-    this.allowedExtensions = const ['jpg', 'jpeg', 'png'],
+    this.allowedExtensions = const ['jpg', 'jpeg', 'png', 'webp'],
+    this.enableAutoCompression = true, // ✨ PAR DÉFAUT: activé
+    this.compressionMaxWidth = 1280,
+    this.compressionMaxHeight = 1280,
+    this.compressionQuality = 85,
   });
 
   @override
@@ -74,6 +87,7 @@ class ImageGalleryWidget extends StatefulWidget {
 class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
   late List<GalleryImage> _images;
   String? _errorMessage;
+  bool _isCompressing = false;
 
   @override
   void initState() {
@@ -81,7 +95,7 @@ class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
     _images = List.from(widget.initialImages);
   }
 
-  /// Ajoute une ou plusieurs images
+  /// Ajoute une ou plusieurs images avec compression automatique ✨
   Future<void> _addImages() async {
     if (_images.length >= widget.maxImages) {
       setState(() {
@@ -98,6 +112,11 @@ class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
       );
 
       if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _isCompressing = true;
+          _errorMessage = null;
+        });
+
         final remainingSlots = widget.maxImages - _images.length;
         final filesToAdd = result.files.take(remainingSlots).toList();
 
@@ -116,19 +135,65 @@ class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
           if (extension == null ||
               !widget.allowedExtensions.contains(extension)) {
             setState(() {
-              _errorMessage =
-              '${file.name}: Format non autorisé';
+              _errorMessage = '${file.name}: Format non autorisé';
             });
             continue;
           }
 
+          String finalPath = file.path!;
+
+          // ✨ COMPRESSION AUTOMATIQUE
+          if (widget.enableAutoCompression) {
+            final shouldCompress = await ImageCompressionHelper.shouldCompress(
+              imagePath: file.path!,
+              maxSizeMB: 2.0, // Seuil: compresser si > 2MB
+            );
+
+            if (shouldCompress) {
+              final compressedPath = await ImageCompressionHelper.compressImage(
+                imagePath: file.path!,
+                maxWidth: widget.compressionMaxWidth,
+                maxHeight: widget.compressionMaxHeight,
+                quality: widget.compressionQuality,
+              );
+
+              if (compressedPath != null) {
+                // Calculer le gain de compression
+                final ratio = await ImageCompressionHelper.getCompressionRatio(
+                  originalPath: file.path!,
+                  compressedPath: compressedPath,
+                );
+
+                if (ratio != null && ratio > 10) {
+                  // Si compression > 10%, utiliser l'image compressée
+                  finalPath = compressedPath;
+
+                  // Afficher un message de succès
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '✅ Image compressée: ${ratio.toStringAsFixed(0)}% de réduction',
+                        ),
+                        backgroundColor: AppColors.success,
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
+              }
+            }
+          }
+
           _images.add(GalleryImage(
-            path: file.path,
+            path: finalPath,
             isPrimary: _images.isEmpty, // Première image = principale
           ));
         }
 
         setState(() {
+          _isCompressing = false;
           _errorMessage = null;
         });
 
@@ -136,6 +201,7 @@ class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
       }
     } catch (e) {
       setState(() {
+        _isCompressing = false;
         _errorMessage = 'Erreur lors de la sélection: $e';
       });
     }
@@ -185,306 +251,262 @@ class _ImageGalleryWidgetState extends State<ImageGalleryWidget> {
     widget.onImagesChanged(_images);
   }
 
-  /// Construit le widget d'une image
-  Widget _buildImageTile(GalleryImage image, int index) {
-    return Stack(
-      children: [
-        // Image
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: widget.thumbnailSize,
-            height: widget.thumbnailSize,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: image.isPrimary
-                    ? AppColors.primary
-                    : Colors.grey.shade300,
-                width: image.isPrimary ? 3 : 1,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: image.isLocal
-                ? Image.file(
-              File(image.path!),
-              fit: BoxFit.cover,
-            )
-                : image.isNetwork
-                ? Image.network(
-              image.url!,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey.shade200,
-                  child: const Icon(Icons.broken_image),
-                );
-              },
-            )
-                : Container(
-              color: Colors.grey.shade200,
-              child: const Icon(Icons.image),
-            ),
-          ),
-        ),
-
-        // Badge "Principale"
-        if (image.isPrimary)
-          Positioned(
-            top: 4,
-            left: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'Principale',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-        // Bouton supprimer
-        Positioned(
-          top: 4,
-          right: 4,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _removeImage(index),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade500,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Bouton définir comme principale (si pas déjà principale)
-        if (!image.isPrimary)
-          Positioned(
-            bottom: 4,
-            left: 4,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _setPrimaryImage(index),
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.primary),
-                  ),
-                  child: const Text(
-                    'Définir principale',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// Construit le bouton d'ajout
-  Widget _buildAddButton() {
-    final canAddMore = _images.length < widget.maxImages;
-
-    return GestureDetector(
-      onTap: canAddMore ? _addImages : null,
-      child: Container(
-        width: widget.thumbnailSize,
-        height: widget.thumbnailSize,
-        decoration: BoxDecoration(
-          color: canAddMore
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: canAddMore ? AppColors.primary : Colors.grey.shade300,
-            width: 2,
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add_photo_alternate,
-              size: 32,
-              color: canAddMore ? AppColors.primary : Colors.grey.shade400,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              canAddMore ? 'Ajouter' : 'Maximum atteint',
-              style: TextStyle(
-                color: canAddMore ? AppColors.primary : Colors.grey.shade400,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (canAddMore)
-              Text(
-                '${_images.length}/${widget.maxImages}',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 10,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête
+        // En-tête avec bouton d'ajout
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Galerie d\'images',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+            Row(
+              children: [
+                Icon(Icons.photo_library, size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Images (${_images.length}/${widget.maxImages})',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              '${_images.length}/${widget.maxImages}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+            FilledButton.icon(
+              onPressed: _isCompressing || _images.length >= widget.maxImages
+                  ? null
+                  : _addImages,
+              icon: _isCompressing
+                  ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Icon(Icons.add_photo_alternate, size: 18),
+              label: Text(_isCompressing ? 'Compression...' : 'Ajouter'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
 
-        // Info
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'La première image sera utilisée comme image principale. Cliquez sur une image pour la définir comme principale.',
-                  style: TextStyle(
-                    color: Colors.blue.shade700,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Galerie (Reorderable)
-        ReorderableWrap(
-          spacing: 12,
-          runSpacing: 12,
-          onReorder: _reorderImages,
-          children: [
-            ..._images.asMap().entries.map((entry) {
-              return _buildImageTile(entry.value, entry.key);
-            }),
-            _buildAddButton(),
-          ],
-        ),
-
         // Message d'erreur
         if (_errorMessage != null) ...[
-          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: AppColors.error.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade200),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+                Icon(Icons.error_outline, color: AppColors.error, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _errorMessage!,
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: AppColors.error, fontSize: 13),
                   ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _errorMessage = null),
+                  icon: const Icon(Icons.close, size: 18),
+                  color: AppColors.error,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
         ],
+
+        // Liste des images
+        if (_images.isEmpty)
+          _buildEmptyState()
+        else
+          _buildImagesList(),
       ],
     );
   }
-}
 
-/// Widget Wrap avec support reorder (simplifié)
-class ReorderableWrap extends StatelessWidget {
-  final List<Widget> children;
-  final double spacing;
-  final double runSpacing;
-  final Function(int, int) onReorder;
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+        borderRadius: BorderRadius.circular(12),
+        color: AppColors.backgroundLight,
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.photo_library_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              'Aucune image',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ajoutez des images pour illustrer votre article',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  const ReorderableWrap({
-    super.key,
-    required this.children,
-    this.spacing = 8,
-    this.runSpacing = 8,
-    required this.onReorder,
-  });
+  Widget _buildImagesList() {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _images.length,
+      onReorder: _reorderImages,
+      itemBuilder: (context, index) {
+        final image = _images[index];
+        return _buildImageTile(image, index);
+      },
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: spacing,
-      runSpacing: runSpacing,
-      children: children,
+  Widget _buildImageTile(GalleryImage image, int index) {
+    return Container(
+      key: ValueKey('${image.path}${image.url}$index'),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: image.isPrimary ? AppColors.primary : AppColors.border,
+          width: image.isPrimary ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Handle de drag
+          Icon(Icons.drag_handle, color: Colors.grey.shade400),
+          const SizedBox(width: 12),
+
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: widget.thumbnailSize,
+              height: widget.thumbnailSize,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+              ),
+              child: image.isLocal
+                  ? Image.file(
+                File(image.path!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.broken_image),
+                  );
+                },
+              )
+                  : image.isNetwork
+                  ? Image.network(
+                image.url!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.broken_image),
+                  );
+                },
+              )
+                  : Container(
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.image),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (image.isPrimary)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Image principale',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    'Image ${index + 1}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                FutureBuilder<double?>(
+                  future: ImageCompressionHelper.getImageSizeInMB(
+                    image.path ?? image.url ?? '',
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null) {
+                      return Text(
+                        '${snapshot.data!.toStringAsFixed(2)} MB',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Actions
+          if (!image.isPrimary)
+            IconButton(
+              onPressed: () => _setPrimaryImage(index),
+              icon: const Icon(Icons.star_border),
+              color: AppColors.textSecondary,
+              tooltip: 'Définir comme principale',
+            ),
+          IconButton(
+            onPressed: () => _removeImage(index),
+            icon: const Icon(Icons.delete_outline),
+            color: AppColors.error,
+            tooltip: 'Supprimer',
+          ),
+        ],
+      ),
     );
   }
 }

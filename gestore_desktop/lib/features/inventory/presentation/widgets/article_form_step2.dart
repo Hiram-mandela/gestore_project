@@ -1,20 +1,17 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_form_step2.dart
-// ÉTAPE 2 : Classification (3 champs)
-// VERSION 2.2 - Correction du layout (Unbounded Width)
-// --
-// Changement :
-// - Ajout de `mainAxisSize: MainAxisSize.min` aux Row dans les DropdownMenuItem
-//   pour corriger l'erreur de contrainte de largeur infinie.
+// ÉTAPE 2 : Classification avec sélecteurs intelligents et création rapide
+// VERSION 3.0 - AMÉLIORATIONS COMPLÈTES
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../shared/constants/app_colors.dart';
+import '../../../../shared/widgets/smart_selector_widget.dart';
 import '../providers/article_form_state.dart';
 import '../providers/categories_brands_providers.dart';
-import 'form_field_widgets.dart';
 
 class ArticleFormStep2 extends ConsumerWidget {
   final ArticleFormData formData;
@@ -42,15 +39,15 @@ class ArticleFormStep2 extends ConsumerWidget {
         const SizedBox(height: 24),
 
         // Catégorie
-        _buildCategorySection(context, categoriesState, ref),
+        _buildCategorySection(context, ref, categoriesState),
         const SizedBox(height: 24),
 
         // Marque
-        _buildBrandSection(context, brandsState, ref),
+        _buildBrandSection(context, ref, brandsState),
         const SizedBox(height: 24),
 
         // Unité de mesure
-        _buildUnitSection(context, unitsState, ref),
+        _buildUnitSection(context, ref, unitsState),
       ],
     );
   }
@@ -101,314 +98,300 @@ class ArticleFormStep2 extends ConsumerWidget {
   }
 
   // ==================== CATÉGORIE ====================
-  Widget _buildCategorySection(
-      BuildContext context,
-      CategoriesState state,
-      WidgetRef ref,
-      ) {
-    Widget content;
-    if (state is CategoriesLoading) {
-      content = const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
-    } else if (state is CategoriesError) {
-      content = _buildErrorState(state.message);
-    } else if (state is CategoriesLoaded) {
-      content = _buildCategoryDropdown(context, state);
-    } else {
-      content = const SizedBox.shrink();
-    }
-
-    return _buildSectionContainer(
-      title: 'Catégorie',
-      icon: Icons.folder_outlined,
-      action: TextButton.icon(
-        onPressed: () => _showCreateCategoryDialog(context, ref),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Créer'),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-      ),
-      child: content,
-    );
-  }
-
-  Widget _buildCategoryDropdown(BuildContext context, CategoriesLoaded state) {
-    final categories = state.categories;
-    return CustomDropdown<String>(
-      label: 'Sélectionner une catégorie',
-      value: formData.categoryId.isEmpty ? null : formData.categoryId,
-      items: categories.map((category) {
-        return DropdownMenuItem<String>(
-          value: category.id,
-          child: Row(
-            // ✨ CORRECTION ICI
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: _parseColor(category.color),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.border, width: 1.5),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  category.fullPath,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (value) => onFieldChanged('categoryId', value ?? ''),
-      prefixIcon: Icons.category_outlined,
-      errorText: errors['categoryId'],
-      helperText: categories.isEmpty
-          ? 'Aucune catégorie disponible'
-          : '${categories.length} catégorie(s) disponible(s)',
-    );
-  }
-
-  // ==================== MARQUE ====================
-  Widget _buildBrandSection(
-      BuildContext context,
-      BrandsState state,
-      WidgetRef ref,
-      ) {
-    Widget content;
-    if (state is BrandsLoading) {
-      content = const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
-    } else if (state is BrandsError) {
-      content = _buildErrorState(state.message);
-    } else if (state is BrandsLoaded) {
-      content = _buildBrandDropdown(context, state);
-    } else {
-      content = const SizedBox.shrink();
-    }
-
-    return _buildSectionContainer(
-      title: 'Marque',
-      icon: Icons.branding_watermark_outlined,
-      action: TextButton.icon(
-        onPressed: () => _showCreateBrandDialog(context, ref),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Créer'),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-      ),
-      child: content,
-    );
-  }
-
-  Widget _buildBrandDropdown(BuildContext context, BrandsLoaded state) {
-    final brands = state.brands;
-    return CustomDropdown<String>(
-      label: 'Sélectionner une marque (optionnel)',
-      value: formData.brandId.isEmpty ? null : formData.brandId,
-      items: brands.map((brand) {
-        return DropdownMenuItem<String>(
-          value: brand.id,
-          child: Row(
-            // ✨ CORRECTION ICI
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (brand.logoUrl != null && brand.logoUrl!.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.network(
-                    brand.logoUrl!,
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.image_outlined, size: 24, color: AppColors.border),
-                  ),
-                )
-              else
-                const Icon(Icons.branding_watermark_outlined,
-                    size: 24, color: AppColors.textTertiary),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  brand.name,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (value) => onFieldChanged('brandId', value ?? ''),
-      prefixIcon: Icons.label_outline,
-      errorText: errors['brandId'],
-      helperText: brands.isEmpty
-          ? 'Aucune marque disponible'
-          : '${brands.length} marque(s) disponible(s)',
-    );
-  }
-
-  // ==================== UNITÉ DE MESURE ====================
-  Widget _buildUnitSection(
-      BuildContext context,
-      UnitsState state,
-      WidgetRef ref,
-      ) {
-    Widget content;
-    if (state is UnitsLoading) {
-      content = const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
-    } else if (state is UnitsError) {
-      content = _buildErrorState(state.message);
-    } else if (state is UnitsLoaded) {
-      content = _buildUnitDropdown(context, state);
-    } else {
-      content = const SizedBox.shrink();
-    }
-
-    return _buildSectionContainer(
-      title: 'Unité de mesure',
-      icon: Icons.straighten_outlined,
-      action: TextButton.icon(
-        onPressed: () => _showCreateUnitDialog(context, ref),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Créer'),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-      ),
-      child: content,
-    );
-  }
-
-  Widget _buildUnitDropdown(BuildContext context, UnitsLoaded state) {
-    final units = state.units;
-    return CustomDropdown<String>(
-      label: 'Sélectionner une unité',
-      value: formData.unitOfMeasureId.isEmpty ? null : formData.unitOfMeasureId,
-      items: units.map((unit) {
-        return DropdownMenuItem<String>(
-          value: unit.id,
-          child: Row(
-            // ✨ CORRECTION ICI
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                unit.symbol,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  unit.name,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (unit.isDecimal) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'DÉCIMAL',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: AppColors.info,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (value) => onFieldChanged('unitOfMeasureId', value ?? ''),
-      prefixIcon: Icons.straighten_outlined,
-      errorText: errors['unitOfMeasureId'],
-      helperText: units.isEmpty
-          ? 'Aucune unité disponible'
-          : '${units.length} unité(s) disponible(s)',
-    );
-  }
-
-  // ==================== WIDGETS RÉUTILISABLES ====================
-
-  Widget _buildSectionContainer({
-    required String title,
-    required IconData icon,
-    required Widget child,
-    Widget? action,
-  }) {
+  Widget _buildCategorySection(BuildContext context, WidgetRef ref, CategoriesState state) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
-        boxShadow: [AppColors.subtleShadow()],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 22, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
+              Icon(Icons.folder_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Catégorie',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              if (action != null) action,
             ],
           ),
-          const SizedBox(height: 20),
-          child,
+          const SizedBox(height: 16),
+
+          // État de chargement
+          if (state is CategoriesLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          // État d'erreur
+          else if (state is CategoriesError)
+            _buildErrorWidget(state.message, () {
+              ref.read(categoriesProvider.notifier).refresh();
+            })
+          // Sélecteur intelligent
+          else if (state is CategoriesLoaded)
+              SmartSelectorWidget<String>(
+                label: 'Catégorie',
+                required: true,
+                prefixIcon: Icons.category,
+                selectedValue: formData.categoryId.isEmpty ? null : formData.categoryId,
+                items: state.categories
+                    .map((category) => SelectableItem<String>(
+                  value: category.id,
+                  label: category.name,
+                  subtitle: category.fullPath,
+                  searchText: category.fullPath, // Pour recherche hiérarchique
+                  icon: Icons.folder,
+                ))
+                    .toList(),
+                onSelected: (value) => onFieldChanged('categoryId', value ?? ''),
+                errorText: errors['categoryId'],
+                helperText: 'Choisissez la catégorie de l\'article',
+                emptyMessage: 'Aucune catégorie disponible',
+                searchHint: 'Rechercher une catégorie...',
+                // Bouton de création rapide
+                trailing: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickCreateCategory(context, ref),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Créer une nouvelle catégorie'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
         ],
       ),
     );
   }
 
-  Widget _buildErrorState(String message) {
+  // ==================== MARQUE ====================
+  Widget _buildBrandSection(BuildContext context, WidgetRef ref, BrandsState state) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: AppColors.error),
+          Row(
+            children: [
+              Icon(Icons.local_offer_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Marque',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (state is BrandsLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (state is BrandsError)
+            _buildErrorWidget(state.message, () {
+              ref.read(brandsProvider.notifier).refresh();
+            })
+          else if (state is BrandsLoaded)
+              SmartSelectorWidget<String>(
+                label: 'Marque',
+                prefixIcon: Icons.local_offer,
+                selectedValue: formData.brandId.isEmpty ? null : formData.brandId,
+                items: state.brands
+                    .map((brand) => SelectableItem<String>(
+                  value: brand.id,
+                  label: brand.name,
+                  subtitle: brand.description!.isNotEmpty ? brand.description : null,
+                  icon: Icons.branding_watermark,
+                ))
+                    .toList(),
+                onSelected: (value) => onFieldChanged('brandId', value ?? ''),
+                errorText: errors['brandId'],
+                helperText: 'Marque du produit (optionnel)',
+                emptyMessage: 'Aucune marque disponible',
+                searchHint: 'Rechercher une marque...',
+                trailing: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickCreateBrand(context, ref),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Créer une nouvelle marque'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== UNITÉ DE MESURE ====================
+  Widget _buildUnitSection(BuildContext context, WidgetRef ref, UnitsState state) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.straighten_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Unité de mesure',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (state is UnitsLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (state is UnitsError)
+            _buildErrorWidget(state.message, () {
+              ref.read(unitsProvider.notifier).refresh();
+            })
+          else if (state is UnitsLoaded)
+              SmartSelectorWidget<String>(
+                label: 'Unité de mesure',
+                required: true,
+                prefixIcon: Icons.straighten,
+                selectedValue: formData.unitOfMeasureId.isEmpty ? null : formData.unitOfMeasureId,
+                items: state.units
+                    .map((unit) => SelectableItem<String>(
+                  value: unit.id,
+                  label: unit.name,
+                  subtitle: '${unit.symbol} - ${unit.description}',
+                  searchText: '${unit.name} ${unit.symbol}',
+                  icon: Icons.balance,
+                ))
+                    .toList(),
+                onSelected: (value) => onFieldChanged('unitOfMeasureId', value ?? ''),
+                errorText: errors['unitOfMeasureId'],
+                helperText: 'Unité pour quantifier l\'article',
+                emptyMessage: 'Aucune unité disponible',
+                searchHint: 'Rechercher une unité...',
+                trailing: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickCreateUnit(context, ref),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Créer une nouvelle unité'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== WIDGETS UTILITAIRES ====================
+
+  Widget _buildErrorWidget(String message, VoidCallback onRetry) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: AppColors.error, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Réessayer'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error),
+              ),
             ),
           ),
         ],
@@ -416,63 +399,66 @@ class ArticleFormStep2 extends ConsumerWidget {
     );
   }
 
-  Color _parseColor(String colorHex) {
-    try {
-      return Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
-    } catch (e) {
-      return AppColors.primary; // Couleur par défaut GESTORE
+  // ==================== CRÉATION RAPIDE ====================
+
+  Future<void> _quickCreateCategory(BuildContext context, WidgetRef ref) async {
+    // Navigation vers le formulaire de création de catégorie
+    final result = await context.pushNamed(
+      'category-create',
+    );
+
+    if (result != null && context.mounted) {
+      // Rafraîchir la liste des catégories
+      ref.invalidate(categoriesProvider);
+
+      // Afficher un message de succès
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Catégorie créée avec succès'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
-  // ==================== DIALOGS CRÉATION RAPIDE ====================
-
-  void _showStyledDialog({
-    required BuildContext context,
-    required String title,
-    required String content,
-  }) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceLight,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(title, style: const TextStyle(color: AppColors.textPrimary)),
-        content:
-        Text(content, style: const TextStyle(color: AppColors.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: AppColors.primary)),
-          ),
-        ],
-      ),
+  Future<void> _quickCreateBrand(BuildContext context, WidgetRef ref) async {
+    // Navigation vers le formulaire de création de marque
+    final result = await context.pushNamed(
+      'brand-create',
     );
+
+    if (result != null && context.mounted) {
+      // Rafraîchir la liste des marques
+      ref.invalidate(brandsProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Marque créée avec succès'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
-  void _showCreateCategoryDialog(BuildContext context, WidgetRef ref) {
-    _showStyledDialog(
-      context: context,
-      title: 'Création rapide de catégorie',
-      content:
-      'Cette fonctionnalité sera bientôt disponible. Pour l\'instant, veuillez utiliser l\'écran dédié de gestion des catégories.',
+  Future<void> _quickCreateUnit(BuildContext context, WidgetRef ref) async {
+    // Navigation vers le formulaire de création d'unité
+    final result = await context.pushNamed(
+      'unit-create',
     );
-  }
 
-  void _showCreateBrandDialog(BuildContext context, WidgetRef ref) {
-    _showStyledDialog(
-      context: context,
-      title: 'Création rapide de marque',
-      content:
-      'Cette fonctionnalité sera bientôt disponible. Pour l\'instant, veuillez utiliser l\'écran dédié de gestion des marques.',
-    );
-  }
+    if (result != null && context.mounted) {
+      // Rafraîchir la liste des unités
+      ref.invalidate(unitsProvider);
 
-  void _showCreateUnitDialog(BuildContext context, WidgetRef ref) {
-    _showStyledDialog(
-      context: context,
-      title: 'Création rapide d\'unité',
-      content:
-      'Cette fonctionnalité sera bientôt disponible. Pour l\'instant, veuillez utiliser l\'écran dédié de gestion des unités.',
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Unité créée avec succès'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
