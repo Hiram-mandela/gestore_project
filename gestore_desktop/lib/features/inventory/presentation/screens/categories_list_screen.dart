@@ -1,6 +1,11 @@
 // ========================================
 // lib/features/inventory/presentation/screens/categories_list_screen.dart
-// Écran de la liste des catégories avec hiérarchie
+//
+// MODIFICATIONS APPORTÉES (Refonte Visuelle GESTORE) :
+// - Application de la palette de couleurs GESTORE (AppColors) pour les fonds, textes, et icônes.
+// - Standardisation de la typographie pour un contraste et une lisibilité accrus.
+// - Refonte des cartes (Cards) en utilisant des conteneurs stylisés avec bordures et ombres subtiles.
+// - Uniformisation du style des champs de saisie et des boutons pour une meilleure cohérence visuelle.
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -16,11 +21,16 @@ class CategoriesListScreen extends ConsumerStatefulWidget {
   const CategoriesListScreen({super.key});
 
   @override
-  ConsumerState<CategoriesListScreen> createState() => _CategoriesListScreenState();
+  ConsumerState<CategoriesListScreen> createState() =>
+      _CategoriesListScreenState();
 }
 
 class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
-// Pour filtrer par parent
+  // --- CONSTANTES DE STYLE ---
+  static const _cardBorderRadius = BorderRadius.all(Radius.circular(12));
+  static const _pagePadding = EdgeInsets.all(16.0);
+  static const _buttonPadding =
+  EdgeInsets.symmetric(horizontal: 24, vertical: 16);
 
   @override
   void initState() {
@@ -34,27 +44,28 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(categoriesListProvider);
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
           // Header
           _buildHeader(context, state),
-
           // Corps
           Expanded(
             child: _buildBody(state),
           ),
         ],
       ),
-
       // Bouton flottant pour créer
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/inventory/categories/new'),
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add, color: AppColors.surfaceLight),
         label: const Text('Nouvelle catégorie'),
         backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.surfaceLight,
+        shape: const RoundedRectangleBorder(
+          borderRadius: _cardBorderRadius,
+        ),
       ),
     );
   }
@@ -62,8 +73,8 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
   /// Construit l'en-tête
   Widget _buildHeader(BuildContext context, CategoryState state) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
+      color: AppColors.surfaceLight,
+      padding: _pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -79,14 +90,15 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _buildSubtitle(state),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -97,30 +109,44 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
                 onPressed: () {
                   ref.read(categoriesListProvider.notifier).refresh();
                 },
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
                 tooltip: 'Actualiser',
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
           // Barre de recherche
           TextField(
-            decoration: InputDecoration(
-              hintText: 'Rechercher une catégorie...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              filled: true,
-              fillColor: Colors.grey[100],
-            ),
+            decoration: _inputDecoration('Rechercher une catégorie...'),
             onChanged: (value) {
               // TODO: Implémenter recherche locale
             },
           ),
         ],
+      ),
+    );
+  }
+
+  /// Décoration standardisée pour les champs de texte
+  InputDecoration _inputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(color: AppColors.textTertiary),
+      prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+      filled: true,
+      fillColor: AppColors.backgroundLight,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: _cardBorderRadius,
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: _cardBorderRadius,
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: _cardBorderRadius,
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
     );
   }
@@ -140,52 +166,61 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
         child: CircularProgressIndicator(),
       );
     }
-
     if (state is CategoryError) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(
-              'Erreur',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+        child: Padding(
+          padding: _pagePadding,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              const Text(
+                'Erreur',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.message,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                ref.read(categoriesListProvider.notifier).refresh();
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                state.message,
+                style: const TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  ref.read(categoriesListProvider.notifier).refresh();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.surfaceLight,
+                  padding: _buttonPadding,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: _cardBorderRadius,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
-
     if (state is CategoryLoaded) {
       if (state.categories.isEmpty) {
         return _buildEmptyState();
       }
-
       return RefreshIndicator(
         onRefresh: () async {
           await ref.read(categoriesListProvider.notifier).refresh();
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: _pagePadding,
           children: [
             // Afficher les catégories racines avec leurs enfants
             ...state.rootCategories.map((category) {
@@ -200,20 +235,18 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
         ),
       );
     }
-
     return const SizedBox();
   }
 
   /// Construit un élément catégorie avec hiérarchie
-  Widget _buildCategoryItem(
-      BuildContext context,
-      CategoryEntity category,
-      CategoryLoaded state, {
-        required int level,
-      }) {
+  Widget _buildCategoryItem(BuildContext context, CategoryEntity category,
+      CategoryLoaded state,
+      {required int level}) {
     final hasChildren = state.hasChildren(category.id);
     final children = state.getChildren(category.id);
     final isExpanded = true; // TODO: Gérer l'expansion/collapse
+
+    final categoryColor = _parseColor(category.color);
 
     return Column(
       children: [
@@ -223,171 +256,119 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
             left: level * 24.0,
             bottom: 8,
           ),
-          child: Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-            child: InkWell(
-              onTap: () {
-                context.push('/inventory/categories/${category.id}');
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Indicateur hiérarchie
-                    if (level > 0)
-                      Container(
-                        width: 3,
-                        height: 40,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: _parseColor(category.color).withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-
-                    // Icône et couleur
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _parseColor(category.color).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        hasChildren ? Icons.folder : Icons.label,
-                        color: _parseColor(category.color),
-                      ),
+          decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: _cardBorderRadius,
+              border: Border.all(color: AppColors.border),
+              boxShadow: [AppColors.subtleShadow()]),
+          child: InkWell(
+            onTap: () {
+              context.push('/inventory/categories/${category.id}');
+            },
+            borderRadius: _cardBorderRadius,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Icône et couleur
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: categoryColor.withValues(alpha: 0.1),
+                      borderRadius:
+                      const BorderRadius.all(Radius.circular(8)),
                     ),
-
-                    const SizedBox(width: 16),
-
-                    // Infos
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  category.name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              if (!category.isActive)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Inactif',
-                                    style: TextStyle(fontSize: 11),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            category.code,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (category.description!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              category.description!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[500],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
+                    child: Icon(
+                      hasChildren ? Icons.folder_open_outlined : Icons.label_outline,
+                      color: categoryColor,
                     ),
-
-                    const SizedBox(width: 8),
-
-                    // Stats
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                  ),
+                  const SizedBox(width: 16),
+                  // Infos
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (hasChildren)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.folder_open,
-                                  size: 14,
-                                  color: AppColors.primary,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                category.name,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${children.length}',
+                              ),
+                            ),
+                            if (!category.isActive)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.backgroundLight,
+                                  borderRadius:
+                                  const BorderRadius.all(Radius.circular(6)),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: const Text(
+                                  'Inactif',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          category.code,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
-                        if (category.taxRate > 0) ...[
+                        ),
+                        if (category.description.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'TVA ${category.taxRate.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
+                            category.description,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textTertiary,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ],
                     ),
-
-                    // Chevron
-                    Icon(
-                      Icons.chevron_right,
-                      color: Colors.grey[400],
+                  ),
+                  const SizedBox(width: 8),
+                  // Stats
+                  if (hasChildren)
+                    Text(
+                      '${children.length}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ],
-                ),
+                  // Chevron
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textTertiary,
+                  ),
+                ],
               ),
             ),
           ),
         ),
-
         // Enfants (récursif)
         if (isExpanded && hasChildren)
           ...children.map((child) {
@@ -405,39 +386,47 @@ class _CategoriesListScreenState extends ConsumerState<CategoriesListScreen> {
   /// État vide
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.category_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Aucune catégorie',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
+      child: Padding(
+        padding: _pagePadding,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.category_outlined,
+              size: 80,
+              color: AppColors.border,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Créez votre première catégorie pour commencer',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => context.push('/inventory/categories/new'),
-            icon: const Icon(Icons.add),
-            label: const Text('Créer une catégorie'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            const SizedBox(height: 16),
+            const Text(
+              'Aucune catégorie',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            const Text(
+              'Créez votre première catégorie pour commencer',
+              style: TextStyle(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => context.push('/inventory/categories/new'),
+              icon: const Icon(Icons.add),
+              label: const Text('Créer une catégorie'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.surfaceLight,
+                padding: _buttonPadding,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: _cardBorderRadius,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

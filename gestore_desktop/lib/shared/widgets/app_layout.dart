@@ -174,6 +174,21 @@ class _Sidebar extends ConsumerWidget {
                   currentRoute: currentRoute,
                 ),
 
+                // Moyens de paiement
+                _MenuItem(
+                  icon: Icons.payment,
+                  label: 'Moyens de paiement',
+                  route: '/sales/payment-methods',
+                  currentRoute: currentRoute,
+                ),
+
+                _MenuItem(
+                  icon: Icons.local_offer,
+                  label: 'Remises et Promotions',
+                  route: '/sales/discounts',
+                  currentRoute: currentRoute,
+                ),
+
                 const SizedBox(height: 8),
                 const _SectionHeader(title: 'SYSTÈME'),
 

@@ -32,7 +32,7 @@ class ArticleDetailModel {
   final CategoryModel? category;
   final BrandModel? brand;
   final UnitOfMeasureModel? unitOfMeasure;
-  final dynamic mainSupplier;
+  final SupplierModel? mainSupplier;
 
   // ==================== SECTION 3 : GESTION DE STOCK ====================
   final bool manageStock;

@@ -1,7 +1,11 @@
 // ========================================
 // lib/features/inventory/presentation/screens/article_detail_screen.dart
-// VERSION COMPLÈTE AVEC CRUD
-// Écran de détail complet d'un article avec onglets et actions (Éditer, Supprimer)
+//
+// MODIFICATIONS APPORTÉES (Refonte Visuelle GESTORE) :
+// - Application de la palette GESTORE (AppColors) pour les fonds, textes, icônes, et superpositions.
+// - Refonte de l'en-tête (SliverAppBar) pour une meilleure lisibilité et un style plus moderne.
+// - Standardisation des cartes d'informations rapides, des onglets, et des boîtes de dialogue (AlertDialog).
+// - Uniformisation des notifications (SnackBar) pour les retours de succès et d'erreur.
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -16,7 +20,6 @@ import '../widgets/article_info_tab.dart';
 import '../widgets/article_stock_tab.dart';
 import '../widgets/article_price_tab.dart';
 import '../widgets/article_history_tab.dart';
-import '../widgets/stock_badge.dart';
 
 class ArticleDetailScreen extends ConsumerStatefulWidget {
   final String articleId;
@@ -35,12 +38,14 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // --- CONSTANTES DE STYLE ---
+  static const _cardBorderRadius = BorderRadius.all(Radius.circular(12));
+  static const _pagePadding = EdgeInsets.all(16.0);
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-
-    // Écouter les changements de tab
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         ref
@@ -59,8 +64,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(articleDetailProvider(widget.articleId));
-
     return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
       body: state is ArticleDetailLoading
           ? _buildLoadingState()
           : state is ArticleDetailError
@@ -72,7 +77,6 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
   }
 
   // ==================== ÉTAT CHARGEMENT ====================
-
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
@@ -80,45 +84,43 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
-          Text('Chargement du détail...'),
+          Text('Chargement du détail...',
+              style: TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 
   // ==================== ÉTAT ERREUR ====================
-
   Widget _buildErrorState(ArticleDetailError state) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: _pagePadding,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
-            ),
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
-            Text(
-              'Erreur',
-              style: Theme.of(context).textTheme.headlineSmall,
+            const Text(
+              'Erreur de chargement',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Retour'),
+                OutlinedButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('Retour'),
                 ),
                 const SizedBox(width: 16),
                 FilledButton.icon(
@@ -137,18 +139,16 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
   }
 
   // ==================== ÉTAT INITIAL ====================
-
   Widget _buildInitialState() {
     return const Center(
-      child: Text('Initialisation...'),
+      child: Text('Initialisation...',
+          style: TextStyle(color: AppColors.textSecondary)),
     );
   }
 
   // ==================== ÉTAT CHARGÉ ====================
-
   Widget _buildLoadedState(ArticleDetailLoaded state) {
     final article = state.article;
-
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
@@ -156,26 +156,22 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
           SliverAppBar(
             expandedHeight: 250,
             pinned: true,
+            backgroundColor: AppColors.surfaceDark,
+            foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 article.name,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 3,
-                      color: Colors.black45,
-                    ),
-                  ],
+                  fontSize: 16,
                 ),
               ),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
                   // Image de fond
-                  article.imageUrl != null
+                  article.imageUrl != null && article.imageUrl!.isNotEmpty
                       ? Image.network(
                     article.imageUrl!,
                     fit: BoxFit.cover,
@@ -184,16 +180,17 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
                     },
                   )
                       : _buildPlaceholderImage(),
-                  // Gradient overlay
-                  DecoratedBox(
+                  // Gradient overlay pour la lisibilité
+                  const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black54,
                         ],
+                        stops: [0.5, 1.0],
                       ),
                     ),
                   ),
@@ -201,54 +198,37 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
               ),
             ),
             actions: [
-              // Badge actif/inactif
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Chip(
-                  label: Text(
-                    article.statusDisplay,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  backgroundColor: article.isActive
-                      ? AppColors.success.withValues(alpha: 0.2)
-                      : AppColors.error.withValues(alpha: 0.2),
-                ),
-              ),
-
-              // ⭐ NOUVEAU : Bouton Éditer
+              // Bouton Éditer
               IconButton(
-                icon: const Icon(Icons.edit),
+                icon: const Icon(Icons.edit_outlined),
                 onPressed: () => context.pushNamed(
                   'article-edit',
                   pathParameters: {'id': article.id},
                 ),
                 tooltip: 'Modifier',
               ),
-
-              // ⭐ NOUVEAU : Bouton Supprimer
+              // Bouton Supprimer
               IconButton(
-                icon: const Icon(Icons.delete),
+                icon: const Icon(Icons.delete_outline),
                 onPressed: () => _confirmDelete(context, article),
                 tooltip: 'Supprimer',
               ),
               const SizedBox(width: 8),
             ],
           ),
-
-          // Infos rapides (prix, stock, marge)
+          // Infos rapides (prix, stock, statut)
           SliverToBoxAdapter(
             child: _buildQuickInfo(article),
           ),
-
           // Barre d'onglets
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverTabBarDelegate(
               TabBar(
                 controller: _tabController,
-                labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: Theme.of(context).hintColor,
-                indicatorColor: Theme.of(context).colorScheme.primary,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: AppColors.textSecondary,
+                indicatorColor: AppColors.primary,
                 tabs: const [
                   Tab(icon: Icon(Icons.info_outline), text: 'Info'),
                   Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Stock'),
@@ -273,15 +253,14 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
   }
 
   // ==================== WIDGETS HELPER ====================
-
   Widget _buildPlaceholderImage() {
     return Container(
       color: AppColors.surfaceDark,
       child: const Center(
         child: Icon(
-          Icons.inventory_2_outlined,
+          Icons.image_not_supported_outlined,
           size: 80,
-          color: Colors.white54,
+          color: AppColors.border,
         ),
       ),
     );
@@ -289,22 +268,15 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
 
   Widget _buildQuickInfo(article) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
-        ),
-      ),
+      padding: _pagePadding,
+      color: AppColors.surfaceLight,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Prix de vente
           Expanded(
             child: _QuickInfoCard(
-              icon: Icons.sell,
+              icon: Icons.sell_outlined,
               label: 'Prix de vente',
               value: article.formattedSellingPrice,
               color: AppColors.primary,
@@ -314,29 +286,26 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
           // Stock
           Expanded(
             child: _QuickInfoCard(
-              icon: Icons.inventory,
-              label: 'Stock',
-              value: '${article.currentStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
-              color: article.isLowStock ? AppColors.warning : AppColors.success,
-              badge: StockBadge(
-                stock: article.currentStock,
-                isLowStock: article.isLowStock,
-                unit: article.unitOfMeasure?.symbol ?? '',
-              ),
+              icon: Icons.inventory_2_outlined,
+              label: 'Stock actuel',
+              value:
+              '${article.currentStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+              color:
+              article.isLowStock ? AppColors.warning : AppColors.success,
             ),
           ),
           const SizedBox(width: 12),
-          // Marge
+          // Statut
           Expanded(
             child: _QuickInfoCard(
-              icon: Icons.trending_up,
-              label: 'Marge',
-              value: article.formattedMargin,
-              color: article.marginPercent >= 20
+              icon: article.isActive
+                  ? Icons.toggle_on_outlined
+                  : Icons.toggle_off_outlined,
+              label: 'Statut',
+              value: article.statusDisplay,
+              color: article.isActive
                   ? AppColors.success
-                  : article.marginPercent >= 10
-                  ? AppColors.warning
-                  : AppColors.error,
+                  : AppColors.textSecondary,
             ),
           ),
         ],
@@ -345,21 +314,23 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
   }
 
   // ==================== ACTIONS CRUD ====================
-
-  /// ⭐ NOUVELLE MÉTHODE : Confirmation de suppression
   void _confirmDelete(BuildContext context, article) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Supprimer l\'article'),
+        backgroundColor: AppColors.surfaceLight,
+        shape: const RoundedRectangleBorder(borderRadius: _cardBorderRadius),
+        title: const Text('Supprimer l\'article',
+            style: TextStyle(color: AppColors.textPrimary)),
         content: Text(
-          'Êtes-vous sûr de vouloir supprimer "${article.name}" ?\n\n'
-              'Cette action est irréversible.',
+          'Êtes-vous sûr de vouloir supprimer "${article.name}" ? Cette action est irréversible.',
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: const Text('Annuler',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           FilledButton(
             onPressed: () {
@@ -368,6 +339,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.error,
+              foregroundColor: AppColors.surfaceLight,
             ),
             child: const Text('Supprimer'),
           ),
@@ -376,7 +348,6 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
     );
   }
 
-  /// ⭐ NOUVELLE MÉTHODE : Suppression de l'article
   Future<void> _deleteArticle(
       BuildContext context,
       String articleId,
@@ -386,165 +357,102 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
-      // Appeler le use case
       final deleteUseCase = getIt<DeleteArticleUseCase>();
       final params = DeleteArticleParams(articleId: articleId);
       final result = await deleteUseCase(params);
 
-      // Fermer le loader
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
+      if (context.mounted) Navigator.of(context).pop(); // Fermer loader
 
       final error = result.$2;
-
       if (error != null) {
-        // Erreur
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Erreur: $error')),
-                ],
-              ),
-              backgroundColor: AppColors.error,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
+        if (context.mounted) _showSnackBar(context, '$error', isError: true);
       } else {
-        // Succès
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text('Article "$articleName" supprimé avec succès'),
-                  ),
-                ],
-              ),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-
-          // Retourner à la liste après un court délai
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (context.mounted) {
-              context.go('/inventory');
-            }
-          });
+          _showSnackBar(
+              context, 'Article "$articleName" supprimé avec succès.');
+          context.go('/inventory');
         }
       }
     } catch (e) {
-      // Fermer le loader en cas d'exception
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // Afficher l'erreur
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Erreur inattendue: $e')),
-              ],
-            ),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      if (context.mounted) Navigator.of(context).pop(); // Fermer loader
+      if (context.mounted)
+        _showSnackBar(context, 'Erreur inattendue: $e', isError: true);
     }
+  }
+
+  void _showSnackBar(BuildContext context, String message,
+      {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 }
 
 // ==================== QUICK INFO CARD ====================
-
 class _QuickInfoCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final Color color;
-  final Widget? badge;
 
   const _QuickInfoCard({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
-    this.badge,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: color,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
-          const SizedBox(height: 8),
-          badge ??
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-        ],
-      ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }
 
 // ==================== SLIVER TAB BAR DELEGATE ====================
-
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar _tabBar;
-
   _SliverTabBarDelegate(this._tabBar);
 
   @override
   double get minExtent => _tabBar.preferredSize.height;
-
   @override
   double get maxExtent => _tabBar.preferredSize.height;
 
@@ -555,7 +463,12 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
       bool overlapsContent,
       ) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceLight,
+        border: Border(
+          bottom: BorderSide(color: AppColors.border, width: 1.0),
+        ),
+      ),
       child: _tabBar,
     );
   }

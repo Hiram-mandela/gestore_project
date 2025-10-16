@@ -113,4 +113,37 @@ abstract class SalesRepository {
     required String reason,
     required String refundMethod,
   });
+
+  // ==================== DISCOUNTS - CRUD ====================
+
+  /// Récupère la liste paginée des remises
+  Future<(PaginatedResponseEntity<DiscountEntity>?, String?)> getDiscounts({
+    int page = 1,
+    int pageSize = 20,
+    String? search,
+    String? discountType,
+    String? scope,
+    bool? isActive,
+    bool activeOnly = false,
+  });
+
+  /// Crée une nouvelle remise
+  Future<(DiscountEntity?, String?)> createDiscount(
+      Map<String, dynamic> data,
+      );
+
+  /// Met à jour une remise existante
+  Future<(DiscountEntity?, String?)> updateDiscount(
+      String id,
+      Map<String, dynamic> data,
+      );
+
+  /// Supprime une remise
+  Future<(void, String?)> deleteDiscount(String id);
+
+  /// Calcule le montant d'une remise pour un scénario donné
+  Future<(Map<String, dynamic>?, String?)> calculateDiscount(
+      String discountId,
+      Map<String, dynamic> params,
+      );
 }

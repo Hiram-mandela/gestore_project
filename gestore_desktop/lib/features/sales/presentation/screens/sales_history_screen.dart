@@ -1,6 +1,13 @@
 // ========================================
 // lib/features/sales/presentation/screens/sales_history_screen.dart
 // Écran Historique des Ventes - Module Sales
+// VERSION AMÉLIORÉE - DESIGN REFACTORING
+//
+// Changements stylistiques majeurs :
+// - Intégration de la palette GESTORE pour une interface unifiée (fonds, textes, accents).
+// - Modernisation de l'en-tête, des filtres et de la barre de recherche.
+// - Remplacement de la bannière de statistiques par des cartes individuelles plus claires.
+// - Amélioration du design des cartes de vente pour une meilleure hiérarchie visuelle.
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -8,9 +15,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../shared/constants/app_colors.dart';
+import '../../domain/entities/sale_entity.dart';
 import '../providers/sales_history_provider.dart';
 import '../providers/sales_history_state.dart';
-import '../../domain/entities/sale_entity.dart';
 
 /// Écran d'historique des ventes
 class SalesHistoryScreen extends ConsumerStatefulWidget {
@@ -23,20 +30,18 @@ class SalesHistoryScreen extends ConsumerStatefulWidget {
 class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
+
   final _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
   final _currencyFormat = NumberFormat('#,##0', 'fr_FR');
-
   DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
     super.initState();
-
     // Charger l'historique au démarrage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(salesHistoryProvider.notifier).loadSales();
     });
-
     // Pagination infinie
     _scrollController.addListener(_onScroll);
   }
@@ -62,77 +67,74 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(salesHistoryProvider);
 
-    // ✅ CORRECTION: Retirer AppLayout, juste le contenu
-    return Column(
-      children: [
-        // Header avec recherche et filtres
-        _buildHeader(state),
-
-        // Statistiques du jour
-        if (state is SalesHistoryLoaded) _buildDailyStats(state),
-
-        // Liste des ventes
-        Expanded(
-          child: _buildBody(state),
-        ),
-      ],
+    // Le Scaffold est maintenant géré par le layout parent, on retourne le contenu directement.
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      body: Column(
+        children: [
+          // Header avec recherche et filtres
+          _buildHeader(state),
+          // Statistiques du jour
+          if (state is SalesHistoryLoaded) _buildDailyStats(state),
+          // Liste des ventes
+          Expanded(
+            child: _buildBody(state),
+          ),
+        ],
+      ),
     );
   }
 
   /// Header avec recherche et filtres
   Widget _buildHeader(SalesHistoryState state) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        boxShadow: [AppColors.subtleShadow()],
       ),
       child: Row(
         children: [
           // Barre de recherche
           Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Rechercher par N° vente, client...',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                    icon: Icon(Icons.clear, color: Colors.grey[600]),
-                    onPressed: () {
-                      _searchController.clear();
-                      ref.read(salesHistoryProvider.notifier).search('');
-                      setState(() {});
-                    },
-                  )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Rechercher par N° vente, client...',
+                hintStyle: const TextStyle(color: AppColors.textTertiary),
+                prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(salesHistoryProvider.notifier).search('');
+                  },
+                )
+                    : null,
+                filled: true,
+                fillColor: AppColors.backgroundLight,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
                 ),
-                onChanged: (value) {
-                  ref.read(salesHistoryProvider.notifier).search(value);
-                  setState(() {});
-                },
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
               ),
+              onChanged: (value) {
+                ref.read(salesHistoryProvider.notifier).search(value);
+              },
             ),
           ),
-
           const SizedBox(width: 16),
-
           // Sélecteur de dates
           OutlinedButton.icon(
             onPressed: _selectDateRange,
@@ -143,18 +145,18 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                   : 'Période',
             ),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
           // Filtres
           PopupMenuButton<String>(
-            icon: Icon(Icons.filter_list, color: Colors.grey[700]),
+            icon: const Icon(Icons.filter_list, color: AppColors.textSecondary),
             tooltip: 'Filtrer',
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -186,24 +188,21 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
               ref.read(salesHistoryProvider.notifier).filterByStatus(value);
             },
           ),
-
           const SizedBox(width: 12),
-
           // Export
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: state is SalesHistoryLoaded && state.sales.isNotEmpty
                 ? _exportSales
                 : null,
             icon: const Icon(Icons.download, size: 18),
             label: const Text('Exporter'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.info,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 0,
             ),
           ),
         ],
@@ -214,41 +213,29 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   /// Statistiques du jour
   Widget _buildDailyStats(SalesHistoryLoaded state) {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      color: AppColors.surfaceLight,
       child: Row(
         children: [
           _buildDailyStatCard(
             icon: Icons.receipt_long,
             label: 'Ventes du jour',
             value: state.todaySalesCount.toString(),
+            color: AppColors.primary,
           ),
-          const SizedBox(width: 40),
+          const SizedBox(width: 20),
           _buildDailyStatCard(
             icon: Icons.attach_money,
             label: 'Chiffre d\'affaires',
             value: '${_currencyFormat.format(state.todayRevenue)} FCFA',
+            color: AppColors.success,
           ),
-          const SizedBox(width: 40),
+          const SizedBox(width: 20),
           _buildDailyStatCard(
             icon: Icons.trending_up,
             label: 'Panier moyen',
             value: '${_currencyFormat.format(state.averageBasket)} FCFA',
+            color: AppColors.info,
           ),
         ],
       ),
@@ -260,44 +247,53 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     required IconData icon,
     required String label,
     required String value,
+    required Color color,
   }) {
     return Expanded(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.9),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -323,11 +319,11 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
+          CircularProgressIndicator(color: AppColors.primary),
           SizedBox(height: 16),
           Text(
             'Chargement de l\'historique...',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -340,10 +336,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: AppColors.error),
+          const Icon(Icons.error_outline, size: 64, color: AppColors.error),
           const SizedBox(height: 16),
           Text(
-            'Erreur',
+            'Une erreur est survenue',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -353,11 +349,11 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
           const SizedBox(height: 8),
           Text(
             state.message,
-            style: TextStyle(color: Colors.grey[600]),
+            style: const TextStyle(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () {
               ref.read(salesHistoryProvider.notifier).loadSales();
             },
@@ -375,14 +371,14 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[400]),
+          Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            'Aucune vente',
+          const Text(
+            'Aucune vente trouvée',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -390,17 +386,19 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             _searchController.text.isNotEmpty
                 ? 'Aucun résultat pour "${_searchController.text}"'
                 : 'Aucune vente enregistrée pour le moment',
-            style: TextStyle(color: Colors.grey[600]),
+            style: const TextStyle(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.go('/pos');
-            },
-            icon: const Icon(Icons.point_of_sale),
-            label: const Text('Ouvrir le POS'),
-          ),
+          if (_searchController.text.isEmpty)
+            FilledButton.icon(
+              onPressed: () {
+                context.go('/pos');
+              },
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text('Ouvrir le POS'),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            ),
         ],
       ),
     );
@@ -414,19 +412,18 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       },
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         itemCount: state.sales.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           if (index >= state.sales.length) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: AppColors.primary),
               ),
             );
           }
-
           final sale = state.sales[index];
           return _buildSaleCard(sale);
         },
@@ -438,9 +435,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   Widget _buildSaleCard(SaleEntity sale) {
     return Card(
       elevation: 0,
+      color: AppColors.surfaceLight,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
+        side: const BorderSide(color: AppColors.border),
       ),
       child: InkWell(
         onTap: () {
@@ -456,168 +454,80 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
               Row(
                 children: [
                   // N° vente
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.receipt_long,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          sale.saleNumber,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Icon(
+                    Icons.receipt_long,
+                    size: 20,
+                    color: AppColors.primary,
                   ),
-
-                  // Type de vente
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getSaleTypeColor(sale.saleType)
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      sale.saleTypeDisplay,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _getSaleTypeColor(sale.saleType),
-                      ),
-                    ),
-                  ),
-
                   const SizedBox(width: 8),
-
+                  Text(
+                    sale.saleNumber,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Type de vente
+                  _buildStatusChip(
+                    label: sale.saleTypeDisplay,
+                    color: _getSaleTypeColor(sale.saleType),
+                  ),
+                  const SizedBox(width: 8),
                   // Statut
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(sale.status)
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      sale.statusDisplay,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(sale.status),
-                      ),
-                    ),
+                  _buildStatusChip(
+                    label: sale.statusDisplay,
+                    color: _getStatusColor(sale.status),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 12),
-
+              const Divider(height: 24, color: AppColors.border),
               // Infos client et caissier
               Row(
                 children: [
                   // Client
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            sale.customer?.fullName ?? 'Client anonyme',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[700],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+                  _buildInfoRow(
+                    icon: Icons.person,
+                    text: sale.customer?.fullName ?? 'Client anonyme',
                   ),
-
-                  const SizedBox(width: 16),
-
+                  const SizedBox(width: 24),
                   // Caissier
                   if (sale.cashier != null)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.badge, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              sale.cashier!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[700],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Date et heure
-              Row(
-                children: [
-                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 6),
-                  Text(
-                    _dateFormat.format(sale.saleDate),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
+                    _buildInfoRow(icon: Icons.badge, text: sale.cashier!),
+                  const Spacer(),
+                  // Date et heure
+                  _buildInfoRow(
+                    icon: Icons.access_time,
+                    text: _dateFormat.format(sale.saleDate),
                   ),
                 ],
               ),
-
-              const Divider(height: 24),
-
+              const SizedBox(height: 16),
               // Résumé: Articles, Total, Paiement
               Row(
                 children: [
-                  // Nombre d'articles
                   _buildSaleInfoPill(
                     icon: Icons.shopping_bag,
-                    label: '${sale.itemsCount} article${sale.itemsCount > 1 ? 's' : ''}',
+                    label:
+                    '${sale.itemsCount} article${sale.itemsCount > 1 ? 's' : ''}',
                     color: AppColors.info,
                   ),
-
                   const Spacer(),
-
                   // Montant total
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         'Total',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey[600],
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       Text(
                         '${_currencyFormat.format(sale.totalAmount)} FCFA',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppColors.success,
@@ -625,9 +535,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(width: 16),
-
                   // Statut paiement
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -652,17 +560,51 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     );
   }
 
+  /// Widget pour afficher une information avec une icône
+  Widget _buildInfoRow({required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  /// Chip de statut / type de vente
+  Widget _buildStatusChip({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   /// Pill d'info vente
-  Widget _buildSaleInfoPill({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
+  Widget _buildSaleInfoPill(
+      {required IconData icon, required String label, required Color color}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -707,9 +649,9 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         return AppColors.error;
       case 'refunded':
       case 'partially_refunded':
-        return Colors.orange;
+        return Colors.orange.shade700;
       default:
-        return Colors.grey;
+        return AppColors.textSecondary;
     }
   }
 
@@ -723,7 +665,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppColors.primary,
             ),
           ),
@@ -731,7 +673,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         );
       },
     );
-
     if (picked != null) {
       setState(() {
         _selectedDateRange = picked;
@@ -747,8 +688,8 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   void _exportSales() {
     // TODO: Implémenter l'export CSV/Excel
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Export en cours de développement'),
+      const SnackBar(
+        content: Text('Export en cours de développement'),
         backgroundColor: AppColors.info,
         behavior: SnackBarBehavior.floating,
       ),

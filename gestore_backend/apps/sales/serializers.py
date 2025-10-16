@@ -1,16 +1,17 @@
+# apps/sales/serializers.py
+
 """
 Serializers pour l'application sales - GESTORE
 Gestion complète des ventes, clients et paiements avec optimisations
 """
 from rest_framework import serializers
-from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
-from decimal import Decimal
 
 from apps.core.serializers import (
     BaseModelSerializer, AuditableSerializer, NamedModelSerializer,
-    ActivableModelSerializer, BulkOperationSerializer
+    ActivableModelSerializer
 )
+from apps.inventory.models import Article, Category
 from .models import (
     Customer, PaymentMethod, Sale, SaleItem, Payment,
     Discount, SaleDiscount, Receipt
@@ -236,38 +237,44 @@ class DiscountSerializer(BaseModelSerializer, NamedModelSerializer, ActivableMod
     """
     Serializer pour les remises
     """
-    discount_type = serializers.ChoiceField(choices=[
-        ('percentage', 'Pourcentage'),
-        ('fixed_amount', 'Montant fixe'),
-        ('buy_x_get_y', 'Achetez X obtenez Y'),
-        ('loyalty_points', 'Points fidélité'),
-    ])
-    
-    scope = serializers.ChoiceField(choices=[
-        ('sale', 'Sur la vente totale'),
-        ('category', 'Sur une catégorie'),
-        ('article', 'Sur un article spécifique'),
-        ('customer', 'Pour un client spécifique'),
-    ])
-    
+    discount_type = serializers.ChoiceField(choices=Discount.DISCOUNT_TYPES)
+    scope = serializers.ChoiceField(choices=Discount.DISCOUNT_SCOPES)
+
     percentage_value = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
     fixed_value = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     min_quantity = serializers.IntegerField(required=False, allow_null=True)
     min_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     max_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     
-    start_date = serializers.DateTimeField()
+    start_date = serializers.DateTimeField(required=False, allow_null=True)
     end_date = serializers.DateTimeField(required=False, allow_null=True)
+
+    # --- CHAMPS AJOUTÉS POUR LE CIBLAGE ---
+    target_categories = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Category.objects.all(), required=False
+    )
+    target_articles = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Article.objects.all(), required=False
+    )
+    target_customers = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Customer.objects.all(), required=False
+    )
     
+    max_uses = serializers.IntegerField(required=False, allow_null=True)
+    max_uses_per_customer = serializers.IntegerField(required=False, allow_null=True)
+    current_uses = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Discount
         fields = [
             'id', 'name', 'description', 'discount_type', 'scope',
             'percentage_value', 'fixed_value', 'min_quantity', 'min_amount',
             'max_amount', 'start_date', 'end_date', 'is_active',
-            'status_display', 'created_at', 'updated_at'
+            'status_display', 'created_at', 'updated_at',
+            # --- AJOUTÉS AU META ---
+            'target_categories', 'target_articles', 'target_customers',
+            'max_uses', 'max_uses_per_customer', 'current_uses'
         ]
-
 
 class SaleDiscountSerializer(BaseModelSerializer):
     """

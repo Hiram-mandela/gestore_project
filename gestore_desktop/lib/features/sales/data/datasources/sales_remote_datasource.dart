@@ -517,4 +517,179 @@ class SalesRemoteDataSource {
       throw Exception('Erreur réseau: ${e.message}');
     }
   }
+
+  // ==================== DISCOUNTS - CRUD ====================
+
+  /// Récupère la liste paginée des remises
+  Future<PaginatedResponseModel<DiscountModel>> getDiscounts({
+    int page = 1,
+    int pageSize = 20,
+    String? search,
+    String? discountType,
+    String? scope,
+    bool? isActive,
+    bool activeOnly = false,
+  }) async {
+    try {
+      logger.d('📡 API: GET ${ApiEndpoints.discounts}');
+
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'page_size': pageSize,
+      };
+
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (discountType != null) queryParams['discount_type'] = discountType;
+      if (scope != null) queryParams['scope'] = scope;
+      if (isActive != null) queryParams['is_active'] = isActive;
+      if (activeOnly) queryParams['active_only'] = true;
+
+      final response = await apiClient.get(
+        ApiEndpoints.discounts,
+        queryParameters: queryParams,
+      );
+
+      logger.i('✅ API: Remises récupérées avec succès');
+      return PaginatedResponseModel<DiscountModel>.fromJson(
+        response.data as Map<String, dynamic>,
+            (json) => DiscountModel.fromJson(json),
+      );
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur GET discounts: ${e.message}');
+      throw Exception('Erreur réseau: ${e.message}');
+    }
+  }
+
+  /// Crée une nouvelle remise
+  Future<DiscountModel> createDiscount(Map<String, dynamic> data) async {
+    try {
+      logger.d('📡 API: POST ${ApiEndpoints.discounts}');
+      logger.d('Data: $data');
+
+      final response = await apiClient.post(
+        ApiEndpoints.discounts,
+        data: data,
+      );
+
+      logger.i('✅ API: Remise créée avec succès');
+      return DiscountModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur création remise: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la création de la remise');
+    } catch (e) {
+      logger.e('❌ API: Exception création remise: $e');
+      throw Exception('Erreur inattendue lors de la création');
+    }
+  }
+
+  /// Met à jour une remise
+  Future<DiscountModel> updateDiscount(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📡 API: PUT ${ApiEndpoints.discountDetail(id)}');
+      logger.d('Data: $data');
+
+      final response = await apiClient.put(
+        ApiEndpoints.discountDetail(id),
+        data: data,
+      );
+
+      logger.i('✅ API: Remise modifiée avec succès');
+      return DiscountModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur modification remise: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la modification de la remise');
+    } catch (e) {
+      logger.e('❌ API: Exception modification remise: $e');
+      throw Exception('Erreur inattendue lors de la modification');
+    }
+  }
+
+  /// Supprime une remise
+  Future<void> deleteDiscount(String id) async {
+    try {
+      logger.d('📡 API: DELETE ${ApiEndpoints.discountDetail(id)}');
+
+      await apiClient.delete(ApiEndpoints.discountDetail(id));
+
+      logger.i('✅ API: Remise supprimée avec succès');
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur suppression remise: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          if (errorData.containsKey('detail')) {
+            throw Exception(errorData['detail'].toString());
+          }
+          final firstError = errorData.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            throw Exception(firstError.first.toString());
+          } else if (firstError is String) {
+            throw Exception(firstError);
+          }
+        }
+      }
+      throw Exception('Erreur lors de la suppression de la remise');
+    } catch (e) {
+      logger.e('❌ API: Exception suppression remise: $e');
+      throw Exception('Erreur inattendue lors de la suppression');
+    }
+  }
+
+  /// Calcule une remise
+  Future<Map<String, dynamic>> calculateDiscount(
+      String id,
+      Map<String, dynamic> params,
+      ) async {
+    try {
+      logger.d('📡 API: POST ${ApiEndpoints.discountDetail(id)}/calculate/');
+      logger.d('Params: $params');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.discountDetail(id)}/calculate/',
+        data: params,
+      );
+
+      logger.i('✅ API: Remise calculée avec succès');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API: Erreur calcul remise: ${e.message}');
+      if (e.response != null && e.response!.data != null) {
+        final errorData = e.response!.data;
+        if (errorData is Map<String, dynamic>) {
+          if (errorData.containsKey('detail')) {
+            throw Exception(errorData['detail'].toString());
+          }
+        }
+      }
+      throw Exception('Erreur lors du calcul de la remise');
+    } catch (e) {
+      logger.e('❌ API: Exception calcul remise: $e');
+      throw Exception('Erreur inattendue lors du calcul');
+    }
+  }
 }

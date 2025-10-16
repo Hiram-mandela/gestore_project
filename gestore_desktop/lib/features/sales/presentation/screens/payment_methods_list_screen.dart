@@ -1,15 +1,22 @@
 // ========================================
 // lib/features/sales/presentation/screens/payment_methods_list_screen.dart
 // Écran Liste des Moyens de Paiement - Module Sales
+// VERSION AMÉLIORÉE - DESIGN REFACTORING
+//
+// Changements stylistiques majeurs :
+// - Intégration de la palette GESTORE pour les fonds, textes, et couleurs d'accent.
+// - Modernisation des champs de recherche et de filtres pour une meilleure UX.
+// - Remplacement du tableau par un design plus clair avec une meilleure hiérarchie visuelle.
+// - Harmonisation des icônes, badges de statut, et boutons avec la charte graphique.
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/constants/app_colors.dart';
+import '../../domain/entities/payment_method_entity.dart';
 import '../providers/payment_methods_list_provider.dart';
 import '../providers/payment_methods_list_state.dart';
-import '../../domain/entities/payment_method_entity.dart';
 
 /// Écran de liste des moyens de paiement
 class PaymentMethodsListScreen extends ConsumerStatefulWidget {
@@ -23,6 +30,7 @@ class PaymentMethodsListScreen extends ConsumerStatefulWidget {
 class _PaymentMethodsListScreenState
     extends ConsumerState<PaymentMethodsListScreen> {
   final _searchController = TextEditingController();
+
   String? _selectedType;
   bool? _selectedStatus;
 
@@ -53,6 +61,7 @@ class _PaymentMethodsListScreenState
               SnackBar(
                 content: Text(next.message),
                 backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           } else if (next is PaymentMethodsListError) {
@@ -60,21 +69,20 @@ class _PaymentMethodsListScreenState
               SnackBar(
                 content: Text(next.message),
                 backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           }
         });
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
           // Header avec titre et bouton d'ajout
           _buildHeader(),
-
           // Barre de recherche et filtres
           _buildSearchAndFilters(),
-
           // Contenu principal
           Expanded(
             child: _buildContent(state),
@@ -89,14 +97,8 @@ class _PaymentMethodsListScreenState
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        boxShadow: [AppColors.subtleShadow()],
       ),
       child: Row(
         children: [
@@ -107,7 +109,7 @@ class _PaymentMethodsListScreenState
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.payment,
               color: AppColors.primary,
               size: 28,
@@ -120,8 +122,9 @@ class _PaymentMethodsListScreenState
               Text(
                 'Moyens de paiement',
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
               SizedBox(height: 4),
@@ -129,23 +132,26 @@ class _PaymentMethodsListScreenState
                 'Gérer les modes de paiement acceptés',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
           ),
           const Spacer(),
-
           // Bouton Nouveau
           FilledButton.icon(
             onPressed: () => context.push('/sales/payment-methods/new'),
             icon: const Icon(Icons.add),
-            label: const Text('Nouveau moyen de paiement'),
+            label: const Text('Nouveau moyen'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(
                 horizontal: 24,
                 vertical: 16,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
@@ -154,11 +160,37 @@ class _PaymentMethodsListScreenState
     );
   }
 
+  // Style de décoration réutilisable pour les champs de texte
+  InputDecoration _inputDecoration({
+    required String labelText,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
+      filled: true,
+      fillColor: AppColors.surfaceLight,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+    );
+  }
+
   /// Barre de recherche et filtres
   Widget _buildSearchAndFilters() {
     return Container(
-      padding: const EdgeInsets.all(24),
-      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      color: AppColors.surfaceLight,
       child: Row(
         children: [
           // Recherche
@@ -166,12 +198,14 @@ class _PaymentMethodsListScreenState
             flex: 2,
             child: TextField(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Rechercher un moyen de paiement...',
-                prefixIcon: const Icon(Icons.search),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _inputDecoration(
+                labelText: 'Rechercher un moyen de paiement...',
+                icon: Icons.search,
+              ).copyWith(
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.clear, color: AppColors.textSecondary),
                   onPressed: () {
                     _searchController.clear();
                     ref
@@ -180,12 +214,6 @@ class _PaymentMethodsListScreenState
                   },
                 )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
               ),
               onChanged: (value) {
                 ref
@@ -194,31 +222,25 @@ class _PaymentMethodsListScreenState
               },
             ),
           ),
-
           const SizedBox(width: 16),
-
           // Filtre Type
           Expanded(
             child: DropdownButtonFormField<String>(
               initialValue: _selectedType,
-              decoration: InputDecoration(
+              decoration: _inputDecoration(
                 labelText: 'Type',
-                prefixIcon: const Icon(Icons.category),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
+                icon: Icons.category,
               ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tous les types')),
-                const DropdownMenuItem(value: 'cash', child: Text('Espèces')),
-                const DropdownMenuItem(value: 'card', child: Text('Carte bancaire')),
-                const DropdownMenuItem(value: 'mobile_money', child: Text('Mobile Money')),
-                const DropdownMenuItem(value: 'check', child: Text('Chèque')),
-                const DropdownMenuItem(value: 'credit', child: Text('Crédit')),
-                const DropdownMenuItem(value: 'voucher', child: Text('Bon d\'achat')),
-                const DropdownMenuItem(
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Tous les types')),
+                DropdownMenuItem(value: 'cash', child: Text('Espèces')),
+                DropdownMenuItem(value: 'card', child: Text('Carte bancaire')),
+                DropdownMenuItem(
+                    value: 'mobile_money', child: Text('Mobile Money')),
+                DropdownMenuItem(value: 'check', child: Text('Chèque')),
+                DropdownMenuItem(value: 'credit', child: Text('Crédit')),
+                DropdownMenuItem(value: 'voucher', child: Text('Bon d\'achat')),
+                DropdownMenuItem(
                     value: 'loyalty_points', child: Text('Points fidélité')),
               ],
               onChanged: (value) {
@@ -229,21 +251,14 @@ class _PaymentMethodsListScreenState
               },
             ),
           ),
-
           const SizedBox(width: 16),
-
           // Filtre Statut
           Expanded(
             child: DropdownButtonFormField<bool?>(
               initialValue: _selectedStatus,
-              decoration: InputDecoration(
+              decoration: _inputDecoration(
                 labelText: 'Statut',
-                prefixIcon: const Icon(Icons.toggle_on),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
+                icon: Icons.toggle_on,
               ),
               items: const [
                 DropdownMenuItem(value: null, child: Text('Tous')),
@@ -258,9 +273,7 @@ class _PaymentMethodsListScreenState
               },
             ),
           ),
-
           const SizedBox(width: 16),
-
           // Bouton Réinitialiser filtres
           OutlinedButton.icon(
             onPressed: () {
@@ -273,6 +286,14 @@ class _PaymentMethodsListScreenState
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Réinitialiser'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
@@ -282,21 +303,18 @@ class _PaymentMethodsListScreenState
   /// Contenu principal selon l'état
   Widget _buildContent(PaymentMethodsListState state) {
     if (state is PaymentMethodsListLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
-
     if (state is PaymentMethodsListError) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
               state.message,
-              style: const TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -313,7 +331,6 @@ class _PaymentMethodsListScreenState
         ),
       );
     }
-
     if (state is PaymentMethodsListLoaded) {
       if (state.filteredPaymentMethods.isEmpty) {
         return Center(
@@ -328,7 +345,7 @@ class _PaymentMethodsListScreenState
                     state.selectedStatus != null
                     ? 'Aucun moyen de paiement ne correspond aux filtres'
                     : 'Aucun moyen de paiement configuré',
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               if (state.searchQuery.isEmpty &&
@@ -338,103 +355,63 @@ class _PaymentMethodsListScreenState
                   onPressed: () => context.push('/sales/payment-methods/new'),
                   icon: const Icon(Icons.add),
                   label: const Text('Ajouter un moyen de paiement'),
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
                 ),
             ],
           ),
         );
       }
-
       return _buildPaymentMethodsTable(state.filteredPaymentMethods);
     }
-
     return const SizedBox.shrink();
   }
 
   /// Tableau des moyens de paiement
   Widget _buildPaymentMethodsTable(List<PaymentMethodEntity> paymentMethods) {
+    final headerStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: AppColors.textSecondary,
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey[200]!),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           children: [
             // Header du tableau
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: const BorderRadius.only(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: const BoxDecoration(
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
                 ),
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Nom',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Type',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Frais',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Montant max',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Statut',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+                  Expanded(flex: 3, child: Text('Nom', style: headerStyle)),
+                  Expanded(flex: 2, child: Text('Type', style: headerStyle)),
+                  Expanded(flex: 1, child: Text('Frais', style: headerStyle)),
+                  Expanded(flex: 2, child: Text('Montant max', style: headerStyle)),
+                  Expanded(flex: 1, child: Text('Statut', style: headerStyle, textAlign: TextAlign.center)),
                   const SizedBox(width: 100), // Pour les actions
                 ],
               ),
             ),
-
             // Corps du tableau
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: paymentMethods.length,
-              separatorBuilder: (context, index) => Divider(
+              separatorBuilder: (context, index) => const Divider(
                 height: 1,
-                color: Colors.grey[200],
+                color: AppColors.border,
               ),
               itemBuilder: (context, index) {
                 final paymentMethod = paymentMethods[index];
@@ -457,7 +434,7 @@ class _PaymentMethodsListScreenState
           children: [
             // Nom avec icône
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Row(
                 children: [
                   Container(
@@ -483,15 +460,16 @@ class _PaymentMethodsListScreenState
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         if (paymentMethod.description != null &&
                             paymentMethod.description!.isNotEmpty)
                           Text(
                             paymentMethod.description!,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: AppColors.textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -502,18 +480,17 @@ class _PaymentMethodsListScreenState
                 ],
               ),
             ),
-
             // Type
             Expanded(
               flex: 2,
               child: Text(
                 paymentMethod.paymentTypeDisplay,
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ),
-
             // Frais
             Expanded(
+              flex: 1,
               child: Text(
                 paymentMethod.feePercentage > 0
                     ? '${paymentMethod.feePercentage.toStringAsFixed(1)}%'
@@ -522,31 +499,30 @@ class _PaymentMethodsListScreenState
                   fontSize: 14,
                   color: paymentMethod.feePercentage > 0
                       ? AppColors.warning
-                      : Colors.grey[600],
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
-
             // Montant max
             Expanded(
+              flex: 2,
               child: Text(
                 paymentMethod.maxAmount != null
                     ? '${paymentMethod.maxAmount!.toStringAsFixed(0)} F'
                     : 'Illimité',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[700],
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
-
             // Statut
             Expanded(
+              flex: 1,
               child: Center(
                 child: _buildStatusChip(paymentMethod.isActive),
               ),
             ),
-
             // Actions
             SizedBox(
               width: 100,
@@ -561,15 +537,15 @@ class _PaymentMethodsListScreenState
                           : Icons.toggle_off,
                       color: paymentMethod.isActive
                           ? AppColors.success
-                          : Colors.grey,
+                          : AppColors.textSecondary,
+                      size: 28,
                     ),
                     tooltip: paymentMethod.isActive ? 'Désactiver' : 'Activer',
                     onPressed: () => _confirmToggleActivation(paymentMethod),
                   ),
-
                   // Supprimer
                   IconButton(
-                    icon: Icon(Icons.delete_outline, color: AppColors.error),
+                    icon: const Icon(Icons.delete_outline, color: AppColors.error),
                     tooltip: 'Supprimer',
                     onPressed: () => _confirmDelete(paymentMethod),
                   ),
@@ -589,13 +565,13 @@ class _PaymentMethodsListScreenState
       decoration: BoxDecoration(
         color: isActive
             ? AppColors.success.withValues(alpha: 0.1)
-            : Colors.grey.withValues(alpha: 0.1),
+            : AppColors.border.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         isActive ? 'Actif' : 'Inactif',
         style: TextStyle(
-          color: isActive ? AppColors.success : Colors.grey[700],
+          color: isActive ? AppColors.success : AppColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -628,7 +604,6 @@ class _PaymentMethodsListScreenState
         ],
       ),
     );
-
     if (confirmed == true && mounted) {
       ref
           .read(paymentMethodsListProvider.notifier)
@@ -639,11 +614,11 @@ class _PaymentMethodsListScreenState
   /// Confirmation toggle activation
   Future<void> _confirmToggleActivation(PaymentMethodEntity paymentMethod) async {
     final action = paymentMethod.isActive ? 'désactiver' : 'activer';
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Confirmer ${action == 'activer' ? 'l\'activation' : 'la désactivation'}'),
+        title: Text(
+            'Confirmer ${action == 'activer' ? 'l\'activation' : 'la désactivation'}'),
         content: Text(
           'Voulez-vous $action le moyen de paiement "${paymentMethod.name}" ?',
         ),
@@ -654,12 +629,15 @@ class _PaymentMethodsListScreenState
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor:
+              paymentMethod.isActive ? AppColors.textSecondary : AppColors.success,
+            ),
             child: Text(action == 'activer' ? 'Activer' : 'Désactiver'),
           ),
         ],
       ),
     );
-
     if (confirmed == true && mounted) {
       ref
           .read(paymentMethodsListProvider.notifier)
@@ -701,11 +679,11 @@ class _PaymentMethodsListScreenState
       case 'check':
         return AppColors.warning;
       case 'credit':
-        return Colors.orange;
+        return AppColors.secondary;
       case 'voucher':
-        return Colors.purple;
+        return AppColors.customers; // Using a distinct color from the palette
       case 'loyalty_points':
-        return Colors.amber;
+        return AppColors.warning;
       default:
         return AppColors.primary;
     }

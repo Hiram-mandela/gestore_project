@@ -1,12 +1,16 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_search_bar.dart
-// Widget barre de recherche pour les articles
+//
+// MODIFICATIONS APPORTÉES (CORRECTION) :
+// - Utilisation de `filled: true` et `fillColor` dans InputDecoration pour garantir un fond blanc.
+// - Changement de la couleur du hintStyle pour `AppColors.textSecondary` pour un meilleur contraste, comme demandé.
+// - Le style GESTORE (bordures, icônes) est maintenant appliqué de manière plus robuste.
 // ========================================
 
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import '../../../../shared/constants/app_colors.dart';
 
-/// Barre de recherche avec debounce pour les articles
 class ArticleSearchBar extends StatefulWidget {
   final Function(String) onSearch;
   final Duration debounceDuration;
@@ -32,18 +36,15 @@ class _ArticleSearchBarState extends State<ArticleSearchBar> {
     super.dispose();
   }
 
-  /// Gère le changement de texte avec debounce
   void _onSearchChanged(String query) {
-    // Annuler le timer précédent
     _debounce?.cancel();
-
-    // Créer un nouveau timer
     _debounce = Timer(widget.debounceDuration, () {
-      widget.onSearch(query);
+      if (mounted) {
+        widget.onSearch(query);
+      }
     });
   }
 
-  /// Efface la recherche
   void _clearSearch() {
     _controller.clear();
     widget.onSearch('');
@@ -51,41 +52,37 @@ class _ArticleSearchBarState extends State<ArticleSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: TextField(
-        controller: _controller,
-        onChanged: _onSearchChanged,
-        decoration: InputDecoration(
-          hintText: 'Rechercher un article (nom, code, code-barres)...',
-          hintStyle: TextStyle(
-            color: Colors.grey[500],
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: Colors.grey[600],
-          ),
-          suffixIcon: _controller.text.isNotEmpty
-              ? IconButton(
-            icon: Icon(
-              Icons.clear,
-              color: Colors.grey[600],
-            ),
-            onPressed: _clearSearch,
-          )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+    return TextField(
+      controller: _controller,
+      onChanged: _onSearchChanged,
+      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+      decoration: InputDecoration(
+        // ✅ CORRECTION : Application robuste du style GESTORE
+        filled: true,
+        fillColor: AppColors.surfaceLight,
+        hintText: 'Rechercher un article (nom, code, code-barres)...',
+        hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+        suffixIcon: _controller.text.isNotEmpty
+            ? IconButton(
+          icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+          onPressed: _clearSearch,
+        )
+            : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        // Bordures
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
-        style: const TextStyle(fontSize: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
       ),
     );
   }

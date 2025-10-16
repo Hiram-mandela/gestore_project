@@ -1,12 +1,19 @@
 // ========================================
 // lib/features/inventory/presentation/screens/article_form_screen.dart
 // Écran du formulaire article (création/édition) avec 5 étapes
-// VERSION 2.0 - Formulaire Complet
+// VERSION 2.1 - Refonte visuelle GESTORE
+// --
+// Changements majeurs :
+// - Palette de couleurs GESTORE intégrée (AppColors).
+// - Fond d'écran et AppBar stylisés pour une meilleure hiérarchie.
+// - Stepper visuel amélioré avec des indicateurs clairs et lisibles.
+// - Boutons et barre de navigation modernisés avec des styles cohérents.
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../shared/constants/app_colors.dart';
 import '../providers/article_form_provider.dart';
 import '../providers/article_form_state.dart';
@@ -48,6 +55,7 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     );
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
       appBar: _buildAppBar(state),
       body: _buildBody(state),
       bottomNavigationBar: _buildBottomBar(state),
@@ -55,27 +63,34 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
   }
 
   // ==================== APP BAR ====================
-
   PreferredSizeWidget _buildAppBar(ArticleFormState state) {
     return AppBar(
       title: Text(
         widget.mode == ArticleFormMode.create
             ? 'Nouvel article'
-            : 'Modifier article',
+            : 'Modifier l\'article',
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.bold,
+        ),
       ),
+      backgroundColor: AppColors.surfaceLight,
+      elevation: 0,
+      iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      surfaceTintColor: Colors.transparent,
       actions: [
         if (state is ArticleFormReady)
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => _confirmCancel(context),
             tooltip: 'Annuler',
+            color: AppColors.textSecondary,
           ),
       ],
     );
   }
 
   // ==================== BODY ====================
-
   Widget _buildBody(ArticleFormState state) {
     if (state is ArticleFormLoading) {
       return _buildLoadingState();
@@ -86,7 +101,6 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     } else if (state is ArticleFormError) {
       return _buildErrorState(state);
     }
-
     return _buildInitialState();
   }
 
@@ -95,9 +109,12 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
+          CircularProgressIndicator(color: AppColors.primary),
           SizedBox(height: 16),
-          Text('Chargement de l\'article...'),
+          Text(
+            'Chargement de l\'article...',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
@@ -108,12 +125,13 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(),
+          const CircularProgressIndicator(color: AppColors.primary),
           const SizedBox(height: 16),
           Text(
             widget.mode == ArticleFormMode.create
                 ? 'Création en cours...'
                 : 'Mise à jour en cours...',
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -127,21 +145,24 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 64,
-              color: Theme.of(context).colorScheme.error,
+              color: AppColors.error,
             ),
             const SizedBox(height: 16),
             Text(
-              'Erreur',
-              style: Theme.of(context).textTheme.headlineSmall,
+              'Une erreur est survenue',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             Row(
@@ -151,14 +172,17 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                   onPressed: () => context.pop(),
                   icon: const Icon(Icons.arrow_back),
                   label: const Text('Retour'),
+                  style: _getOutlinedButtonStyle(),
                 ),
                 const SizedBox(width: 16),
                 FilledButton.icon(
                   onPressed: () => ref
-                      .read(articleFormProvider((widget.mode, widget.articleId)).notifier)
+                      .read(articleFormProvider((widget.mode, widget.articleId))
+                      .notifier)
                       .retryAfterError(),
                   icon: const Icon(Icons.refresh),
                   label: const Text('Réessayer'),
+                  style: _getFilledButtonStyle(color: AppColors.primary),
                 ),
               ],
             ),
@@ -170,7 +194,7 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
 
   Widget _buildInitialState() {
     return const Center(
-      child: CircularProgressIndicator(),
+      child: CircularProgressIndicator(color: AppColors.primary),
     );
   }
 
@@ -179,8 +203,7 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
       children: [
         // Stepper horizontal
         _buildStepper(state),
-        const Divider(height: 1),
-
+        const Divider(height: 1, color: AppColors.border),
         // Contenu de l'étape
         Expanded(
           child: _buildStepContent(state),
@@ -190,10 +213,10 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
   }
 
   // ==================== STEPPER ====================
-
   Widget _buildStepper(ArticleFormReady state) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      color: AppColors.surfaceLight,
       child: Row(
         children: List.generate(
           5,
@@ -217,12 +240,11 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     required VoidCallback onTap,
   }) {
     final isActive = step == currentStep;
-    final color = isCompleted || isActive
-        ? AppColors.primary
-        : Colors.grey.shade400;
+    final color = isCompleted || isActive ? AppColors.primary : AppColors.border;
 
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -232,18 +254,18 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                 Expanded(
                   child: Container(
                     height: 2,
-                    color: isCompleted ? AppColors.primary : Colors.grey.shade300,
+                    color: isCompleted ? AppColors.primary : AppColors.border,
                   ),
                 ),
               Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: isActive
                       ? AppColors.primary
                       : isCompleted
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : Colors.grey.shade200,
+                      ? AppColors.surfaceLight
+                      : AppColors.backgroundLight,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: color,
@@ -252,11 +274,13 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                 ),
                 child: Center(
                   child: isCompleted
-                      ? const Icon(Icons.check, size: 16, color: AppColors.primary)
+                      ? const Icon(Icons.check, size: 20, color: AppColors.primary)
                       : Text(
                     '${step + 1}',
                     style: TextStyle(
-                      color: isActive ? Colors.white : color,
+                      color: isActive
+                          ? Colors.white
+                          : AppColors.textSecondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -267,9 +291,8 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                 Expanded(
                   child: Container(
                     height: 2,
-                    color: isCompleted && step < currentStep
-                        ? AppColors.primary
-                        : Colors.grey.shade300,
+                    color:
+                    isCompleted && step < currentStep ? AppColors.primary : AppColors.border,
                   ),
                 ),
             ],
@@ -278,9 +301,9 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           Text(
             _getStepLabel(step),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              color: isActive ? AppColors.primary : Colors.grey.shade600,
+              color: isActive ? AppColors.primary : AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -309,8 +332,8 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
   }
 
   // ==================== STEP CONTENT ====================
-
   Widget _buildStepContent(ArticleFormReady state) {
+    // Le padding est géré dans chaque widget d'étape pour plus de flexibilité
     switch (state.currentStep) {
       case 0:
         return ArticleFormStep1(
@@ -343,28 +366,25 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           onFieldChanged: _updateField,
         );
       default:
-        return const SizedBox();
+        return const SizedBox.shrink();
     }
   }
 
   // ==================== BOTTOM BAR ====================
-
   Widget? _buildBottomBar(ArticleFormState state) {
     if (state is! ArticleFormReady) return null;
-
-    final notifier = ref.read(articleFormProvider((widget.mode, widget.articleId)).notifier);
+    final notifier =
+    ref.read(articleFormProvider((widget.mode, widget.articleId)).notifier);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16.0).copyWith(
+          bottom: MediaQuery.of(context).padding.bottom + 16.0),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        boxShadow: [AppColors.subtleShadow()],
+        border: const Border(
+          top: BorderSide(color: AppColors.border, width: 1.0),
+        ),
       ),
       child: Row(
         children: [
@@ -372,17 +392,13 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           if (!state.isFirstStep)
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => notifier.previousStep(),
+                onPressed: notifier.previousStep,
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Précédent'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+                style: _getOutlinedButtonStyle(),
               ),
             ),
-
           if (!state.isFirstStep) const SizedBox(width: 16),
-
           // Bouton Suivant ou Enregistrer
           Expanded(
             child: state.isLastStep
@@ -390,7 +406,7 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
               onPressed: state.errors.isEmpty ? _submitForm : null,
               icon: Icon(
                 widget.mode == ArticleFormMode.create
-                    ? Icons.add
+                    ? Icons.add_circle_outline
                     : Icons.save,
               ),
               label: Text(
@@ -398,17 +414,13 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                     ? 'Créer l\'article'
                     : 'Enregistrer',
               ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+              style: _getFilledButtonStyle(),
             )
                 : FilledButton.icon(
-              onPressed: () => notifier.nextStep(),
+              onPressed: notifier.nextStep,
               icon: const Icon(Icons.arrow_forward),
               label: const Text('Suivant'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+              style: _getFilledButtonStyle(),
             ),
           ),
         ],
@@ -416,8 +428,32 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     );
   }
 
-  // ==================== ACTIONS ====================
+  // ==================== STYLES ====================
+  ButtonStyle _getFilledButtonStyle({Color? color}) {
+    return FilledButton.styleFrom(
+      backgroundColor: color ?? AppColors.primary,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
 
+  ButtonStyle _getOutlinedButtonStyle() {
+    return OutlinedButton.styleFrom(
+      foregroundColor: AppColors.textSecondary,
+      side: const BorderSide(color: AppColors.border),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
+
+  // ==================== ACTIONS ====================
   void _updateField(String field, dynamic value) {
     ref
         .read(articleFormProvider((widget.mode, widget.articleId)).notifier)
@@ -440,24 +476,24 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Annuler'),
+        backgroundColor: AppColors.surfaceLight,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Annuler les modifications ?', style: TextStyle(color: AppColors.textPrimary)),
         content: const Text(
-          'Êtes-vous sûr de vouloir annuler ? '
-              'Toutes les modifications seront perdues.',
+          'Toutes les modifications non enregistrées seront perdues. Êtes-vous sûr ?',
+          style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Non'),
+            child: const Text('Rester', style: TextStyle(color: AppColors.textSecondary)),
           ),
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
               context.pop();
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
+            style: _getFilledButtonStyle(color: AppColors.error),
             child: const Text('Oui, annuler'),
           ),
         ],
@@ -476,10 +512,12 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           ],
         ),
         backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       ),
     );
-
     // Retourner à la liste ou au détail
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -505,6 +543,9 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
           ],
         ),
         backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'OK',

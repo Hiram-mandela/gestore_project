@@ -2,7 +2,6 @@
 // lib/features/sales/data/models/discount_model.dart
 // Model Discount - Data Layer
 // ========================================
-
 import '../../domain/entities/discount_entity.dart';
 
 /// Model représentant une remise/promotion
@@ -23,13 +22,24 @@ class DiscountModel {
   final String? maxAmount;
 
   // Période de validité
-  final String startDate;
+  final String? startDate;
   final String? endDate;
 
   // État
   final bool isActive;
   final String createdAt;
   final String? updatedAt;
+
+  // --- CHAMPS AJOUTÉS ---
+  // Limitations
+  final int? maxUses;
+  final int? maxUsesPerCustomer;
+  final int? currentUses;
+
+  // Cibles
+  final List<String>? targetCategories;
+  final List<String>? targetArticles;
+  final List<String>? targetCustomers;
 
   DiscountModel({
     required this.id,
@@ -42,11 +52,18 @@ class DiscountModel {
     this.minQuantity,
     this.minAmount,
     this.maxAmount,
-    required this.startDate,
+    this.startDate,
     this.endDate,
     this.isActive = true,
     required this.createdAt,
     this.updatedAt,
+    // --- AJOUTÉS AU CONSTRUCTEUR ---
+    this.maxUses,
+    this.maxUsesPerCustomer,
+    this.currentUses,
+    this.targetCategories,
+    this.targetArticles,
+    this.targetCustomers,
   });
 
   /// Depuis JSON (API response)
@@ -62,11 +79,18 @@ class DiscountModel {
       minQuantity: json['min_quantity'] as int?,
       minAmount: json['min_amount']?.toString(),
       maxAmount: json['max_amount']?.toString(),
-      startDate: json['start_date'] as String,
+      startDate: json['start_date'] as String?,
       endDate: json['end_date'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String?,
+      // --- AJOUTÉS À FROMJSON ---
+      maxUses: json['max_uses'] as int?,
+      maxUsesPerCustomer: json['max_uses_per_customer'] as int?,
+      currentUses: json['current_uses'] as int?,
+      targetCategories: json['target_categories'] != null ? List<String>.from(json['target_categories']) : null,
+      targetArticles: json['target_articles'] != null ? List<String>.from(json['target_articles']) : null,
+      targetCustomers: json['target_customers'] != null ? List<String>.from(json['target_customers']) : null,
     );
   }
 
@@ -83,11 +107,15 @@ class DiscountModel {
       if (minQuantity != null) 'min_quantity': minQuantity,
       if (minAmount != null) 'min_amount': minAmount,
       if (maxAmount != null) 'max_amount': maxAmount,
-      'start_date': startDate,
+      if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       'is_active': isActive,
-      'created_at': createdAt,
-      if (updatedAt != null) 'updated_at': updatedAt,
+      // --- AJOUTÉS À TOJSON ---
+      if (maxUses != null) 'max_uses': maxUses,
+      if (maxUsesPerCustomer != null) 'max_uses_per_customer': maxUsesPerCustomer,
+      if (targetCategories != null) 'target_categories': targetCategories,
+      if (targetArticles != null) 'target_articles': targetArticles,
+      if (targetCustomers != null) 'target_customers': targetCustomers,
     };
   }
 
@@ -104,11 +132,18 @@ class DiscountModel {
       minQuantity: minQuantity,
       minAmount: minAmount != null ? double.tryParse(minAmount!) : null,
       maxAmount: maxAmount != null ? double.tryParse(maxAmount!) : null,
-      startDate: DateTime.parse(startDate),
-      endDate: endDate != null ? DateTime.tryParse(endDate!) : null,
+      startDate: startDate != null ? DateTime.parse(startDate!) : null,
+      endDate: endDate != null ? DateTime.parse(endDate!) : null,
       isActive: isActive,
       createdAt: DateTime.parse(createdAt),
-      updatedAt: updatedAt != null ? DateTime.tryParse(updatedAt!) : null,
+      updatedAt: updatedAt != null ? DateTime.parse(updatedAt!) : null,
+      // --- AJOUTÉS À TOENTITY ---
+      maxUses: maxUses,
+      maxUsesPerCustomer: maxUsesPerCustomer,
+      currentUses: currentUses,
+      targetCategories: targetCategories,
+      targetArticles: targetArticles,
+      targetCustomers: targetCustomers,
     );
   }
 }

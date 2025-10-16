@@ -1,8 +1,10 @@
+# apps/sales/views.py
+
 """
 Vues pour l'application sales - GESTORE
 ViewSets complets pour la gestion des ventes et du POS
 """
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,14 +14,13 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from decimal import Decimal
-from datetime import timedelta
 
 # Import de la classe de base
 from apps.authentication.views import OptimizedModelViewSet
 
 # Import des permissions
 from .permissions import (
-    CanViewSales, CanManageSales, CanVoidTransaction,
+    CanViewSales, CanVoidTransaction,
     CanApplyDiscounts, CanManageCustomers
 )
 
@@ -416,137 +417,162 @@ class POSViewSet(viewsets.ViewSet):
         serializer = CheckoutSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         data = serializer.validated_data
-        
-        with transaction.atomic():
-            # 1. Créer la vente
-            sale = Sale.objects.create(
-                sale_type='regular',
-                status='pending',
-                customer_id=data.get('customer_id'),
-                cashier=request.user,
-                sale_date=timezone.now(),
-                notes=data.get('notes', '')
-            )
-            
-            # 2. Créer les lignes de vente et mettre à jour les stocks
-            for item_data in data['items']:
-                article = Article.objects.get(id=item_data['article_id'])
-                quantity = Decimal(str(item_data['quantity']))
-                
-                # Créer la ligne de vente
-                sale_item = SaleItem.objects.create(
-                    sale=sale,
-                    article=article,
-                    quantity=quantity,
-                    unit_price=item_data.get('unit_price', article.selling_price),
-                    discount_percentage=item_data.get('discount_percentage', 0)
+
+        try:
+            with transaction.atomic():
+                # 1. Créer la vente de base
+                sale = Sale.objects.create(
+                    sale_type='regular',
+                    status='pending',
+                    customer_id=data.get('customer_id'),
+                    cashier=request.user,
+                    sale_date=timezone.now(),
+                    notes=data.get('notes', '')
                 )
-                
-                # Mettre à jour le stock
-                if article.manage_stock:
-                    stock = Stock.objects.filter(
+
+                # 2. Créer les lignes de vente et mettre à jour les stocks
+                for item_data in data['items']:
+                    article = Article.objects.get(id=item_data['article_id'])
+                    quantity = Decimal(str(item_data['quantity']))
+
+                    # Créer la ligne de vente
+                    sale_item = SaleItem.objects.create(
+                        sale=sale,
                         article=article,
-                        location__location_type='store'
-                    ).first()
-                    
-                    if not stock or stock.quantity_available < quantity:
-                        raise Exception(f"Stock insuffisant pour {article.name}")
-                    
-                    old_quantity = stock.quantity_on_hand
-                    stock.quantity_on_hand -= quantity
-                    stock.quantity_available -= quantity
-                    stock.save()
-                    
-                    # Créer le mouvement de stock
-                    stock_movement = StockMovement.objects.create(
-                        article=article,
-                        stock=stock,
-                        movement_type='out',
-                        reason='sale',
                         quantity=quantity,
-                        unit_cost=article.purchase_price,
-                        stock_before=old_quantity,
-                        stock_after=stock.quantity_on_hand,
-                        reference_document=sale.sale_number,
+                        unit_price=item_data.get('unit_price', article.selling_price),
+                        discount_percentage=item_data.get('discount_percentage', 0)
+                    )
+
+                    # Mettre à jour le stock si géré
+                    if article.manage_stock:
+                        stock = Stock.objects.filter(
+                            article=article,
+                            location__location_type='store'
+                        ).first()
+
+                        # Gestion d'erreur améliorée
+                        if not stock or stock.quantity_available < quantity:
+                            raise serializers.ValidationError({
+                                'items': f"Stock insuffisant pour l'article : {article.name} (disponible : {stock.quantity_available if stock else 0})"
+                            })
+
+                        old_quantity = stock.quantity_on_hand
+                        stock.quantity_on_hand -= quantity
+                        stock.quantity_available -= quantity
+                        stock.save()
+
+                        # Créer le mouvement de stock
+                        stock_movement = StockMovement.objects.create(
+                            article=article,
+                            stock=stock,
+                            movement_type='out',
+                            reason='sale',
+                            quantity=quantity,
+                            stock_before=old_quantity,
+                            stock_after=stock.quantity_on_hand,
+                            reference_document=sale.sale_number,
+                            created_by=request.user
+                        )
+                        sale_item.stock_movement = stock_movement
+                        sale_item.save()
+
+                # 3. Premier calcul des totaux (sous-total, taxes)
+                sale.calculate_totals()
+
+                # 4. Appliquer les remises via les codes promotionnels
+                discount_codes = data.get('discount_codes', [])
+                total_discount_from_codes = Decimal('0.00')
+                
+                if discount_codes:
+                    discounts = Discount.objects.filter(name__in=discount_codes, is_active=True)
+                    customer = sale.customer
+
+                    for discount in discounts:
+                        if discount.is_valid(customer=customer, amount=sale.total_amount):
+                            applied_amount = discount.calculate_discount(amount=sale.total_amount)
+                            if applied_amount > 0:
+                                SaleDiscount.objects.create(
+                                    sale=sale,
+                                    discount=discount,
+                                    amount=applied_amount
+                                )
+                                discount.increment_usage()
+                                total_discount_from_codes += applied_amount
+                
+                sale.discount_amount += total_discount_from_codes
+
+                # 5. Traiter les points de fidélité utilisés
+                loyalty_points_to_use = data.get('loyalty_points_to_use', 0)
+                if loyalty_points_to_use > 0 and sale.customer:
+                    if sale.customer.can_use_loyalty_points(loyalty_points_to_use):
+                        # Règle : 100 points = 1.00 devise
+                        loyalty_discount_value = (Decimal(loyalty_points_to_use) / Decimal('100.0')).quantize(Decimal('0.01'))
+                        if loyalty_discount_value > 0:
+                            sale.discount_amount += loyalty_discount_value
+                            sale.loyalty_points_used = loyalty_points_to_use
+                            sale.customer.loyalty_points -= loyalty_points_to_use
+                            sale.customer.save(update_fields=['loyalty_points'])
+
+                # 6. Recalculer les totaux finaux après toutes les remises
+                sale.calculate_totals()
+
+                # 7. Enregistrer les paiements
+                total_paid = Decimal('0.00')
+                for payment_data in data['payments']:
+                    payment = Payment.objects.create(
+                        sale=sale,
+                        payment_method_id=payment_data['payment_method_id'],
+                        amount=Decimal(str(payment_data['amount'])),
+                        status='completed',
+                        # ... autres champs de paiement
                         created_by=request.user
                     )
-                    
-                    sale_item.stock_movement = stock_movement
-                    sale_item.lot_number = stock.lot_number
-                    sale_item.save()
-            
-            # 3. Recalculer les totaux
-            sale.calculate_totals()
-            
-            # 4. Traiter les points de fidélité utilisés
-            loyalty_points_to_use = data.get('loyalty_points_to_use', 0)
-            if loyalty_points_to_use > 0 and sale.customer:
-                if sale.customer.can_use_loyalty_points(loyalty_points_to_use):
-                    # Convertir points en remise (1 point = 0.01 €)
-                    loyalty_discount = Decimal(loyalty_points_to_use) / 100
-                    sale.discount_amount += loyalty_discount
-                    sale.loyalty_points_used = loyalty_points_to_use
-                    sale.customer.loyalty_points -= loyalty_points_to_use
-                    sale.customer.save()
-            
-            # 5. Enregistrer les paiements
-            total_paid = Decimal('0.00')
-            for payment_data in data['payments']:
-                payment = Payment.objects.create(
+                    total_paid += payment.amount
+
+                # 8. Finaliser la vente et mettre à jour les statistiques
+                sale.paid_amount = total_paid
+                if total_paid >= sale.total_amount:
+                    sale.status = 'completed'
+                    sale.change_amount = total_paid - sale.total_amount
+
+                    if sale.customer:
+                        sale.customer.total_purchases += sale.total_amount
+                        sale.customer.purchase_count += 1
+                        sale.customer.last_purchase_date = timezone.now()
+                        if sale.loyalty_points_earned > 0:
+                            sale.customer.add_loyalty_points(sale.loyalty_points_earned)
+                        sale.customer.save()
+                else:
+                    raise serializers.ValidationError({'payments': 'Le montant payé est insuffisant pour couvrir le total de la vente.'})
+
+                sale.save()
+
+                # 9. Créer le ticket de caisse
+                Receipt.objects.create(
                     sale=sale,
-                    payment_method_id=payment_data['payment_method_id'],
-                    amount=Decimal(str(payment_data['amount'])),
-                    status='completed',
-                    card_last_digits=payment_data.get('card_last_digits', ''),
-                    mobile_money_number=payment_data.get('mobile_money_number', ''),
-                    cash_received=payment_data.get('cash_received'),
-                    cash_change=payment_data.get('cash_change'),
-                    created_by=request.user
+                    receipt_number=f"REC-{sale.sale_number}",
+                    footer_text="Merci de votre visite !"
                 )
-                total_paid += payment.amount
-            
-            # 6. Vérifier que le paiement est suffisant
-            sale.paid_amount = total_paid
-            
-            if total_paid >= sale.total_amount:
-                sale.status = 'completed'
-                sale.change_amount = total_paid - sale.total_amount
-                
-                # Mettre à jour les statistiques client
-                if sale.customer:
-                    sale.customer.total_purchases += sale.total_amount
-                    sale.customer.purchase_count += 1
-                    sale.customer.last_purchase_date = timezone.now()
-                    
-                    # Ajouter les points de fidélité gagnés
-                    if sale.loyalty_points_earned > 0:
-                        sale.customer.add_loyalty_points(sale.loyalty_points_earned)
-                    
-                    sale.customer.save()
-            else:
-                return Response(
-                    {'error': 'Montant payé insuffisant'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            sale.save()
-            
-            # 7. Créer le ticket
-            receipt = Receipt.objects.create(
-                sale=sale,
-                receipt_number=f"REC{sale.sale_number}",
-                header_text="GESTORE - Point de Vente",
-                footer_text="Merci de votre visite!"
-            )
-        
-        # Retourner la vente complète
-        return Response({
-            'message': 'Vente enregistrée avec succès',
-            'sale': SaleDetailSerializer(sale, context={'request': request}).data
-        }, status=status.HTTP_201_CREATED)
-    
+
+                # 10. Retourner la vente complète
+                return Response({
+                    'message': 'Vente enregistrée avec succès',
+                    'sale': SaleDetailSerializer(sale, context={'request': request}).data
+                }, status=status.HTTP_201_CREATED)
+
+        except serializers.ValidationError as e:
+            # Capturer les erreurs de validation (stock, paiement insuffisant)
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except Article.DoesNotExist:
+            return Response({'error': 'Un article spécifié est introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            # Capturer toute autre erreur inattendue
+            return Response({'error': f'Une erreur inattendue est survenue: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
     @action(detail=False, methods=['post'])
     def quick_sale(self, request):
         """

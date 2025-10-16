@@ -1,16 +1,18 @@
 // ========================================
-// FICHIER 2: lib/features/inventory/presentation/widgets/article_stock_tab.dart
-// Onglet Stock
+// lib/features/inventory/presentation/widgets/article_stock_tab.dart
+//
+// MODIFICATIONS APPORTÉES (CORRECTION) :
+// - Réintégration des widgets communs (_SectionTitle, _InfoCard, _InfoRow) pour rendre le fichier autonome et compilable.
+// - Maintien du style GESTORE pour tous les éléments visuels.
+// - La logique et la structure originales sont respectées.
 // ========================================
 
 import 'package:flutter/material.dart';
-
 import '../../../../shared/constants/app_colors.dart';
 import '../../domain/entities/article_detail_entity.dart';
 
 class ArticleStockTab extends StatelessWidget {
   final ArticleDetailEntity article;
-
   const ArticleStockTab({super.key, required this.article});
 
   @override
@@ -19,16 +21,16 @@ class ArticleStockTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         // Résumé du stock
-        _SectionTitle(title: 'Résumé du stock'),
+        const _SectionTitle(title: 'Résumé du stock'),
         Row(
           children: [
             Expanded(
               child: _StockCard(
                 label: 'Stock actuel',
                 value:
-                '${article.currentStock} ${article.unitOfMeasure?.symbol ?? ""}',
-                icon: Icons.inventory,
-                color: article.isLowStock ? AppColors.error : AppColors.success,
+                '${article.currentStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+                icon: Icons.inventory_2_outlined,
+                color: article.isLowStock ? AppColors.warning : AppColors.success,
               ),
             ),
             const SizedBox(width: 12),
@@ -36,8 +38,8 @@ class ArticleStockTab extends StatelessWidget {
               child: _StockCard(
                 label: 'Disponible',
                 value:
-                '${article.availableStock} ${article.unitOfMeasure?.symbol ?? ""}',
-                icon: Icons.check_circle,
+                '${article.availableStock.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
+                icon: Icons.check_circle_outline,
                 color: AppColors.primary,
               ),
             ),
@@ -51,54 +53,58 @@ class ArticleStockTab extends StatelessWidget {
                 label: 'Réservé',
                 value:
                 '${article.reservedStock} ${article.unitOfMeasure?.symbol ?? ""}',
-                icon: Icons.bookmark,
-                color: AppColors.warning,
+                icon: Icons.bookmark_border,
+                color: AppColors.info,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _StockCard(
                 label: 'Niveau',
-                value: '${article.stockPercentage}%',
-                icon: Icons.trending_up,
+                value: '${article.stockPercentage.toStringAsFixed(0)}%',
+                icon: Icons.pie_chart_outline,
                 color: _getStockLevelColor(article.stockPercentage),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Limites de stock
-        _SectionTitle(title: 'Limites de stock'),
+        const _SectionTitle(title: 'Limites de stock'),
         _InfoCard(
           child: Column(
             children: [
               _InfoRow(
                 'Stock minimum',
-                '${article.minStockLevel} ${article.unitOfMeasure?.symbol ?? ""}',
+                '${article.minStockLevel.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
               ),
               _InfoRow(
                 'Stock maximum',
-                '${article.maxStockLevel} ${article.unitOfMeasure?.symbol ?? ""}',
+                '${article.maxStockLevel.toStringAsFixed(0)} ${article.unitOfMeasure?.symbol ?? ""}',
               ),
               if (article.isLowStock)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
+                      color: AppColors.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.error),
+                      border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        Icon(Icons.warning_amber, color: AppColors.error),
-                        const SizedBox(width: 8),
-                        const Expanded(
+                        Icon(Icons.warning_amber_rounded,
+                            color: AppColors.warning),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Text(
                             'Stock bas ! Réapprovisionnement nécessaire.',
-                            style: TextStyle(fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
                       ],
@@ -108,17 +114,17 @@ class ArticleStockTab extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Gestion du stock
-        _SectionTitle(title: 'Paramètres'),
+        const _SectionTitle(title: 'Paramètres'),
         _InfoCard(
           child: Column(
             children: [
               _InfoRow(
                   'Gestion du stock', article.manageStock ? 'Activée' : 'Désactivée'),
-              _InfoRow(
-                  'Stock négatif', article.allowNegativeStock ? 'Autorisé' : 'Interdit'),
+              _InfoRow('Stock négatif',
+                  article.allowNegativeStock ? 'Autorisé' : 'Interdit'),
               _InfoRow('Traçabilité lot',
                   article.requiresLotTracking ? 'Requise' : 'Non requise'),
               _InfoRow('Date péremption',
@@ -152,65 +158,64 @@ class _StockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: color,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ========================================
-// WIDGETS COMMUNS
+// WIDGETS COMMUNS (STYLE GESTORE) - RÉINTÉGRÉS
 // ========================================
 
 class _SectionTitle extends StatelessWidget {
   final String title;
-
   const _SectionTitle({required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
       child: Text(
         title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
+        style: const TextStyle(
+          fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
-          letterSpacing: 1.2,
+          color: AppColors.textSecondary,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -219,17 +224,18 @@ class _SectionTitle extends StatelessWidget {
 
 class _InfoCard extends StatelessWidget {
   final Widget child;
-
   const _InfoCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
       ),
+      child: child,
     );
   }
 }
@@ -237,13 +243,12 @@ class _InfoCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-
   const _InfoRow(this.label, this.value);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -252,8 +257,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: AppColors.textSecondary,
               ),
             ),
           ),
@@ -261,7 +265,10 @@ class _InfoRow extends StatelessWidget {
             flex: 3,
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
               textAlign: TextAlign.end,
             ),
           ),

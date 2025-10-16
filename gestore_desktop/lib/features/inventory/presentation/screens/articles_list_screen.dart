@@ -1,16 +1,22 @@
 // ========================================
 // lib/features/inventory/presentation/screens/articles_list_screen.dart
-// VERSION COMPLÈTE MISE À JOUR - Écran principal de la liste des articles
-// Intégration navigation CRUD (Création, Détail, Édition)
+//
+// MODIFICATIONS APPORTÉES (CORRECTION GRILLE RESPONSIVE) :
+// - Remplacement de SliverGridDelegateWithFixedCrossAxisCount par SliverGridDelegateWithMaxCrossAxisExtent.
+// - Définition d'une largeur maximale par carte (maxCrossAxisExtent: 180) pour un affichage responsive.
+// - Le nombre de colonnes s'ajuste désormais automatiquement à la taille de l'écran, conformément à la demande.
+// - Ajustement du childAspectRatio pour un meilleur ratio visuel.
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../shared/constants/app_colors.dart';
 import '../providers/articles_provider.dart';
 import '../providers/categories_brands_providers.dart';
 import '../providers/inventory_state.dart';
 import '../widgets/article_card.dart';
+import '../widgets/article_grid_card.dart';
 import '../widgets/article_search_bar.dart';
 import '../widgets/articles_filters_sheet.dart';
 
@@ -25,12 +31,15 @@ class ArticlesListScreen extends ConsumerStatefulWidget {
 class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
+  bool _isGridView = true; // Par défaut en mode grille
+
+  // --- CONSTANTES DE STYLE ---
+  static const _pagePadding = EdgeInsets.all(16.0);
 
   @override
   void initState() {
     super.initState();
-
-    // Charger les articles au démarrage
+    // Charger les données initiales
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(articlesProvider.notifier).loadArticles();
       ref.read(categoriesProvider.notifier).loadCategories(isActive: true);
@@ -50,7 +59,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   /// Gère le scroll pour la pagination (infinite scroll)
   void _onScroll() {
     if (_isLoadingMore) return;
-
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.position.pixels;
     final delta = 200.0; // Charger 200px avant la fin
@@ -81,94 +89,93 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   @override
   Widget build(BuildContext context) {
     final articlesState = ref.watch(articlesProvider);
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
-          // Header avec titre et actions
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Titre et boutons d'action
-                Row(
+          _buildHeader(articlesState),
+          Expanded(child: _buildBody(articlesState)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.pushNamed('article-create'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.surfaceLight,
+        tooltip: 'Nouvel article',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  /// Construit l'en-tête de la page
+  Widget _buildHeader(InventoryState state) {
+    return Container(
+      padding: _pagePadding,
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceLight,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: MediaQuery.of(context).padding.top), // Safe Area
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Articles',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _buildSubtitle(articlesState),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                    const Text(
+                      'Articles',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-
-                    // Bouton Filtres
-                    IconButton(
-                      onPressed: _showFiltersSheet,
-                      icon: const Icon(Icons.filter_list),
-                      tooltip: 'Filtres',
-                    ),
-
-                    // Bouton Rafraîchir
-                    IconButton(
-                      onPressed: () {
-                        ref.read(articlesProvider.notifier).refresh();
-                      },
-                      icon: const Icon(Icons.refresh),
-                      tooltip: 'Actualiser',
-                    ),
-
-                    // ⭐ NOUVEAU : Bouton Nouvel Article
-                    IconButton(
-                      onPressed: () {
-                        // Navigation vers le formulaire de création
-                        context.pushNamed('article-create');
-                      },
-                      icon: const Icon(Icons.add_circle_outline),
-                      tooltip: 'Nouvel article',
-                      color: Theme.of(context).primaryColor,
+                    const SizedBox(height: 4),
+                    Text(
+                      _buildSubtitle(state),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                // Barre de recherche
-                ArticleSearchBar(
-                  onSearch: (query) {
-                    ref.read(articlesProvider.notifier).searchArticles(query);
-                  },
+              ),
+              // Bouton Filtres
+              IconButton(
+                onPressed: _showFiltersSheet,
+                icon: const Icon(Icons.filter_list, color: AppColors.textSecondary),
+                tooltip: 'Filtres',
+              ),
+              // Bouton Grille/Liste
+              IconButton(
+                onPressed: () {
+                  setState(() => _isGridView = !_isGridView);
+                },
+                icon: Icon(
+                  _isGridView ? Icons.view_list_outlined : Icons.grid_view_outlined,
+                  color: AppColors.textSecondary,
                 ),
-              ],
-            ),
+                tooltip: _isGridView ? 'Afficher en liste' : 'Afficher en grille',
+              ),
+            ],
           ),
-
-          // Corps principal
-          Expanded(
-            child: _buildBody(articlesState),
+          const SizedBox(height: 16),
+          // Barre de recherche
+          ArticleSearchBar(
+            onSearch: (query) {
+              ref.read(articlesProvider.notifier).searchArticles(query);
+            },
           ),
         ],
       ),
     );
   }
 
-  /// Construit le sous-titre en fonction de l'état
+  /// Construit le sous-titre
   String _buildSubtitle(InventoryState state) {
     if (state is InventoryLoaded) {
       final count = state.totalCount;
@@ -177,84 +184,95 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     return 'Gestion des articles';
   }
 
-  /// Construit le corps de l'écran en fonction de l'état
+  /// Construit le corps de la page
   Widget _buildBody(InventoryState state) {
     if (state is InventoryInitial) {
       return const Center(
-        child: Text(
-          'Prêt à charger les articles',
-          style: TextStyle(color: Colors.grey),
-        ),
+        child: Text('Prêt à charger...', style: TextStyle(color: AppColors.textTertiary)),
       );
-    } else if (state is InventoryLoading) {
+    }
+    if (state is InventoryLoading) {
       return const Center(child: CircularProgressIndicator());
-    } else if (state is InventoryLoaded) {
-      return _buildArticlesList(state);
-    } else if (state is InventoryLoadingMore) {
-      return _buildArticlesList(
-        InventoryLoaded(
-          response: state.currentArticles as dynamic,
-          currentPage: 1,
-        ),
-        isLoadingMore: true,
-      );
-    } else if (state is InventoryError) {
+    }
+    if (state is InventoryLoaded || state is InventoryLoadingMore) {
+      final articles = (state is InventoryLoaded)
+          ? state.articles
+          : (state as InventoryLoadingMore).currentArticles;
+
+      if (articles.isEmpty) {
+        return _buildEmptyState();
+      }
+      return _buildArticlesView(articles, state is InventoryLoadingMore);
+    }
+    if (state is InventoryError) {
       return _buildErrorWidget(state.message);
     }
-
-    // Cas par défaut (ne devrait jamais arriver)
-    return const Center(
-      child: Text(
-        'État inconnu',
-        style: TextStyle(color: Colors.grey),
-      ),
-    );
+    return const SizedBox.shrink(); // État inconnu
   }
 
-  /// Construit la liste des articles
-  Widget _buildArticlesList(
-      InventoryLoaded state, {
-        bool isLoadingMore = false,
-      }) {
-    final articles = state.articles;
-
-    if (articles.isEmpty) {
-      return _buildEmptyState();
-    }
-
+  /// Construit la vue des articles (grille ou liste)
+  Widget _buildArticlesView(List<dynamic> articles, bool isLoadingMore) {
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(articlesProvider.notifier).refresh();
       },
-      child: ListView.separated(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        itemCount: articles.length + (isLoadingMore ? 1 : 0),
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          if (index == articles.length) {
-            // Indicateur de chargement pour la pagination
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
+      child: _isGridView
+          ? _buildGridView(articles, isLoadingMore)
+          : _buildListView(articles, isLoadingMore),
+    );
+  }
 
-          final article = articles[index];
-          return ArticleCard(
-            article: article,
-            onTap: () {
-              // ⭐ NOUVEAU : Navigation vers le détail de l'article
-              context.pushNamed(
-                'article-detail',
-                pathParameters: {'id': article.id},
-              );
-            },
-          );
-        },
+  /// ✅ MODIFICATION ICI : Remplacement de la grille par une version responsive
+  Widget _buildGridView(List<dynamic> articles, bool isLoadingMore) {
+    return GridView.builder(
+      controller: _scrollController,
+      padding: _pagePadding,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        // Cette valeur définit la largeur maximale pour chaque carte.
+        // Flutter affichera autant de colonnes que possible sans dépasser cette largeur.
+        // ex: Sur un écran de 375px, il y aura 2 colonnes (375 / 180 = 2.08).
+        // ex: Sur un écran de 600px, il y aura 3 colonnes (600 / 180 = 3.33).
+        maxCrossAxisExtent: 280,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        // Un ratio de 0.75 signifie que la hauteur sera 75% de la largeur,
+        // ce qui donne des cartes plus compactes.
+        childAspectRatio: 0.75,
       ),
+      itemCount: articles.length + (isLoadingMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == articles.length) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final article = articles[index];
+        return ArticleGridCard(
+          article: article,
+          onTap: () => context.pushNamed('article-detail', pathParameters: {'id': article.id}),
+        );
+      },
+    );
+  }
+
+  /// Construit la vue en liste
+  Widget _buildListView(List<dynamic> articles, bool isLoadingMore) {
+    return ListView.separated(
+      controller: _scrollController,
+      padding: _pagePadding,
+      itemCount: articles.length + (isLoadingMore ? 1 : 0),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        if (index == articles.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final article = articles[index];
+        return ArticleListCard(
+          article: article,
+          onTap: () => context.pushNamed('article-detail', pathParameters: {'id': article.id}),
+        );
+      },
     );
   }
 
@@ -266,38 +284,32 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 80,
-              color: Colors.grey[300],
-            ),
+            const Icon(Icons.inventory_2_outlined, size: 80, color: AppColors.border),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Aucun article trouvé',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Essayez d\'ajuster vos filtres ou créez un nouvel article',
+            const Text(
+              'Essayez d\'ajuster vos filtres ou créez un nouvel article.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
-
-            // ⭐ NOUVEAU : Bouton pour créer le premier article
             FilledButton.icon(
-              onPressed: () {
-                context.pushNamed('article-create');
-              },
+              onPressed: () => context.pushNamed('article-create'),
               icon: const Icon(Icons.add),
               label: const Text('Créer un article'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.surfaceLight,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
           ],
         ),
@@ -313,36 +325,32 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: Colors.red[300],
-            ),
+            const Icon(Icons.error_outline, size: 80, color: AppColors.error),
             const SizedBox(height: 16),
-            Text(
-              'Erreur',
+            const Text(
+              'Une erreur est survenue',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey[800],
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () {
-                ref.read(articlesProvider.notifier).refresh();
-              },
+              onPressed: () => ref.read(articlesProvider.notifier).refresh(),
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.surfaceLight,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
           ],
         ),

@@ -23,11 +23,15 @@ import '../features/inventory/presentation/providers/article_form_state.dart';
 import '../features/inventory/presentation/providers/category_state.dart';
 import '../features/inventory/presentation/providers/brand_state.dart';
 import '../features/inventory/presentation/providers/unit_state.dart';
-import '../features/inventory/presentation/widgets/brand_form_screen.dart';
-import '../features/inventory/presentation/widgets/category_form_screen.dart';
-import '../features/inventory/presentation/widgets/unit_form_screen.dart';
+import '../features/inventory/presentation/screens/brand_form_screen.dart';
+import '../features/inventory/presentation/screens/category_form_screen.dart';
+import '../features/inventory/presentation/screens/unit_form_screen.dart';
 
 // ==================== SALES ====================
+import '../features/sales/presentation/screens/discount_form_screen.dart';
+import '../features/sales/presentation/screens/discounts_list_screen.dart';
+import '../features/sales/presentation/screens/payment_method_form_screen.dart';
+import '../features/sales/presentation/screens/payment_methods_list_screen.dart';
 import '../features/sales/presentation/screens/pos_screen.dart';
 import '../features/sales/presentation/screens/customers_screen.dart';
 import '../features/sales/presentation/screens/customer_form_screen.dart';
@@ -399,6 +403,49 @@ final goRouter = GoRouter(
           },
         ),
       ],
+    ),
+
+    // Liste des moyens de paiement
+    GoRoute(
+      path: '/sales/payment-methods',
+      name: 'payment-methods',
+      builder: (context, state) => const PaymentMethodsListScreen(),
+    ),
+
+    // Nouveau moyen de paiement
+    GoRoute(
+      path: '/sales/payment-methods/new',
+      name: 'payment-method-new',
+      builder: (context, state) => const PaymentMethodFormScreen(),
+    ),
+
+    // Modifier un moyen de paiement
+    GoRoute(
+      path: '/sales/payment-methods/:id',
+      name: 'payment-method-edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PaymentMethodFormScreen(paymentMethodId: id);
+      },
+    ),
+
+    GoRoute(
+      path: '/sales/discounts',
+      name: 'discounts-list',
+      builder: (context, state) => const DiscountsListScreen(),
+    ),
+    GoRoute(
+      path: '/sales/discounts/new',
+      name: 'discount-create',
+      builder: (context, state) => const DiscountFormScreen(),
+    ),
+    GoRoute(
+      path: '/sales/discounts/:id',
+      name: 'discount-edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return DiscountFormScreen(discountId: id);
+      },
     ),
 
     // ========================================

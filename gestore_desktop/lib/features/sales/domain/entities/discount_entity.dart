@@ -2,7 +2,6 @@
 // lib/features/sales/domain/entities/discount_entity.dart
 // Entité Discount - Domain Layer
 // ========================================
-
 import 'package:equatable/equatable.dart';
 
 /// Entité représentant une remise/promotion
@@ -10,8 +9,8 @@ class DiscountEntity extends Equatable {
   final String id;
   final String name;
   final String? description;
-  final String discountType; // 'percentage', 'fixed_amount', 'buy_x_get_y', 'loyalty_points'
-  final String scope; // 'sale', 'category', 'article', 'customer'
+  final String discountType; // 'percentage', 'fixed_amount', etc.
+  final String scope; // 'sale', 'category', etc.
 
   // Valeurs de remise
   final double? percentageValue;
@@ -23,13 +22,24 @@ class DiscountEntity extends Equatable {
   final double? maxAmount;
 
   // Période de validité
-  final DateTime startDate;
+  final DateTime? startDate;
   final DateTime? endDate;
 
   // État
   final bool isActive;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  // --- CHAMPS AJOUTÉS ---
+  // Limitations
+  final int? maxUses;
+  final int? maxUsesPerCustomer;
+  final int? currentUses;
+
+  // Cibles (listes d'IDs)
+  final List<String>? targetCategories;
+  final List<String>? targetArticles;
+  final List<String>? targetCustomers;
 
   const DiscountEntity({
     required this.id,
@@ -42,11 +52,17 @@ class DiscountEntity extends Equatable {
     this.minQuantity,
     this.minAmount,
     this.maxAmount,
-    required this.startDate,
+    this.startDate,
     this.endDate,
     this.isActive = true,
     required this.createdAt,
     this.updatedAt,
+    this.maxUses,
+    this.maxUsesPerCustomer,
+    this.currentUses,
+    this.targetCategories,
+    this.targetArticles,
+    this.targetCustomers,
   });
 
   /// Retourne le type de remise formaté
@@ -81,43 +97,35 @@ class DiscountEntity extends Equatable {
     }
   }
 
-  /// Vérifie si la remise est actuellement valide
+  /// Vérifie si la remise est actuellement valide (logique simple côté client)
   bool get isCurrentlyValid {
     if (!isActive) return false;
-
     final now = DateTime.now();
-    if (now.isBefore(startDate)) return false;
+    if (startDate != null && now.isBefore(startDate!)) return false;
     if (endDate != null && now.isAfter(endDate!)) return false;
-
+    // La validation complexe (par client, etc.) doit être faite par le backend
     return true;
   }
 
-  /// Calcule le montant de la remise pour un montant donné
+  /// Calcule le montant de la remise (simulation côté client)
   double calculateDiscount(double amount, {int quantity = 1}) {
     if (!isCurrentlyValid) return 0.0;
-
-    // Vérifier les conditions minimales
     if (minQuantity != null && quantity < minQuantity!) return 0.0;
     if (minAmount != null && amount < minAmount!) return 0.0;
 
     double discount = 0.0;
-
     if (discountType == 'percentage' && percentageValue != null) {
       discount = amount * (percentageValue! / 100);
     } else if (discountType == 'fixed_amount' && fixedValue != null) {
       discount = fixedValue!;
     }
 
-    // Vérifier le montant maximum
     if (maxAmount != null && discount > maxAmount!) {
       discount = maxAmount!;
     }
-
-    // Ne pas dépasser le montant total
     if (discount > amount) {
       discount = amount;
     }
-
     return discount;
   }
 
@@ -148,6 +156,13 @@ class DiscountEntity extends Equatable {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    // --- AJOUTÉS À COPYWITH ---
+    int? maxUses,
+    int? maxUsesPerCustomer,
+    int? currentUses,
+    List<String>? targetCategories,
+    List<String>? targetArticles,
+    List<String>? targetCustomers,
   }) {
     return DiscountEntity(
       id: id ?? this.id,
@@ -165,6 +180,13 @@ class DiscountEntity extends Equatable {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      // --- AJOUTÉS À COPYWITH ---
+      maxUses: maxUses ?? this.maxUses,
+      maxUsesPerCustomer: maxUsesPerCustomer ?? this.maxUsesPerCustomer,
+      currentUses: currentUses ?? this.currentUses,
+      targetCategories: targetCategories ?? this.targetCategories,
+      targetArticles: targetArticles ?? this.targetArticles,
+      targetCustomers: targetCustomers ?? this.targetCustomers,
     );
   }
 
@@ -185,6 +207,12 @@ class DiscountEntity extends Equatable {
     isActive,
     createdAt,
     updatedAt,
+    maxUses,
+    maxUsesPerCustomer,
+    currentUses,
+    targetCategories,
+    targetArticles,
+    targetCustomers,
   ];
 
   @override

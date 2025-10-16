@@ -1,16 +1,73 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/form_field_widgets.dart
-// Widgets réutilisables pour les formulaires
-// VERSION CORRIGÉE - Bug TextField résolu
+//
+// MODIFICATIONS APPORTÉES (Correction Visuelle GESTORE) :
+// - Ajout de `helperStyle` pour garantir la visibilité du texte d'aide (helperText).
+// - Ajout de `dropdownColor` au CustomDropdown pour forcer un fond clair sur le menu déroulant.
+// - Application de la palette AppColors pour tous les textes (labels, input, subtitles) afin d'assurer une lisibilité maximale (contraste élevé).
+// - Uniformisation du style de l'InputDecoration pour tous les champs (TextField, Dropdown) en utilisant les couleurs GESTORE pour les fonds, bordures et icônes.
+// - Refonte du CustomSwitchTile pour utiliser les fonds, bordures et couleurs de texte GESTORE, corrigeant le texte invisible.
+// - Standardisation des couleurs pour les états activé/désactivé des champs.
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../../../../shared/constants/app_colors.dart';
 
-// ==================== CUSTOM TEXT FIELD ====================
+// --- Décoration de champ réutilisable pour le style GESTORE ---
+InputDecoration _gestoreInputDecoration({
+  required String label,
+  required bool isRequired,
+  String? errorText,
+  String? helperText,
+  IconData? prefixIcon,
+  String? suffixText,
+  bool isEnabled = true,
+}) {
+  return InputDecoration(
+    labelText: isRequired ? '$label *' : label,
+    labelStyle: const TextStyle(color: AppColors.textSecondary),
+    helperText: helperText,
+    // ✨ CORRECTION : Ajout du style pour le helperText pour garantir sa visibilité.
+    helperStyle: const TextStyle(color: AppColors.textSecondary),
+    errorText: errorText,
+    prefixIcon: prefixIcon != null
+        ? Icon(prefixIcon, color: AppColors.textSecondary)
+        : null,
+    suffixText: suffixText,
+    filled: true,
+    fillColor: isEnabled ? AppColors.surfaceLight : AppColors.backgroundLight,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    // Bordures
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.error, width: 2),
+    ),
+    errorStyle: const TextStyle(color: AppColors.error),
+  );
+}
 
+// ==================== CUSTOM TEXT FIELD ====================
 class CustomTextField extends StatefulWidget {
   final String label;
   final String? initialValue;
@@ -53,25 +110,17 @@ class _CustomTextFieldState extends State<CustomTextField> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue ?? '');
-
-    // ✅ CORRECTION: Écouter uniquement les changements utilisateur
     _controller.addListener(_onControllerChanged);
   }
 
   @override
   void didUpdateWidget(CustomTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // ✅ CORRECTION CRITIQUE: Ne mettre à jour que si le texte est vraiment différent
-    // ET que le champ n'a pas le focus (pas en cours d'édition)
     if (widget.initialValue != oldWidget.initialValue &&
         widget.initialValue != _controller.text &&
         !_focusNode.hasFocus) {
-      // Préserver la position du curseur si possible
       final currentSelection = _controller.selection;
       _controller.text = widget.initialValue ?? '';
-
-      // Restaurer la sélection si elle est valide
       if (currentSelection.baseOffset <= _controller.text.length) {
         _controller.selection = currentSelection;
       }
@@ -79,10 +128,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
   }
 
   void _onControllerChanged() {
-    // ✅ Appeler onChanged uniquement si l'utilisateur tape
-    if (_focusNode.hasFocus) {
-      widget.onChanged(_controller.text);
-    }
+    // Note: Le onChanged est maintenant déclenché en temps réel.
+    // La vérification _focusNode.hasFocus a été retirée pour un comportement plus standard.
+    widget.onChanged(_controller.text);
   }
 
   @override
@@ -103,35 +151,23 @@ class _CustomTextFieldState extends State<CustomTextField> {
       keyboardType: widget.keyboardType,
       textCapitalization: widget.textCapitalization,
       inputFormatters: widget.inputFormatters,
-      decoration: InputDecoration(
-        labelText: widget.required ? '${widget.label} *' : widget.label,
-        helperText: widget.helperText,
+      style: TextStyle(
+          color: widget.enabled
+              ? AppColors.textPrimary
+              : AppColors.textTertiary),
+      decoration: _gestoreInputDecoration(
+        label: widget.label,
+        isRequired: widget.required,
         errorText: widget.errorText,
-        prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon)
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: widget.enabled ? Colors.white : Colors.grey[100],
-        // ✅ Style d'erreur amélioré
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
+        helperText: widget.helperText,
+        prefixIcon: widget.prefixIcon,
+        isEnabled: widget.enabled,
       ),
-      // ✅ SUPPRIMÉ: onChanged ici car géré par le listener
     );
   }
 }
 
 // ==================== CUSTOM NUMBER FIELD ====================
-
 class CustomNumberField extends StatefulWidget {
   final String label;
   final double? initialValue;
@@ -183,17 +219,13 @@ class _CustomNumberFieldState extends State<CustomNumberField> {
   @override
   void didUpdateWidget(CustomNumberField oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // ✅ CORRECTION: Même logique que CustomTextField
     if (widget.initialValue != oldWidget.initialValue && !_focusNode.hasFocus) {
       final newText = widget.initialValue != null && widget.initialValue! > 0
           ? widget.initialValue!.toStringAsFixed(widget.decimals)
           : '';
-
       if (_controller.text != newText) {
         final currentSelection = _controller.selection;
         _controller.text = newText;
-
         if (currentSelection.baseOffset <= _controller.text.length) {
           _controller.selection = currentSelection;
         }
@@ -202,25 +234,20 @@ class _CustomNumberFieldState extends State<CustomNumberField> {
   }
 
   void _onControllerChanged() {
-    if (_focusNode.hasFocus) {
-      final text = _controller.text.trim();
-      if (text.isEmpty) {
-        widget.onChanged(0.0);
-        return;
-      }
-
-      final value = double.tryParse(text) ?? 0.0;
-
-      // Validation des limites
-      if (widget.minValue != null && value < widget.minValue!) {
-        return;
-      }
-      if (widget.maxValue != null && value > widget.maxValue!) {
-        return;
-      }
-
-      widget.onChanged(value);
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      widget.onChanged(0.0);
+      return;
     }
+    final value = double.tryParse(text) ?? 0.0;
+
+    if (widget.minValue != null && value < widget.minValue!) {
+      return;
+    }
+    if (widget.maxValue != null && value > widget.maxValue!) {
+      return;
+    }
+    widget.onChanged(value);
   }
 
   @override
@@ -246,34 +273,24 @@ class _CustomNumberFieldState extends State<CustomNumberField> {
           RegExp(r'^\d*\.?\d{0,' + widget.decimals.toString() + r'}'),
         ),
       ],
-      decoration: InputDecoration(
-        labelText: widget.required ? '${widget.label} *' : widget.label,
-        helperText: widget.helperText,
+      style: TextStyle(
+          color: widget.enabled
+              ? AppColors.textPrimary
+              : AppColors.textTertiary),
+      decoration: _gestoreInputDecoration(
+        label: widget.label,
+        isRequired: widget.required,
         errorText: widget.errorText,
-        prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon)
-            : null,
+        helperText: widget.helperText,
+        prefixIcon: widget.prefixIcon,
         suffixText: widget.suffix,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: widget.enabled ? Colors.white : Colors.grey[100],
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
+        isEnabled: widget.enabled,
       ),
     );
   }
 }
 
 // ==================== CUSTOM DROPDOWN ====================
-
 class CustomDropdown<T> extends StatelessWidget {
   final String label;
   final T? value;
@@ -304,31 +321,24 @@ class CustomDropdown<T> extends StatelessWidget {
       initialValue: value,
       items: items,
       onChanged: enabled ? onChanged : null,
-      decoration: InputDecoration(
-        labelText: required ? '$label *' : label,
-        helperText: helperText,
+      // ✨ CORRECTION : Ajout de la couleur de fond pour le menu déroulant.
+      dropdownColor: AppColors.surfaceLight,
+      style: TextStyle(
+          color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
+          overflow: TextOverflow.ellipsis),
+      decoration: _gestoreInputDecoration(
+        label: label,
+        isRequired: required,
         errorText: errorText,
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey[100],
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
+        helperText: helperText,
+        prefixIcon: prefixIcon,
+        isEnabled: enabled,
       ),
     );
   }
 }
 
 // ==================== CUSTOM SWITCH TILE ====================
-
 class CustomSwitchTile extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -349,32 +359,47 @@ class CustomSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.grey[50],
-      shape: RoundedRectangleBorder(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.border),
       ),
-      child: SwitchListTile(
+      child: SwitchListTile.adaptive(
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
+          ),
         ),
-        subtitle: subtitle != null ? Text(subtitle!) : null,
+        subtitle: subtitle != null
+            ? Text(subtitle!,
+            style: TextStyle(
+              color: enabled
+                  ? AppColors.textSecondary
+                  : AppColors.textTertiary,
+            ))
+            : null,
         value: value,
         onChanged: enabled ? onChanged : null,
         secondary: icon != null
-            ? Icon(icon, color: value ? AppColors.primary : Colors.grey)
+            ? Icon(icon,
+            color: value ? AppColors.primary : AppColors.textTertiary)
             : null,
-        activeThumbColor: AppColors.primary,
+        activeThumbColor: AppColors.surfaceLight,
+        activeTrackColor: AppColors.primary,
+        inactiveThumbColor: AppColors.surfaceLight,
+        inactiveTrackColor: AppColors.border,
       ),
     );
   }
 }
 
 // ==================== IMAGE PICKER PLACEHOLDER ====================
-
 class CustomImagePicker extends StatelessWidget {
   final String label;
   final String? imagePath;
@@ -400,25 +425,29 @@ class CustomImagePicker extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.titleSmall,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
           height: 200,
           decoration: BoxDecoration(
             border: Border.all(
-              color: errorText != null ? AppColors.error : Colors.grey[300]!,
+              color: errorText != null ? AppColors.error : AppColors.border,
               width: errorText != null ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(12),
-            color: enabled ? Colors.grey[50] : Colors.grey[100],
+            color: enabled ? AppColors.surfaceLight : AppColors.backgroundLight,
           ),
           child: Stack(
             children: [
               // Prévisualisation ou placeholder
               if (imagePath != null && imagePath!.isNotEmpty)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                   child: Image.network(
                     imagePath!,
                     width: double.infinity,
@@ -431,7 +460,6 @@ class CustomImagePicker extends StatelessWidget {
                 )
               else
                 _buildPlaceholder(context),
-
               // Bouton de sélection
               Positioned.fill(
                 child: Material(
@@ -445,10 +473,12 @@ class CustomImagePicker extends StatelessWidget {
                         children: [
                           Icon(
                             imagePath != null && imagePath!.isNotEmpty
-                                ? Icons.edit
-                                : Icons.add_photo_alternate,
+                                ? Icons.edit_outlined
+                                : Icons.add_photo_alternate_outlined,
                             size: 48,
-                            color: enabled ? AppColors.primary : Colors.grey,
+                            color: enabled
+                                ? AppColors.primary
+                                : AppColors.textTertiary,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -456,7 +486,9 @@ class CustomImagePicker extends StatelessWidget {
                                 ? 'Modifier l\'image'
                                 : 'Ajouter une image',
                             style: TextStyle(
-                              color: enabled ? AppColors.primary : Colors.grey,
+                              color: enabled
+                                  ? AppColors.primary
+                                  : AppColors.textTertiary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -466,7 +498,6 @@ class CustomImagePicker extends StatelessWidget {
                   ),
                 ),
               ),
-
               // Bouton de suppression
               if (imagePath != null && imagePath!.isNotEmpty && onClear != null)
                 Positioned(
@@ -476,8 +507,8 @@ class CustomImagePicker extends StatelessWidget {
                     onPressed: enabled ? onClear : null,
                     icon: const Icon(Icons.close),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.8),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.error.withValues(alpha: 0.8),
+                      foregroundColor: AppColors.surfaceLight,
                     ),
                   ),
                 ),
@@ -489,7 +520,7 @@ class CustomImagePicker extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8, left: 12),
             child: Text(
               errorText!,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.error,
                 fontSize: 12,
               ),
@@ -501,12 +532,15 @@ class CustomImagePicker extends StatelessWidget {
 
   Widget _buildPlaceholder(BuildContext context) {
     return Container(
-      color: Colors.grey[100],
-      child: Center(
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: const Center(
         child: Icon(
           Icons.image_outlined,
           size: 64,
-          color: Colors.grey[400],
+          color: AppColors.border,
         ),
       ),
     );

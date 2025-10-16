@@ -86,6 +86,11 @@ import '../features/sales/domain/usecases/delete_payment_method_usecase.dart';
 
 // Use Cases - Discounts
 import '../features/sales/domain/usecases/get_active_discounts_usecase.dart';
+import '../features/sales/domain/usecases/get_discounts_usecase.dart';
+import '../features/sales/domain/usecases/create_discount_usecase.dart';
+import '../features/sales/domain/usecases/update_discount_usecase.dart';
+import '../features/sales/domain/usecases/delete_discount_usecase.dart';
+import '../features/sales/domain/usecases/calculate_discount_usecase.dart';
 
 // Use Cases - Sales
 import '../features/sales/domain/usecases/get_sales_usecase.dart';
@@ -497,6 +502,7 @@ Future<void> configureDependencies() async {
   // ==================== DISCOUNTS ====================
   logger.d('  → Discounts Use Cases...');
 
+  // Existants
   getIt.registerLazySingleton(
         () => GetActiveDiscountsUseCase(
       repository: getIt<SalesRepository>(),
@@ -511,7 +517,43 @@ Future<void> configureDependencies() async {
     ),
   );
 
-  logger.d('    ✓ 2 Use Cases Discounts');
+  // 🆕 NOUVEAUX Use Cases CRUD
+  getIt.registerLazySingleton(
+        () => GetDiscountsUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => CreateDiscountUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateDiscountUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteDiscountUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => CalculateDiscountUseCase(
+      repository: getIt<SalesRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 7 Use Cases Discounts');
 
   // ==================== SALES ====================
   logger.d('  → Sales Use Cases...');

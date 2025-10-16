@@ -1,6 +1,13 @@
 // ========================================
 // lib/features/inventory/presentation/screens/units_list_screen.dart
 // Écran de la liste des unités de mesure
+// VERSION 2.1 - Refonte visuelle GESTORE
+// --
+// Changements majeurs :
+// - Application de la palette GESTORE (AppColors) pour une UI cohérente.
+// - Remplacement des Card par des Container stylisés (bordures, ombres subtiles).
+// - Amélioration de l'en-tête, de la barre de recherche et de l'état vide.
+// - Refonte des badges de statut ("Décimal", "Inactif") avec les couleurs GESTORE.
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -36,25 +43,25 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
     final state = ref.watch(unitsListProvider);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
           // Header
           _buildHeader(context, state),
-
           // Corps
           Expanded(
             child: _buildBody(state),
           ),
         ],
       ),
-
       // Bouton flottant pour créer
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/inventory/units/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Nouvelle unité'),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Nouvelle unité', style: TextStyle(color: Colors.white)),
         backgroundColor: AppColors.primary,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -62,11 +69,15 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
   /// Construit l'en-tête
   Widget _buildHeader(BuildContext context, UnitState state) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        boxShadow: [AppColors.subtleShadow()],
+      ),
+      padding: const EdgeInsets.all(24).copyWith(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SizedBox(height: MediaQuery.of(context).padding.top),
           // Titre
           Row(
             children: [
@@ -77,16 +88,17 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
                     const Text(
                       'Unités de mesure',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _buildSubtitle(state),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -97,24 +109,34 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
                 onPressed: () {
                   ref.read(unitsListProvider.notifier).refresh();
                 },
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh, color: AppColors.primary),
                 tooltip: 'Actualiser',
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
           // Barre de recherche
           TextField(
+            style: const TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Rechercher une unité...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              hintStyle: const TextStyle(color: AppColors.textTertiary),
+              prefixIcon: const Icon(Icons.search, color: AppColors.textTertiary),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: AppColors.backgroundLight,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
             ),
             onChanged: (value) {
               setState(() {
@@ -139,44 +161,12 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
   Widget _buildBody(UnitState state) {
     if (state is UnitLoading) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
-
     if (state is UnitError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(
-              'Erreur',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.message,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                ref.read(unitsListProvider.notifier).refresh();
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-            ),
-          ],
-        ),
-      );
+      return _buildErrorState(state.message);
     }
-
     if (state is UnitLoaded) {
       // Filtrer par recherche
       final filteredUnits = _searchQuery.isEmpty
@@ -190,41 +180,38 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
       if (filteredUnits.isEmpty) {
         return _buildEmptyState();
       }
-
       return RefreshIndicator(
         onRefresh: () async {
           await ref.read(unitsListProvider.notifier).refresh();
         },
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
+        color: AppColors.primary,
+        child: ListView.separated(
+          padding: const EdgeInsets.all(24),
           itemCount: filteredUnits.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             return _buildUnitCard(context, filteredUnits[index]);
           },
         ),
       );
     }
-
-    return const SizedBox();
+    return const SizedBox.shrink();
   }
 
   /// Construit une carte unité
   Widget _buildUnitCard(BuildContext context, UnitOfMeasureEntity unit) {
-    return Card(
-      elevation: 1,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [AppColors.subtleShadow()],
       ),
       child: InkWell(
         onTap: () {
           context.push('/inventory/units/${unit.id}/edit');
         },
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -237,15 +224,13 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.straighten,
+                child: const Icon(
+                  Icons.straighten_outlined,
                   color: AppColors.primary,
                   size: 24,
                 ),
               ),
-
               const SizedBox(width: 16),
-
               // Infos
               Expanded(
                 child: Column(
@@ -258,78 +243,49 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
                             unit.name,
                             style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),
                         // Badge décimale
                         if (unit.isDecimal)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Décimal',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
+                          _buildBadge('Décimal', AppColors.info),
                         const SizedBox(width: 8),
                         // Badge statut
                         if (!unit.isActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'Inactif',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                          ),
+                          _buildBadge('Inactif', AppColors.warning),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey[200],
+                            color: AppColors.backgroundLight,
                             borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Text(
                             unit.symbol,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[700],
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        if (unit.description != null && unit.description!.isNotEmpty) ...[
+                        if (unit.description != null &&
+                            unit.description!.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               unit.description!,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: AppColors.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -341,14 +297,33 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
                   ],
                 ),
               ),
-
+              const SizedBox(width: 8),
               // Chevron
-              Icon(
+              const Icon(
                 Icons.chevron_right,
-                color: Colors.grey[400],
+                color: AppColors.border,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Construit un badge
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -363,37 +338,84 @@ class _UnitsListScreenState extends ConsumerState<UnitsListScreen> {
           Icon(
             Icons.straighten_outlined,
             size: 80,
-            color: Colors.grey[300],
+            color: AppColors.border,
           ),
           const SizedBox(height: 16),
           Text(
             _searchQuery.isEmpty ? 'Aucune unité' : 'Aucun résultat',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             _searchQuery.isEmpty
                 ? 'Créez votre première unité pour commencer'
-                : 'Essayez une autre recherche',
-            style: TextStyle(color: Colors.grey[500]),
+                : 'Essayez avec un autre mot-clé',
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
           if (_searchQuery.isEmpty) ...[
             const SizedBox(height: 24),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () => context.push('/inventory/units/new'),
               icon: const Icon(Icons.add),
               label: const Text('Créer une unité'),
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// État d'erreur
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            const Text(
+              'Une erreur est survenue',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                ref.read(unitsListProvider.notifier).refresh();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

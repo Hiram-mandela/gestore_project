@@ -484,4 +484,122 @@ class SalesRepositoryImpl implements SalesRepository {
       return (null, _extractErrorMessage(errorMessage));
     }
   }
+
+  // ==================== DISCOUNTS - CRUD ====================
+
+  @override
+  Future<(PaginatedResponseEntity<DiscountEntity>?, String?)> getDiscounts({
+    int page = 1,
+    int pageSize = 20,
+    String? search,
+    String? discountType,
+    String? scope,
+    bool? isActive,
+    bool activeOnly = false,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération remises (page $page)');
+
+      final paginatedModel = await remoteDataSource.getDiscounts(
+        page: page,
+        pageSize: pageSize,
+        search: search,
+        discountType: discountType,
+        scope: scope,
+        isActive: isActive,
+        activeOnly: activeOnly,
+      );
+
+      final discountEntities =
+      paginatedModel.results.map((model) => model.toEntity()).toList();
+
+      final paginatedEntity = PaginatedResponseEntity<DiscountEntity>(
+        count: paginatedModel.count,
+        next: paginatedModel.next,
+        previous: paginatedModel.previous,
+        results: discountEntities,
+      );
+
+      logger.i('✅ Repository: ${discountEntities.length} remises récupérées');
+      return (paginatedEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur récupération remises: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(DiscountEntity?, String?)> createDiscount(
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Création remise');
+
+      final discountModel = await remoteDataSource.createDiscount(data);
+      final discountEntity = discountModel.toEntity();
+
+      logger.i('✅ Repository: Remise ${discountEntity.name} créée');
+      return (discountEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création remise: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(DiscountEntity?, String?)> updateDiscount(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Modification remise $id');
+
+      final discountModel = await remoteDataSource.updateDiscount(id, data);
+      final discountEntity = discountModel.toEntity();
+
+      logger.i('✅ Repository: Remise ${discountEntity.name} modifiée');
+      return (discountEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur modification remise: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteDiscount(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression remise $id');
+
+      await remoteDataSource.deleteDiscount(id);
+
+      logger.i('✅ Repository: Remise supprimée');
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression remise: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> calculateDiscount(
+      String discountId,
+      Map<String, dynamic> params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Calcul remise $discountId');
+
+      final result = await remoteDataSource.calculateDiscount(discountId, params);
+
+      logger.i('✅ Repository: Remise calculée');
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur calcul remise: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
 }

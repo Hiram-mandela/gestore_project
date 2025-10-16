@@ -1,14 +1,15 @@
+# apps/sales/models.py
+
 """
 Modèles de gestion des ventes pour GESTORE
 Système complet de point de vente, transactions et paiements
 """
-from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from apps.core.models import BaseModel, AuditableModel, NamedModel, ActivableModel
-from apps.inventory.models import Article, Stock
+from apps.inventory.models import Article
 
 User = get_user_model()
 
@@ -850,40 +851,85 @@ class Discount(BaseModel, NamedModel, ActivableModel):
     def is_valid(self, customer=None, amount=None):
         """Vérifie si la remise est valide"""
         now = timezone.now()
-        
-        # Vérifier la période
+
+        # Vérifier la période de validité
         if self.start_date and now < self.start_date:
             return False
         if self.end_date and now > self.end_date:
             return False
-        
-        # Vérifier les utilisations
-        if self.max_uses and self.current_uses >= self.max_uses:
+
+        # Vérifier les utilisations globales
+        if self.max_uses is not None and self.current_uses >= self.max_uses:
             return False
-        
+
         # Vérifier le montant minimum
-        if self.min_amount and (not amount or amount < self.min_amount):
+        if self.min_amount is not None and (not amount or amount < self.min_amount):
             return False
-        
+
+        # --- NOUVELLES VÉRIFICATIONS ---
+        # Vérifier si la remise est ciblée sur des clients spécifiques
+        if self.scope == 'customer' and self.target_customers.exists():
+            if not customer or customer not in self.target_customers.all():
+                return False
+
+        # Vérifier les utilisations par client (nécessite une logique de suivi)
+        if self.max_uses_per_customer is not None and customer:
+            # Compter combien de fois ce client a utilisé cette remise
+            uses_by_customer = SaleDiscount.objects.filter(
+                sale__customer=customer,
+                discount=self
+            ).count()
+            if uses_by_customer >= self.max_uses_per_customer:
+                return False
+
         return True
     
     def calculate_discount(self, amount, quantity=1):
         """Calcule le montant de la remise"""
+        from decimal import Decimal
+
         if not self.is_valid(amount=amount):
             return Decimal('0.00')
-        
+
+        discount = Decimal('0.00')
+
         if self.discount_type == 'percentage':
-            discount = amount * (self.percentage_value / 100)
+            # S'assurer que percentage_value n'est pas None
+            if self.percentage_value is not None:
+                discount = amount * (self.percentage_value / Decimal('100'))
+        
         elif self.discount_type == 'fixed_amount':
-            discount = self.fixed_value
-        else:
-            discount = Decimal('0.00')
+            # S'assurer que fixed_value n'est pas None
+            if self.fixed_value is not None:
+                discount = self.fixed_value
+
+        # --- LOGIQUE AJOUTÉE ---
+        # Note: 'buy_x_get_y' et 'loyalty_points' nécessiteraient une logique plus complexe,
+        # souvent au niveau du panier. Ici, nous les initialisons simplement.
+        elif self.discount_type == 'buy_x_get_y':
+            # La logique réelle devrait être gérée dans la vue du panier/checkout
+            # car elle dépend de l'ensemble des articles.
+            discount = Decimal('0.00') # Placeholder
         
-        # Limiter le montant maximum
-        if self.max_amount and discount > self.max_amount:
+        elif self.discount_type == 'loyalty_points':
+            # La conversion des points en montant se fait généralement dans la vue.
+            discount = Decimal('0.00') # Placeholder
+
+        # Limiter au montant de la transaction si la remise est supérieure
+        if discount > amount:
+            discount = amount
+
+        # Limiter le montant maximum de la remise si défini
+        if self.max_amount is not None and discount > self.max_amount:
             discount = self.max_amount
-        
-        return discount
+
+        return discount.quantize(Decimal('0.01'))
+    
+    def increment_usage(self):
+        """Incrémente le compteur d'utilisation de la remise."""
+        if self.max_uses is not None:
+            self.current_uses = models.F('current_uses') + 1
+            self.save(update_fields=['current_uses'])
 
     class Meta:
         db_table = 'sales_discount'

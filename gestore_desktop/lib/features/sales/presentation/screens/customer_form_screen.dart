@@ -1,6 +1,13 @@
 // ========================================
 // lib/features/sales/presentation/screens/customer_form_screen.dart
 // Formulaire Création/Édition Client - Module Sales
+// VERSION AMÉLIORÉE - DESIGN REFACTORING
+//
+// Changements stylistiques majeurs :
+// - Intégration de la palette GESTORE pour les couleurs et le contraste.
+// - Modernisation des champs de formulaire avec un style unifié et un focus clair.
+// - Amélioration du design des cartes et des sélecteurs pour une meilleure lisibilité.
+// - Harmonisation des boutons d'action et des dialogues avec la charte graphique.
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -39,7 +46,6 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   final _cityController = TextEditingController();
   final _postalCodeController = TextEditingController();
   final _taxNumberController = TextEditingController();
-
   bool _isEditing = false;
 
   @override
@@ -89,7 +95,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.backgroundLight,
       appBar: _buildAppBar(),
       body: _buildBody(state),
     );
@@ -98,13 +104,26 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   /// AppBar
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: Text(_isEditing ? 'Modifier le client' : 'Nouveau client'),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black87,
+      title: Text(
+        _isEditing ? 'Modifier le client' : 'Nouveau client',
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      backgroundColor: AppColors.surfaceLight,
+      foregroundColor: AppColors.textPrimary,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => context.pop(),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: AppColors.border,
+          height: 1.0,
+        ),
       ),
     );
   }
@@ -112,43 +131,91 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   /// Corps selon l'état
   Widget _buildBody(CustomerFormState state) {
     if (state is CustomerFormLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
-
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Sélection type de client
             _buildCustomerTypeSection(state),
-
             const SizedBox(height: 24),
-
             // Informations générales
             _buildGeneralInfoSection(state),
-
             const SizedBox(height: 24),
-
             // Informations de contact
             _buildContactSection(state),
-
             const SizedBox(height: 24),
-
             // Adresse
             _buildAddressSection(state),
-
             const SizedBox(height: 24),
-
             // Préférences
             _buildPreferencesSection(state),
-
             const SizedBox(height: 32),
-
             // Boutons d'action
             _buildActionButtons(state),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Style de décoration réutilisable pour les champs de texte
+  InputDecoration _inputDecoration({
+    required String labelText,
+    String? hintText,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      hintStyle: const TextStyle(color: AppColors.textTertiary),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
+      filled: true,
+      fillColor: AppColors.surfaceLight,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+    );
+  }
+
+  /// Widget de carte de section
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surfaceLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...children,
           ],
         ),
       ),
@@ -161,76 +228,55 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         ? state.formData.customerType
         : 'individual';
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return _buildSectionCard(
+      title: 'Type de client',
+      children: [
+        Row(
           children: [
-            const Text(
-              'Type de client',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: _buildTypeRadio(
+                value: 'individual',
+                groupValue: customerType,
+                icon: Icons.person,
+                label: 'Particulier',
+                description: 'Client individuel',
+                onChanged: (value) {
+                  ref.read(customerFormProvider.notifier).updateCustomerType(value!);
+                  setState(() {});
+                },
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTypeRadio(
-                    value: 'individual',
-                    groupValue: customerType,
-                    icon: Icons.person,
-                    label: 'Particulier',
-                    description: 'Client individuel',
-                    onChanged: (value) {
-                      ref.read(customerFormProvider.notifier)
-                          .updateCustomerType(value!);
-                      setState(() {});
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTypeRadio(
-                    value: 'company',
-                    groupValue: customerType,
-                    icon: Icons.business,
-                    label: 'Entreprise',
-                    description: 'Client société',
-                    onChanged: (value) {
-                      ref.read(customerFormProvider.notifier)
-                          .updateCustomerType(value!);
-                      setState(() {});
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTypeRadio(
-                    value: 'professional',
-                    groupValue: customerType,
-                    icon: Icons.work,
-                    label: 'Professionnel',
-                    description: 'Client pro',
-                    onChanged: (value) {
-                      ref.read(customerFormProvider.notifier)
-                          .updateCustomerType(value!);
-                      setState(() {});
-                    },
-                  ),
-                ),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildTypeRadio(
+                value: 'company',
+                groupValue: customerType,
+                icon: Icons.business,
+                label: 'Entreprise',
+                description: 'Client société',
+                onChanged: (value) {
+                  ref.read(customerFormProvider.notifier).updateCustomerType(value!);
+                  setState(() {});
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildTypeRadio(
+                value: 'professional',
+                groupValue: customerType,
+                icon: Icons.work,
+                label: 'Professionnel',
+                description: 'Client pro',
+                onChanged: (value) {
+                  ref.read(customerFormProvider.notifier).updateCustomerType(value!);
+                  setState(() {});
+                },
+              ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -244,20 +290,17 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     required ValueChanged<String?> onChanged,
   }) {
     final isSelected = value == groupValue;
-
     return InkWell(
       onTap: () => onChanged(value),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.backgroundLight,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey[300]!,
-            width: 2,
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -265,7 +308,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
             Icon(
               icon,
               size: 32,
-              color: isSelected ? AppColors.primary : Colors.grey[600],
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
             ),
             const SizedBox(height: 8),
             Text(
@@ -273,15 +316,15 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primary : Colors.grey[700],
+                color: isSelected ? AppColors.primary : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               description,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -296,310 +339,172 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         ? state.formData.customerType
         : 'individual';
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Informations générales',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+    return _buildSectionCard(
+      title: 'Informations générales',
+      children: [
+        TextFormField(
+          controller: _nameController,
+          decoration: _inputDecoration(
+            labelText: 'Nom interne *',
+            hintText: 'Ex: Client fidèle - Jean',
+            icon: Icons.badge,
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Le nom interne est requis';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        if (customerType == 'company') ...[
+          TextFormField(
+            controller: _companyNameController,
+            decoration: _inputDecoration(
+              labelText: 'Nom de l\'entreprise *',
+              hintText: 'Raison sociale',
+              icon: Icons.business,
             ),
-            const SizedBox(height: 16),
-
-            // Nom (champ requis)
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Nom *',
-                hintText: 'Nom interne du client',
-                prefixIcon: const Icon(Icons.badge),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              validator: (value) {
-                if (value == null || value
-                    .trim()
-                    .isEmpty) {
-                  return 'Le nom est requis';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Selon le type
-            if (customerType == 'company') ...[
-              // Nom de l'entreprise
-              TextFormField(
-                controller: _companyNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nom de l\'entreprise *',
-                  hintText: 'Raison sociale',
-                  prefixIcon: const Icon(Icons.business),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Le nom de l\'entreprise est requis';
+              }
+              return null;
+            },
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _firstNameController,
+                  decoration: _inputDecoration(
+                    labelText: 'Prénom',
+                    icon: Icons.person_outline,
                   ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
                 ),
-                validator: (value) {
-                  if (value == null || value
-                      .trim()
-                      .isEmpty) {
-                    return 'Le nom de l\'entreprise est requis';
-                  }
-                  return null;
-                },
               ),
-            ] else
-              ...[
-                // Prénom et nom
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _firstNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Prénom',
-                          hintText: 'Prénom du client',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lastNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Nom',
-                          hintText: 'Nom de famille',
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-
-            const SizedBox(height: 16),
-
-            // Description
-            TextFormField(
-              controller: _descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Description',
-                hintText: 'Notes sur le client',
-                prefixIcon: const Icon(Icons.description),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              maxLines: 3,
-            ),
-
-            if (customerType == 'company') ...[
-              const SizedBox(height: 16),
-              // Numéro fiscal
-              TextFormField(
-                controller: _taxNumberController,
-                decoration: InputDecoration(
-                  labelText: 'Numéro fiscal / TVA',
-                  hintText: 'Ex: CI-12345678',
-                  prefixIcon: const Icon(Icons.receipt_long),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  controller: _lastNameController,
+                  decoration: _inputDecoration(
+                    labelText: 'Nom de famille',
+                    icon: Icons.person,
                   ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
                 ),
               ),
             ],
-          ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _descriptionController,
+          decoration: _inputDecoration(
+            labelText: 'Description',
+            hintText: 'Notes et informations sur le client',
+            icon: Icons.description,
+          ),
+          maxLines: 3,
         ),
-      ),
+        if (customerType == 'company') ...[
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _taxNumberController,
+            decoration: _inputDecoration(
+              labelText: 'Numéro fiscal / TVA',
+              hintText: 'Ex: CI-12345678',
+              icon: Icons.receipt_long,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   /// Section contact
   Widget _buildContactSection(CustomerFormState state) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Contact',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Téléphone
-            TextFormField(
-              controller: _phoneController,
-              decoration: InputDecoration(
-                labelText: 'Téléphone',
-                hintText: '+225 XX XX XX XX XX',
-                prefixIcon: const Icon(Icons.phone),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(15),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Email
-            TextFormField(
-              controller: _emailController,
-              decoration: InputDecoration(
-                labelText: 'Email',
-                hintText: 'client@example.com',
-                prefixIcon: const Icon(Icons.email),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value != null && value.isNotEmpty) {
-                  if (!value.contains('@')) {
-                    return 'Email invalide';
-                  }
-                }
-                return null;
-              },
-            ),
+    return _buildSectionCard(
+      title: 'Contact',
+      children: [
+        TextFormField(
+          controller: _phoneController,
+          decoration: _inputDecoration(
+            labelText: 'Téléphone',
+            hintText: '+225 XX XX XX XX XX',
+            icon: Icons.phone,
+          ),
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(15),
           ],
         ),
-      ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _emailController,
+          decoration: _inputDecoration(
+            labelText: 'Email',
+            hintText: 'client@example.com',
+            icon: Icons.email,
+          ),
+          keyboardType: TextInputType.emailAddress,
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (!value.contains('@') || !value.contains('.')) {
+                return 'Email invalide';
+              }
+            }
+            return null;
+          },
+        ),
+      ],
     );
   }
 
   /// Section adresse
   Widget _buildAddressSection(CustomerFormState state) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return _buildSectionCard(
+      title: 'Adresse',
+      children: [
+        TextFormField(
+          controller: _addressController,
+          decoration: _inputDecoration(
+            labelText: 'Adresse',
+            hintText: 'Rue, quartier, ville',
+            icon: Icons.location_on,
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
+        Row(
           children: [
-            const Text(
-              'Adresse',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: _cityController,
+                decoration: _inputDecoration(
+                  labelText: 'Ville',
+                  hintText: 'Ex: Abidjan',
+                  icon: Icons.location_city,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Adresse
-            TextFormField(
-              controller: _addressController,
-              decoration: InputDecoration(
-                labelText: 'Adresse',
-                hintText: 'Rue, quartier, ville',
-                prefixIcon: const Icon(Icons.location_on),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextFormField(
+                controller: _postalCodeController,
+                decoration: _inputDecoration(
+                  labelText: 'Code postal',
+                  hintText: '00225',
+                  icon: Icons.markunread_mailbox,
                 ),
-                filled: true,
-                fillColor: Colors.grey[50],
+                keyboardType: TextInputType.number,
               ),
-              maxLines: 2,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Ville et Code postal
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: _cityController,
-                    decoration: InputDecoration(
-                      labelText: 'Ville',
-                      hintText: 'Ex: Abidjan',
-                      prefixIcon: const Icon(Icons.location_city),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _postalCodeController,
-                    decoration: InputDecoration(
-                      labelText: 'Code postal',
-                      hintText: '00225',
-                      prefixIcon: const Icon(Icons.markunread_mailbox),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -612,94 +517,76 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         ? state.formData.isActive
         : true;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Préférences',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Consentement marketing
-            SwitchListTile(
-              value: marketingConsent,
-              onChanged: (value) {
-                ref.read(customerFormProvider.notifier)
-                    .updateMarketingConsent(value);
-              },
-              title: const Text('Accepte les communications marketing'),
-              subtitle: const Text('Email, SMS, notifications'),
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: AppColors.primary,
-            ),
-
-            const Divider(),
-
-            // Statut actif
-            SwitchListTile(
-              value: isActive,
-              onChanged: (value) {
-                ref.read(customerFormProvider.notifier)
-                    .updateActiveStatus(value);
-              },
-              title: const Text('Client actif'),
-              subtitle: const Text('Peut effectuer des achats'),
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: AppColors.success,
-            ),
-          ],
+    return _buildSectionCard(
+      title: 'Préférences',
+      children: [
+        SwitchListTile(
+          value: marketingConsent,
+          onChanged: (value) {
+            ref.read(customerFormProvider.notifier).updateMarketingConsent(value);
+          },
+          title: const Text(
+            'Accepte les communications marketing',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          subtitle: const Text(
+            'Email, SMS, notifications',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: AppColors.primary,
         ),
-      ),
+        const Divider(color: AppColors.border),
+        SwitchListTile(
+          value: isActive,
+          onChanged: (value) {
+            ref.read(customerFormProvider.notifier).updateActiveStatus(value);
+          },
+          title: const Text(
+            'Client actif',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          subtitle: const Text(
+            'Peut effectuer des achats et se connecter',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: AppColors.success,
+        ),
+      ],
     );
   }
 
   /// Boutons d'action
   Widget _buildActionButtons(CustomerFormState state) {
     final isSubmitting = state is CustomerFormSubmitting;
-
     return Row(
       children: [
-        // Bouton Annuler
         Expanded(
           child: OutlinedButton(
             onPressed: isSubmitting ? null : () => context.pop(),
             style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: const BorderSide(color: AppColors.border),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(fontSize: 16),
-            ),
+            child: const Text('Annuler', style: TextStyle(fontSize: 16)),
           ),
         ),
-
         const SizedBox(width: 16),
-
-        // Bouton Enregistrer
         Expanded(
           flex: 2,
           child: FilledButton(
             onPressed: isSubmitting ? null : _handleSubmit,
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: isSubmitting
@@ -712,8 +599,8 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
               ),
             )
                 : Text(
-              _isEditing ? 'Enregistrer' : 'Créer le client',
-              style: const TextStyle(fontSize: 16),
+              _isEditing ? 'Enregistrer les modifications' : 'Créer le client',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -741,9 +628,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
     final formData = _collectFormData();
-
     if (_isEditing) {
       ref
           .read(customerFormProvider.notifier)
@@ -759,58 +644,37 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     final customerType = state is CustomerFormLoaded
         ? state.formData.customerType
         : 'individual';
-
     return {
       'name': _nameController.text.trim(),
-      'description': _descriptionController.text
-          .trim()
-          .isNotEmpty
+      'description': _descriptionController.text.trim().isNotEmpty
           ? _descriptionController.text.trim()
           : null,
       'customer_type': customerType,
-      'first_name': _firstNameController.text
-          .trim()
-          .isNotEmpty
+      'first_name': _firstNameController.text.trim().isNotEmpty
           ? _firstNameController.text.trim()
           : null,
-      'last_name': _lastNameController.text
-          .trim()
-          .isNotEmpty
+      'last_name': _lastNameController.text.trim().isNotEmpty
           ? _lastNameController.text.trim()
           : null,
-      'company_name': _companyNameController.text
-          .trim()
-          .isNotEmpty
+      'company_name': _companyNameController.text.trim().isNotEmpty
           ? _companyNameController.text.trim()
           : null,
-      'email': _emailController.text
-          .trim()
-          .isNotEmpty
+      'email': _emailController.text.trim().isNotEmpty
           ? _emailController.text.trim()
           : null,
-      'phone': _phoneController.text
-          .trim()
-          .isNotEmpty
+      'phone': _phoneController.text.trim().isNotEmpty
           ? _phoneController.text.trim()
           : null,
-      'address': _addressController.text
-          .trim()
-          .isNotEmpty
+      'address': _addressController.text.trim().isNotEmpty
           ? _addressController.text.trim()
           : null,
-      'city': _cityController.text
-          .trim()
-          .isNotEmpty
+      'city': _cityController.text.trim().isNotEmpty
           ? _cityController.text.trim()
           : null,
-      'postal_code': _postalCodeController.text
-          .trim()
-          .isNotEmpty
+      'postal_code': _postalCodeController.text.trim().isNotEmpty
           ? _postalCodeController.text.trim()
           : null,
-      'tax_number': _taxNumberController.text
-          .trim()
-          .isNotEmpty
+      'tax_number': _taxNumberController.text.trim().isNotEmpty
           ? _taxNumberController.text.trim()
           : null,
       'marketing_consent': state is CustomerFormLoaded
@@ -826,25 +690,25 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
   void _showSuccessDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            icon: Icon(
-              Icons.check_circle,
-              color: AppColors.success,
-              size: 48,
-            ),
-            title: const Text('Succès'),
-            content: Text(message),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.pop(); // Retour à la liste
-                },
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        icon: const Icon(
+          Icons.check_circle,
+          color: AppColors.success,
+          size: 48,
+        ),
+        title: const Text('Succès'),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.pop(); // Retour à la liste
+            },
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+            child: const Text('OK'),
           ),
+        ],
+      ),
     );
   }
 

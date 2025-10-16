@@ -1,15 +1,22 @@
 // ========================================
 // lib/features/sales/presentation/screens/customers_screen.dart
 // Écran Liste des Clients - Module Sales
+// VERSION AMÉLIORÉE - DESIGN REFACTORING
+//
+// Changements stylistiques majeurs :
+// - Application de la palette GESTORE (fonds, textes, accents).
+// - Modernisation de la barre de recherche avec un style clair et un focus visible.
+// - Amélioration du design des cartes clients pour une meilleure lisibilité et hiérarchie.
+// - Harmonisation des couleurs sur les statistiques, badges et icônes.
 // ========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/constants/app_colors.dart';
+import '../../domain/entities/customer_entity.dart';
 import '../providers/customers_provider.dart';
 import '../providers/customers_state.dart';
-import '../../domain/entities/customer_entity.dart';
 
 /// Écran de liste des clients
 class CustomersScreen extends ConsumerStatefulWidget {
@@ -26,13 +33,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Charger les clients au démarrage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(customersProvider.notifier).loadCustomers();
     });
-
-    // Pagination infinie
     _scrollController.addListener(_onScroll);
   }
 
@@ -57,97 +60,99 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(customersProvider);
 
-    // ✅ CORRECTION: Retirer AppLayout, juste le contenu
-    return Column(
-      children: [
-        // Header avec recherche et actions
-        _buildHeader(state),
-
-        // Statistiques
-        if (state is CustomersLoaded) _buildStats(state),
-
-        // Liste des clients
-        Expanded(
-          child: _buildBody(state),
-        ),
-      ],
+    // Le Scaffold est maintenant géré par le layout parent (AppLayout),
+    // donc nous retournons directement le contenu de la page.
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      body: Column(
+        children: [
+          // Header avec recherche et actions
+          _buildHeader(state),
+          // Statistiques
+          if (state is CustomersLoaded) _buildStats(state),
+          // Liste des clients
+          Expanded(
+            child: _buildBody(state),
+          ),
+        ],
+      ),
     );
   }
 
   /// Header avec recherche et bouton nouveau client
   Widget _buildHeader(CustomersState state) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        boxShadow: [AppColors.subtleShadow()],
       ),
       child: Row(
         children: [
           // Barre de recherche
           Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Rechercher un client (nom, téléphone, email)...',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                    icon: Icon(Icons.clear, color: Colors.grey[600]),
-                    onPressed: () {
-                      _searchController.clear();
-                      ref.read(customersProvider.notifier).search('');
-                      setState(() {});
-                    },
-                  )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un client (nom, téléphone, email)...',
+                hintStyle: const TextStyle(color: AppColors.textTertiary),
+                prefixIcon:
+                const Icon(Icons.search, color: AppColors.textSecondary),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear,
+                      color: AppColors.textSecondary),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(customersProvider.notifier).search('');
+                    setState(() {});
+                  },
+                )
+                    : null,
+                filled: true,
+                fillColor: AppColors.backgroundLight,
+                contentPadding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
                 ),
-                onChanged: (value) {
-                  ref.read(customersProvider.notifier).search(value);
-                  setState(() {});
-                },
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: AppColors.primary, width: 2),
+                ),
               ),
+              onChanged: (value) {
+                ref.read(customersProvider.notifier).search(value);
+                setState(() {});
+              },
             ),
           ),
-
           const SizedBox(width: 16),
-
           // Filtres
           _buildFilterButton(state),
-
           const SizedBox(width: 16),
-
           // Bouton Nouveau client
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () {
               context.push('/sales/customers/new');
             },
             icon: const Icon(Icons.person_add, size: 20),
             label: const Text('Nouveau client'),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 0,
             ),
           ),
         ],
@@ -158,7 +163,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   /// Bouton de filtres
   Widget _buildFilterButton(CustomersState state) {
     return PopupMenuButton<String>(
-      icon: Icon(Icons.filter_list, color: Colors.grey[700]),
+      icon: const Icon(Icons.filter_list, color: AppColors.textSecondary),
       tooltip: 'Filtrer',
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder: (context) => [
@@ -198,18 +203,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   /// Statistiques rapides
   Widget _buildStats(CustomersLoaded state) {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      color: AppColors.surfaceLight,
       child: Row(
         children: [
           _buildStatCard(
@@ -256,7 +251,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -275,9 +271,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -319,11 +315,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
+          CircularProgressIndicator(color: AppColors.primary),
           SizedBox(height: 16),
           Text(
             'Chargement des clients...',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -336,10 +332,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: AppColors.error),
+          const Icon(Icons.error_outline, size: 64, color: AppColors.error),
           const SizedBox(height: 16),
           Text(
-            'Erreur',
+            'Une erreur est survenue',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -349,11 +345,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           const SizedBox(height: 8),
           Text(
             state.message,
-            style: TextStyle(color: Colors.grey[600]),
+            style: const TextStyle(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () {
               ref.read(customersProvider.notifier).loadCustomers();
             },
@@ -371,32 +367,34 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.people_outline, size: 80, color: Colors.grey[400]),
+          Icon(Icons.people_outline, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            'Aucun client',
+          const Text(
+            'Aucun client trouvé',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             _searchController.text.isNotEmpty
                 ? 'Aucun résultat pour "${_searchController.text}"'
-                : 'Créez votre premier client',
-            style: TextStyle(color: Colors.grey[600]),
+                : 'Créez votre premier client pour commencer',
+            style: const TextStyle(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/sales/customers/new');
-            },
-            icon: const Icon(Icons.person_add),
-            label: const Text('Créer un client'),
-          ),
+          if (_searchController.text.isEmpty)
+            FilledButton.icon(
+              onPressed: () {
+                context.push('/sales/customers/new');
+              },
+              icon: const Icon(Icons.person_add),
+              label: const Text('Créer un client'),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            ),
         ],
       ),
     );
@@ -410,19 +408,18 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       },
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         itemCount: state.customers.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           if (index >= state.customers.length) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: AppColors.primary),
               ),
             );
           }
-
           final customer = state.customers[index];
           return _buildCustomerCard(customer);
         },
@@ -434,9 +431,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget _buildCustomerCard(CustomerEntity customer) {
     return Card(
       elevation: 0,
+      color: AppColors.surfaceLight,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
+        side: const BorderSide(color: AppColors.border),
       ),
       child: InkWell(
         onTap: () {
@@ -449,9 +447,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             children: [
               // Avatar
               _buildAvatar(customer),
-
               const SizedBox(width: 16),
-
               // Informations
               Expanded(
                 child: Column(
@@ -466,50 +462,49 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),
                         _buildCustomerTypeBadge(customer.customerType),
                       ],
                     ),
-
                     const SizedBox(height: 4),
-
                     // Code client
                     Text(
                       customer.customerCode,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     // Contact
                     Row(
                       children: [
                         if (customer.phone != null) ...[
-                          Icon(Icons.phone, size: 14, color: Colors.grey[600]),
+                          const Icon(Icons.phone,
+                              size: 14, color: AppColors.textSecondary),
                           const SizedBox(width: 4),
                           Text(
                             customer.phone!,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[700],
+                              color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(width: 16),
                         ],
                         if (customer.email != null) ...[
-                          Icon(Icons.email, size: 14, color: Colors.grey[600]),
+                          const Icon(Icons.email,
+                              size: 14, color: AppColors.textSecondary),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               customer.email!,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[700],
+                                color: AppColors.textSecondary,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -517,9 +512,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         ],
                       ],
                     ),
-
-                    const SizedBox(height: 8),
-
+                    const SizedBox(height: 12),
                     // Statistiques
                     Row(
                       children: [
@@ -531,7 +524,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         const SizedBox(width: 8),
                         _buildStatPill(
                           icon: Icons.attach_money,
-                          label: '${customer.totalPurchases.toStringAsFixed(0)} FCFA',
+                          label:
+                          '${customer.totalPurchases.toStringAsFixed(0)} FCFA',
                           color: AppColors.success,
                         ),
                         if (customer.loyaltyPoints > 0) ...[
@@ -547,11 +541,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(width: 16),
-
               // Actions
               Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   // Statut actif/inactif
                   Container(
@@ -562,8 +556,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     decoration: BoxDecoration(
                       color: customer.isActive
                           ? AppColors.success.withValues(alpha: 0.1)
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
+                          : AppColors.border.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       customer.isActive ? 'Actif' : 'Inactif',
@@ -572,16 +566,15 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         fontWeight: FontWeight.w600,
                         color: customer.isActive
                             ? AppColors.success
-                            : Colors.grey[600],
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
                   // Menu actions
                   PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                    icon:
+                    const Icon(Icons.more_vert, color: AppColors.textSecondary),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -677,7 +670,6 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     IconData icon;
     Color color;
     String label;
-
     switch (type) {
       case 'company':
         icon = Icons.business;
@@ -694,12 +686,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         color = AppColors.info;
         label = 'Particulier';
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -729,7 +720,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -789,11 +780,14 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Appeler le provider pour changer le statut
               ref
                   .read(customersProvider.notifier)
                   .toggleActiveStatus(customer.id);
             },
+            style: FilledButton.styleFrom(
+              backgroundColor:
+              customer.isActive ? AppColors.error : AppColors.success,
+            ),
             child: const Text('Confirmer'),
           ),
         ],

@@ -1,10 +1,14 @@
 // ========================================
 // lib/features/inventory/presentation/screens/category_form_screen.dart
-// Formulaire de création/édition catégorie
+//
+// MODIFICATIONS APPORTÉES (Refonte Visuelle GESTORE) :
+// - Application de la palette GESTORE (AppColors) pour les fonds, textes, icônes, et éléments de formulaire.
+// - Standardisation des styles de boutons (Filled, Outlined) et des boîtes de dialogue (AlertDialog).
+// - Refonte de la barre d'actions inférieure et de l'AppBar pour une apparence plus propre et intégrée.
+// - NOTE : La correction de la visibilité du texte dans les champs et les switchs sera faite dans le fichier form_field_widgets.dart.
 // ========================================
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/constants/app_colors.dart';
@@ -28,18 +32,24 @@ class CategoryFormScreen extends ConsumerStatefulWidget {
 }
 
 class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
-  // Couleurs prédéfinies
+  // --- CONSTANTES DE STYLE ---
+  static const _cardBorderRadius = BorderRadius.all(Radius.circular(12));
+  static const _pagePadding = EdgeInsets.all(16.0);
+  static const _formPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 24);
+  static const _buttonPadding =
+  EdgeInsets.symmetric(horizontal: 24, vertical: 16);
+
+  // Couleurs prédéfinies basées sur la palette GESTORE
   final List<String> _predefinedColors = [
-    '#007bff', // Bleu
-    '#28a745', // Vert
-    '#dc3545', // Rouge
-    '#ffc107', // Jaune
-    '#17a2b8', // Cyan
-    '#6f42c1', // Violet
-    '#e83e8c', // Rose
-    '#fd7e14', // Orange
-    '#20c997', // Teal
-    '#6c757d', // Gris
+    '#1E3A8A', // primary
+    '#10B981', // success
+    '#F59E0B', // warning
+    '#EF4444', // error
+    '#7C3AED', // secondary
+    '#06B6D4', // accent
+    '#3B82F6', // info
+    '#64748B', // settings (grey)
+    '#8B5CF6', // inventory
   ];
 
   @override
@@ -59,17 +69,33 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     );
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         title: Text(
           widget.mode == CategoryFormMode.create
               ? 'Nouvelle catégorie'
               : 'Modifier la catégorie',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: AppColors.surfaceLight,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: AppColors.border,
+            height: 1.0,
+          ),
         ),
         actions: [
           if (widget.mode == CategoryFormMode.edit)
             IconButton(
               onPressed: () => _showDeleteConfirmation(),
-              icon: const Icon(Icons.delete),
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
               tooltip: 'Supprimer',
             ),
         ],
@@ -82,42 +108,50 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     if (state is CategoryFormLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (state is CategoryFormError) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(
-              'Erreur',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+        child: Padding(
+          padding: _pagePadding,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              const Text(
+                'Erreur',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.message,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => context.pop(),
-              child: const Text('Retour'),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                state.message,
+                style: const TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Retour'),
+                style: OutlinedButton.styleFrom(
+                    padding: _buttonPadding,
+                    foregroundColor: AppColors.textSecondary,
+                    side: const BorderSide(color: AppColors.border),
+                    shape: const RoundedRectangleBorder(
+                        borderRadius: _cardBorderRadius)),
+              ),
+            ],
+          ),
         ),
       );
     }
-
     if (state is CategoryFormReady) {
       return _buildForm(state);
     }
-
     if (state is CategoryFormSubmitting) {
       return const Center(
         child: Column(
@@ -125,12 +159,14 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Enregistrement en cours...'),
+            Text(
+              'Enregistrement en cours...',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ],
         ),
       );
     }
-
     return const SizedBox();
   }
 
@@ -143,65 +179,50 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         // Corps du formulaire
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: _formPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Informations de base
-                Text(
-                  'Informations générales',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                _buildSectionTitle('Informations générales'),
                 const SizedBox(height: 16),
-
                 // Nom *
                 CustomTextField(
-                  label: 'Nom de la catégorie *',
+                  label: 'Nom de la catégorie',
                   initialValue: formData.name,
                   errorText: errors['name'],
                   onChanged: (value) => _updateField('name', value),
-                  prefixIcon: Icons.category,
+                  prefixIcon: Icons.category_outlined,
                   required: true,
                 ),
                 const SizedBox(height: 16),
-
                 // Code *
                 CustomTextField(
-                  label: 'Code *',
+                  label: 'Code',
                   initialValue: formData.code,
                   errorText: errors['code'],
-                  onChanged: (value) => _updateField('code', value.toUpperCase()),
+                  onChanged: (value) =>
+                      _updateField('code', value.toUpperCase()),
                   prefixIcon: Icons.tag,
                   required: true,
                   textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 16),
-
                 // Description
                 CustomTextField(
                   label: 'Description',
                   initialValue: formData.description,
                   onChanged: (value) => _updateField('description', value),
-                  prefixIcon: Icons.description,
+                  prefixIcon: Icons.description_outlined,
                   maxLines: 3,
                 ),
                 const SizedBox(height: 24),
-
                 // Configuration
-                Text(
-                  'Configuration',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                _buildSectionTitle('Configuration'),
                 const SizedBox(height: 16),
-
                 // Parent (dropdown)
                 _buildParentDropdown(formData),
                 const SizedBox(height: 16),
-
                 // Taux de TVA
                 CustomTextField(
                   label: 'Taux de TVA (%)',
@@ -214,66 +235,34 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                   prefixIcon: Icons.percent,
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 16),
-
+                const SizedBox(height: 24),
                 // Couleur
                 _buildColorPicker(formData),
-                const SizedBox(height: 16),
-
-                // Stock minimum par défaut
-                CustomTextField(
-                  label: 'Stock minimum par défaut',
-                  initialValue: formData.defaultMinStock.toString(),
-                  errorText: errors['defaultMinStock'],
-                  onChanged: (value) {
-                    final stock = int.tryParse(value) ?? 5;
-                    _updateField('defaultMinStock', stock);
-                  },
-                  prefixIcon: Icons.inventory,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-
-                // Ordre d'affichage
-                CustomTextField(
-                  label: 'Ordre d\'affichage',
-                  initialValue: formData.order.toString(),
-                  onChanged: (value) {
-                    final order = int.tryParse(value) ?? 0;
-                    _updateField('order', order);
-                  },
-                  prefixIcon: Icons.sort,
-                  keyboardType: TextInputType.number,
-                ),
                 const SizedBox(height: 24),
-
                 // Options spéciales
-                Text(
-                  'Options spéciales',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
+                _buildSectionTitle('Options spéciales'),
+                const SizedBox(height: 8),
                 // Switches
                 CustomSwitchTile(
                   title: 'Prescription requise',
                   subtitle: 'Articles nécessitant une prescription médicale',
                   value: formData.requiresPrescription,
-                  onChanged: (value) => _updateField('requiresPrescription', value),
+                  onChanged: (value) =>
+                      _updateField('requiresPrescription', value),
                 ),
                 CustomSwitchTile(
                   title: 'Traçabilité par lot',
                   subtitle: 'Suivi des numéros de lot',
                   value: formData.requiresLotTracking,
-                  onChanged: (value) => _updateField('requiresLotTracking', value),
+                  onChanged: (value) =>
+                      _updateField('requiresLotTracking', value),
                 ),
                 CustomSwitchTile(
                   title: 'Date d\'expiration',
                   subtitle: 'Gestion des dates de péremption',
                   value: formData.requiresExpiryDate,
-                  onChanged: (value) => _updateField('requiresExpiryDate', value),
+                  onChanged: (value) =>
+                      _updateField('requiresExpiryDate', value),
                 ),
                 CustomSwitchTile(
                   title: 'Catégorie active',
@@ -281,62 +270,84 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                   value: formData.isActive,
                   onChanged: (value) => _updateField('isActive', value),
                 ),
-
                 const SizedBox(height: 100), // Espace pour le bouton flottant
               ],
             ),
           ),
         ),
-
         // Barre de boutons
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => _showCancelConfirmation(),
-                  child: const Text('Annuler'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: state.isValid ? _submit : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text(
-                    widget.mode == CategoryFormMode.create
-                        ? 'Créer'
-                        : 'Enregistrer',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildBottomActionBar(state),
       ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(CategoryFormReady state) {
+    return Container(
+      padding: _pagePadding,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        border: const Border(
+          top: BorderSide(color: AppColors.border),
+        ),
+        boxShadow: [AppColors.subtleShadow()],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _showCancelConfirmation(),
+              style: OutlinedButton.styleFrom(
+                padding: _buttonPadding,
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: _cardBorderRadius,
+                ),
+              ),
+              child: const Text('Annuler'),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: FilledButton(
+              onPressed: state.isValid ? _submit : null,
+              style: FilledButton.styleFrom(
+                padding: _buttonPadding,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.surfaceLight,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: _cardBorderRadius,
+                ),
+                disabledBackgroundColor: AppColors.border,
+              ),
+              child: Text(
+                widget.mode == CategoryFormMode.create
+                    ? 'Créer la catégorie'
+                    : 'Enregistrer',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   /// Dropdown parent
   Widget _buildParentDropdown(CategoryFormData formData) {
     final categoriesState = ref.watch(categoriesListProvider);
-
     return CustomDropdown<String>(
       label: 'Catégorie parent',
       value: formData.parentId,
@@ -344,7 +355,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           ? [
         const DropdownMenuItem<String>(
           value: null,
-          child: Text('Aucune (racine)'),
+          child: Text('Aucune (racine)',
+              style: TextStyle(
+                fontStyle: FontStyle.italic,
+                color: AppColors.textSecondary,
+              )),
         ),
         ...categoriesState.categories
             .where((cat) => cat.id != widget.categoryId) // Pas soi-même
@@ -358,11 +373,15 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           : [
         const DropdownMenuItem<String>(
           value: null,
-          child: Text('Aucune (racine)'),
+          child: Text('Aucune (racine)',
+              style: TextStyle(
+                fontStyle: FontStyle.italic,
+                color: AppColors.textSecondary,
+              )),
         ),
       ],
       onChanged: (value) => _updateField('parentId', value),
-      prefixIcon: Icons.folder,
+      prefixIcon: Icons.folder_open_outlined,
     );
   }
 
@@ -371,15 +390,15 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Couleur',
+        const Text(
+          'Couleur d\'identification',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
+            color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -392,14 +411,14 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _parseColor(color),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: const BorderRadius.all(Radius.circular(22)),
                   border: Border.all(
-                    color: isSelected ? Colors.black : Colors.grey.shade300,
-                    width: isSelected ? 3 : 1,
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                    width: isSelected ? 3 : 1.5,
                   ),
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check, color: Colors.white)
+                    ? const Icon(Icons.check, color: AppColors.surfaceLight)
                     : null,
               ),
             );
@@ -411,7 +430,9 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
 
   /// Met à jour un champ
   void _updateField(String field, dynamic value) {
-    ref.read(categoryFormProvider((widget.mode, widget.categoryId)).notifier).updateField(field, value);
+    ref
+        .read(categoryFormProvider((widget.mode, widget.categoryId)).notifier)
+        .updateField(field, value);
   }
 
   /// Soumet le formulaire
@@ -421,55 +442,78 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
 
   /// Affiche le succès et navigue
   void _showSuccessAndNavigate(CategoryFormSuccess state) {
+    if (!mounted) return;
     final message = widget.mode == CategoryFormMode.create
         ? 'Catégorie "${state.category.name}" créée avec succès'
         : 'Catégorie mise à jour avec succès';
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-
     // Recharger la liste
     ref.read(categoriesListProvider.notifier).refresh();
-
     // Retour
     context.pop();
   }
 
   /// Affiche une erreur
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// Boîte de dialogue stylisée GESTORE
+  Future<bool?> _showGestoreDialog({
+    required String title,
+    required String content,
+    required String confirmText,
+    bool isDestructive = false,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceLight,
+        shape: const RoundedRectangleBorder(borderRadius: _cardBorderRadius),
+        title: Text(title, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        content: Text(content, style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: isDestructive ? AppColors.error : AppColors.primary,
+              foregroundColor: AppColors.surfaceLight,
+            ),
+            child: Text(confirmText),
+          ),
+        ],
       ),
     );
   }
 
   /// Confirmation annulation
   Future<void> _showCancelConfirmation() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Annuler ?'),
-        content: const Text('Les modifications non enregistrées seront perdues.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Continuer'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Annuler'),
-          ),
-        ],
-      ),
+    final confirm = await _showGestoreDialog(
+      title: 'Annuler les modifications ?',
+      content: 'Les changements non enregistrés seront perdus.',
+      confirmText: 'Quitter',
     );
-
     if (confirm == true && mounted) {
       context.pop();
     }
@@ -477,28 +521,12 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
 
   /// Confirmation suppression
   Future<void> _showDeleteConfirmation() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer ?'),
-        content: const Text(
-          'Êtes-vous sûr de vouloir supprimer cette catégorie ? '
-              'Cette action est irréversible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
+    final confirm = await _showGestoreDialog(
+      title: 'Supprimer la catégorie ?',
+      content: 'Cette action est irréversible et supprimera la catégorie définitivement.',
+      confirmText: 'Supprimer',
+      isDestructive: true,
     );
-
     if (confirm == true) {
       ref.read(categoryFormProvider((widget.mode, widget.categoryId)).notifier).delete();
     }
