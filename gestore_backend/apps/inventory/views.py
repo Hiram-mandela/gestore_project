@@ -4,6 +4,7 @@ ViewSets complets avec optimisations et permissions granulaires
 VERSION SÉCURISÉE - Option 2
 """
 from rest_framework import viewsets, status
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -384,6 +385,7 @@ class ArticleViewSet(OptimizedModelViewSet):
     Permissions granulaires selon les actions
     """
     queryset = Article.objects.all()
+    parser_classes = (MultiPartParser, FormParser)
     permission_classes = [CanViewInventory]  # Par défaut : lecture pour tous
     
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -456,6 +458,23 @@ class ArticleViewSet(OptimizedModelViewSet):
         
         return queryset
     
+    # Ajoutez cette méthode pour la création
+    def perform_create(self, serializer):
+        """
+        Assigne automatiquement l'utilisateur connecté lors de la création d'un article.
+        """
+        # On passe l'utilisateur de la requête (self.request.user) 
+        # au serializer au moment de la sauvegarde.
+        serializer.save(created_by=self.request.user)
+
+    # Ajoutez cette méthode pour la mise à jour
+    def perform_update(self, serializer):
+        """
+        Assigne automatiquement l'utilisateur connecté lors de la mise à jour d'un article.
+        """
+        # On fait de même pour le champ updated_by
+        serializer.save(updated_by=self.request.user)
+
     @action(detail=True, methods=['get'])
     def stock_summary(self, request, pk=None):
         """

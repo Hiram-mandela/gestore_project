@@ -494,6 +494,31 @@ class Article(AuditableModel, CodedModel, NamedModel, ActivableModel):
             barcodes.append(self.barcode)
         barcodes.extend([ab.barcode for ab in self.additional_barcodes.all()])
         return barcodes
+    
+    @property
+    def main_image_url(self):
+        """
+        Retourne l'URL de l'image principale de manière robuste.
+        Ne lève pas d'erreur si un enregistrement ArticleImage n'a pas de fichier.
+        """
+        # Cherche une image primaire
+        primary_image = self.images.filter(is_primary=True).first()
+        # ⭐ CORRECTION : On vérifie que le champ 'image' n'est pas vide avant d'accéder à '.url'
+        if primary_image and primary_image.image:
+            return primary_image.image.url
+        
+        # Fallback sur la première image de la liste
+        first_image = self.images.order_by('order').first()
+        # ⭐ CORRECTION : On vérifie aussi ici
+        if first_image and first_image.image:
+            return first_image.image.url
+            
+        # Fallback sur l'ancien champ 'image' de l'article
+        # ⭐ CORRECTION : Et ici également
+        if self.image:
+            return self.image.url
+
+        return None
 
     class Meta:
         db_table = 'inventory_article'

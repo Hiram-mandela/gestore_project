@@ -44,7 +44,7 @@ abstract class InventoryRepository {
   /// Crée un nouvel article
   /// [data] : Map contenant les données
   /// [imagePath] : Chemin optionnel de l'image
-  Future<(ArticleEntity?, String?)> createArticle(
+  Future<(ArticleDetailEntity?, String?)> createArticle(
       Map<String, dynamic> data,
       String? imagePath,
       );
@@ -53,7 +53,7 @@ abstract class InventoryRepository {
   /// [id] : ID de l'article
   /// [data] : Map contenant les données à mettre à jour
   /// [imagePath] : Chemin optionnel de la nouvelle image
-  Future<(ArticleEntity?, String?)> updateArticle(
+  Future<(ArticleDetailEntity?, String?)> updateArticle(
       String id,
       Map<String, dynamic> data,
       String? imagePath,

@@ -2,14 +2,15 @@
 Serializers pour l'application inventory - GESTORE
 Gestion complète des articles, stocks et mouvements avec optimisations
 """
+import json
 from rest_framework import serializers
-from django.db.models import Sum, Q, F
+from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
-from decimal import Decimal
 from apps.core.serializers import (
     BaseModelSerializer, AuditableSerializer, NamedModelSerializer, 
     ActivableModelSerializer, CodedModelSerializer, OrderedModelSerializer,
-    PricedModelSerializer, BulkOperationSerializer
+    BulkOperationSerializer
 )
 from .models import (
     UnitOfMeasure, UnitConversion, Category, Brand, Supplier,
@@ -272,10 +273,6 @@ class ArticleBarcodeSerializer(BaseModelSerializer):
         ]
 
 
-# REMARQUE: ArticleSupplierSerializer supprimé car on utilise
-# SupplierArticleSerializer de l'app suppliers pour les relations article-fournisseur
-
-
 class PriceHistorySerializer(AuditableSerializer):
     """
     Serializer pour l'historique des prix
@@ -330,20 +327,13 @@ class ArticleListSerializer(BaseModelSerializer, NamedModelSerializer, Activable
     category_color = serializers.CharField(source='category.color', read_only=True)
     brand_name = serializers.CharField(source='brand.name', read_only=True)
     unit_symbol = serializers.CharField(source='unit_of_measure.symbol', read_only=True)
-    
-    # Prix
     purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Image principale
     image_url = serializers.SerializerMethodField()
-    
-    # Champs calculés pour performance
     current_stock = serializers.SerializerMethodField()
     available_stock = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
     margin_percent = serializers.SerializerMethodField()
-    
     class Meta:
         model = Article
         fields = [
@@ -353,104 +343,89 @@ class ArticleListSerializer(BaseModelSerializer, NamedModelSerializer, Activable
             'is_sellable', 'is_active', 'status_display',
             'created_at', 'updated_at'
         ]
-    
+
     def get_image_url(self, obj):
-        """URL de l'image principale"""
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-    
+        """
+        Retourne l'URL de l'image principale de l'article.
+        Utilise la propriété `main_image_url` du modèle `Article` pour une logique centralisée.
+        """
+        request = self.context.get('request')
+        image_url = obj.main_image_url 
+        if request and image_url:
+            return request.build_absolute_uri(image_url)
+        return image_url
+
     def get_current_stock(self, obj):
-        """Stock actuel (préchargé si disponible)"""
         return getattr(obj, 'current_stock', 0)
-    
+
     def get_available_stock(self, obj):
-        """Stock disponible (préchargé si disponible)"""
         return getattr(obj, 'available_stock', 0)
-    
+
     def get_is_low_stock(self, obj):
-        """Indicateur stock bas"""
         current_stock = self.get_current_stock(obj)
-        # Gérer le cas où current_stock ou min_stock_level est None
         if current_stock is None or obj.min_stock_level is None:
             return False
         return obj.manage_stock and current_stock <= obj.min_stock_level
-    
+
     def get_margin_percent(self, obj):
-        """Pourcentage de marge"""
         return obj.get_margin_percent()
 
 
 class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, ActivableModelSerializer, CodedModelSerializer):
     """
-    Serializer complet pour les articles avec toutes les relations
+    Serializer complet pour les articles, gérant toutes les relations,
+    l'upload de fichiers (multipart/form-data) et les données imbriquées.
     """
+    # --- Champs de base et relations (lecture seule) ---
     article_type = serializers.CharField()
+    category = CategorySerializer(read_only=True)
+    brand = BrandSerializer(read_only=True)
+    unit_of_measure = UnitOfMeasureSerializer(read_only=True)
+    main_supplier = SupplierSerializer(read_only=True)
+    parent_article = ArticleListSerializer(read_only=True)
     
-    # Références
+    # --- Champs simples et modifiables ---
     barcode = serializers.CharField(max_length=50, required=False, allow_null=True)
     internal_reference = serializers.CharField(max_length=50, required=False, allow_null=True)
     supplier_reference = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    
-    # Relations avec expansion
-    category = CategorySerializer(read_only=True)
-    category_id = serializers.CharField(write_only=True)
-    brand = BrandSerializer(read_only=True)
-    brand_id = serializers.CharField(write_only=True, required=False, allow_null=True)
-    unit_of_measure = UnitOfMeasureSerializer(read_only=True)
-    unit_of_measure_id = serializers.CharField(write_only=True)
-    main_supplier = SupplierSerializer(read_only=True)
-    main_supplier_id = serializers.CharField(write_only=True, required=False, allow_null=True)
-    
-    # Informations générales
     short_description = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    
-    # Prix
     purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    
-    # Configuration stock
     manage_stock = serializers.BooleanField(default=True)
     min_stock_level = serializers.IntegerField(default=0)
     max_stock_level = serializers.IntegerField(default=0)
-    
-    # Configuration métier
     requires_lot_tracking = serializers.BooleanField(default=False)
     requires_expiry_date = serializers.BooleanField(default=False)
     is_sellable = serializers.BooleanField(default=True)
     is_purchasable = serializers.BooleanField(default=True)
     allow_negative_stock = serializers.BooleanField(default=False)
-    
-    # Variantes
-    parent_article = ArticleListSerializer(read_only=True)
-    parent_article_id = serializers.CharField(write_only=True, required=False, allow_null=True)
     variant_attributes = serializers.JSONField(default=dict, required=False)
-    
-    # Image principale
-    image = serializers.ImageField(required=False, allow_null=True)
-    image_url = serializers.SerializerMethodField()
-    
-    # Dimensions
     weight = serializers.DecimalField(max_digits=8, decimal_places=3, required=False, allow_null=True)
     length = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
     width = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
     height = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
-    
-    # Métadonnées
     tags = serializers.JSONField(default=list, required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
     
-    # Relations multiples
+    # --- Champs pour l'upload et les relations (écriture seule) ---
+    category_id = serializers.CharField(write_only=True)
+    brand_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    unit_of_measure_id = serializers.CharField(write_only=True)
+    main_supplier_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    parent_article_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+
+    image = serializers.ImageField(required=False, allow_null=True, use_url=True)
+    images_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    additional_barcodes_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    # --- Relations imbriquées (lecture seule) ---
     additional_barcodes = ArticleBarcodeSerializer(many=True, read_only=True)
     images = ArticleImageSerializer(many=True, read_only=True)
-    # suppliers -> Utiliser SupplierArticle de l'app suppliers (related_name='suppliers')
     price_history = PriceHistorySerializer(many=True, read_only=True)
     variants = ArticleListSerializer(many=True, read_only=True)
     
-    # Champs calculés
+    # --- Champs calculés ---
+    image_url = serializers.SerializerMethodField()
     current_stock = serializers.SerializerMethodField()
     available_stock = serializers.SerializerMethodField()
     reserved_stock = serializers.SerializerMethodField()
@@ -458,7 +433,7 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
     margin_percent = serializers.SerializerMethodField()
     all_barcodes = serializers.SerializerMethodField()
     variants_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Article
         fields = [
@@ -472,53 +447,128 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
             'parent_article', 'parent_article_id', 'variant_attributes',
             'image', 'image_url', 'weight', 'length', 'width', 'height',
             'tags', 'notes', 'is_active', 'status_display',
+            'images_data', 'additional_barcodes_data',
             'additional_barcodes', 'images', 'price_history', 'variants',
             'current_stock', 'available_stock', 'reserved_stock', 'is_low_stock',
             'margin_percent', 'all_barcodes', 'variants_count',
             'created_by', 'created_at', 'updated_by', 'updated_at',
             'sync_status', 'needs_sync'
         ]
-    
+
     def get_image_url(self, obj):
-        """URL de l'image principale"""
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-    
+        request = self.context.get('request')
+        image_url = obj.main_image_url
+        if request and image_url:
+            return request.build_absolute_uri(image_url)
+        return image_url
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            # 1. Isoler le fichier image et les données JSON
+            main_image_file = validated_data.pop('image', None)
+            images_data_str = validated_data.pop('images_data', '[]')
+            barcodes_data_str = validated_data.pop('additional_barcodes_data', '[]')
+            
+            images_data = json.loads(images_data_str) if images_data_str else []
+            barcodes_data = json.loads(barcodes_data_str) if barcodes_data_str else []
+
+            # Extraire les IDs de relations
+            category_id = validated_data.pop('category_id', None)
+            brand_id = validated_data.pop('brand_id', None)
+            unit_of_measure_id = validated_data.pop('unit_of_measure_id', None)
+            main_supplier_id = validated_data.pop('main_supplier_id', None)
+            parent_article_id = validated_data.pop('parent_article_id', None)
+
+            if category_id: validated_data['category_id'] = category_id
+            if brand_id: validated_data['brand_id'] = brand_id
+            if unit_of_measure_id: validated_data['unit_of_measure_id'] = unit_of_measure_id
+            if main_supplier_id: validated_data['main_supplier_id'] = main_supplier_id
+            if parent_article_id: validated_data['parent_article_id'] = parent_article_id
+            
+            # 2. Créer l'article
+            article = Article.objects.create(**validated_data)
+
+            # 3. Créer les codes-barres
+            if barcodes_data:
+                for item in barcodes_data:
+                    ArticleBarcode.objects.create(article=article, **item)
+            
+            # 4. ⭐ CORRECTION : Créer l'image principale si un fichier a été envoyé
+            if main_image_file:
+                ArticleImage.objects.create(
+                    article=article,
+                    image=main_image_file,
+                    is_primary=True,
+                    order=0
+                )
+
+            # 5. Créer les images secondaires
+            if images_data:
+                for idx, item in enumerate(images_data, start=1):
+                    item.pop('image_path', None)
+                    # S'assurer que is_primary est False pour les images secondaires
+                    item['is_primary'] = False
+                    item['order'] = idx
+                    ArticleImage.objects.create(article=article, **item)
+        
+        return article
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            main_image_file = validated_data.pop('image', None)
+            images_data_str = validated_data.pop('images_data', None)
+            barcodes_data_str = validated_data.pop('additional_barcodes_data', None)
+
+            instance = super().update(instance, validated_data)
+
+            if barcodes_data_str is not None:
+                barcodes_data = json.loads(barcodes_data_str) if barcodes_data_str else []
+                instance.additional_barcodes.all().delete()
+                for item in barcodes_data:
+                    ArticleBarcode.objects.create(article=instance, **item)
+            
+            if images_data_str is not None:
+                images_data = json.loads(images_data_str) if images_data_str else []
+                instance.images.all().delete()
+                for item in images_data:
+                    item.pop('image_path', None)
+                    is_primary = item.pop('is_primary', False)
+                    new_image = ArticleImage.objects.create(article=instance, is_primary=is_primary, **item)
+                    if is_primary and main_image_file:
+                        new_image.image = main_image_file
+                        new_image.save()
+            elif main_image_file:
+                primary_image = instance.images.filter(is_primary=True).first()
+                if primary_image:
+                    primary_image.image = main_image_file
+                    primary_image.save()
+                else:
+                    instance.images.all().delete()
+                    ArticleImage.objects.create(article=instance, image=main_image_file, is_primary=True, order=0)
+        
+        return instance
+
     def get_current_stock(self, obj):
-        """Stock actuel total"""
         return obj.get_current_stock()
-    
+
     def get_available_stock(self, obj):
-        """Stock disponible total"""
         return obj.get_available_stock()
-    
+
     def get_reserved_stock(self, obj):
-        """Stock réservé total"""
-        return obj.stock_entries.aggregate(
-            total=Sum('quantity_reserved')
-        )['total'] or 0
-    
+        return obj.stock_entries.aggregate(total=Sum('quantity_reserved'))['total'] or 0
+
     def get_is_low_stock(self, obj):
-        """Indicateur stock bas"""
         return obj.is_low_stock()
-    
+
     def get_margin_percent(self, obj):
-        """Pourcentage de marge"""
         return obj.get_margin_percent()
-    
+
     def get_all_barcodes(self, obj):
-        """Tous les codes-barres de l'article"""
         return obj.get_all_barcodes()
-    
+
     def get_variants_count(self, obj):
-        """Nombre de variantes"""
         return getattr(obj, 'variants_count', 0)
-
-
+    
 # ========================
 # EMPLACEMENTS ET STOCKS
 # ========================

@@ -1,9 +1,9 @@
 // ========================================
 // lib/features/inventory/data/datasources/inventory_remote_datasource.dart
 // DataSource pour les appels API du module inventory
-// VERSION CORRIGÉE - Pagination Django gérée correctement
+// VERSION 2.2 - FIX: Gestion correcte de FormData pour l'upload de fichiers
 // ========================================
-
+import 'dart:convert'; // Import pour jsonEncode
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
@@ -19,7 +19,6 @@ import '../models/unit_of_measure_model.dart';
 /// DataSource abstraite pour les opérations d'inventaire
 abstract class InventoryRemoteDataSource {
   // ==================== ARTICLES - LECTURE ====================
-
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
     int page = 1,
     int pageSize = 20,
@@ -30,7 +29,6 @@ abstract class InventoryRemoteDataSource {
     bool? isLowStock,
     String? ordering,
   });
-
   Future<ArticleModel> getArticleById(String id);
   Future<ArticleDetailModel> getArticleDetailById(String id);
   Future<PaginatedResponseModel<ArticleModel>> searchArticles({
@@ -41,13 +39,11 @@ abstract class InventoryRemoteDataSource {
   Future<List<ArticleModel>> getExpiringSoonArticles();
 
   // ==================== ARTICLES - CRUD ====================
-
-  Future<ArticleModel> createArticle(Map<String, dynamic> data, String? imagePath);
-  Future<ArticleModel> updateArticle(String id, Map<String, dynamic> data, String? imagePath);
+  Future<ArticleDetailModel> createArticle(Map<String, dynamic> data, String? imagePath);
+  Future<ArticleDetailModel> updateArticle(String id, Map<String, dynamic> data, String? imagePath);
   Future<void> deleteArticle(String id);
 
   // ==================== CATEGORIES ====================
-
   Future<List<CategoryModel>> getCategories({bool? isActive});
   Future<CategoryModel> getCategoryById(String id);
   Future<CategoryModel> createCategory(Map<String, dynamic> data);
@@ -55,7 +51,6 @@ abstract class InventoryRemoteDataSource {
   Future<void> deleteCategory(String id);
 
   // ==================== BRANDS ====================
-
   Future<List<BrandModel>> getBrands({bool? isActive});
   Future<BrandModel> getBrandById(String id);
   Future<BrandModel> createBrand(Map<String, dynamic> data, String? logoPath);
@@ -63,7 +58,6 @@ abstract class InventoryRemoteDataSource {
   Future<void> deleteBrand(String id);
 
   // ==================== UNITS OF MEASURE ====================
-
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive});
   Future<UnitOfMeasureModel> getUnitOfMeasureById(String id);
   Future<UnitOfMeasureModel> createUnitOfMeasure(Map<String, dynamic> data);
@@ -83,7 +77,6 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   });
 
   // ==================== ARTICLES - LECTURE ====================
-
   @override
   Future<PaginatedResponseModel<ArticleModel>> getArticles({
     int page = 1,
@@ -96,8 +89,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     String? ordering,
   }) async {
     try {
-      logger.d('📡 API Call: GET /articles (page: $page)');
-
+      logger.d(' 📡  API Call: GET /articles (page: $page)');
       final queryParams = <String, dynamic>{
         'page': page,
         'page_size': pageSize,
@@ -108,20 +100,17 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         if (isLowStock != null) 'is_low_stock': isLowStock,
         if (ordering != null) 'ordering': ordering,
       };
-
       final response = await apiClient.get(
         ApiEndpoints.articles,
         queryParameters: queryParams,
       );
-
-      logger.i('✅ API Success: Articles récupérés');
-
+      logger.i(' ✅  API Success: Articles récupérés');
       return PaginatedResponseModel<ArticleModel>.fromJson(
         response.data,
             (json) => ArticleModel.fromJson(json),
       );
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -129,15 +118,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<ArticleModel> getArticleById(String id) async {
     try {
-      logger.d('📡 API Call: GET /articles/$id');
-
+      logger.d(' 📡  API Call: GET /articles/$id');
       final response = await apiClient.get('${ApiEndpoints.articles}$id/');
-
-      logger.i('✅ API Success: Article $id récupéré');
-
+      logger.i(' ✅  API Success: Article $id récupéré');
       return ArticleModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -145,15 +131,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<ArticleDetailModel> getArticleDetailById(String id) async {
     try {
-      logger.d('📡 API Call: GET /articles/$id/ (détail complet)');
-
+      logger.d(' 📡  API Call: GET /articles/$id/ (détail complet)');
       final response = await apiClient.get('${ApiEndpoints.articles}$id/');
-
-      logger.i('✅ API Success: Détail article $id récupéré');
-
+      logger.i(' ✅  API Success: Détail article $id récupéré');
       return ArticleDetailModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error getArticleDetailById: ${e.message}');
+      logger.e(' ❌  API Error getArticleDetailById: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -164,21 +147,18 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     int page = 1,
   }) async {
     try {
-      logger.d('📡 API Call: SEARCH articles "$query"');
-
+      logger.d(' 📡  API Call: SEARCH articles "$query"');
       final response = await apiClient.get(
         ApiEndpoints.articles,
         queryParameters: {'search': query, 'page': page},
       );
-
-      logger.i('✅ API Success: Recherche terminée');
-
+      logger.i(' ✅  API Success: Recherche terminée');
       return PaginatedResponseModel<ArticleModel>.fromJson(
         response.data,
             (json) => ArticleModel.fromJson(json),
       );
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -186,22 +166,17 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<List<ArticleModel>> getLowStockArticles() async {
     try {
-      logger.d('📡 API Call: GET /articles?is_low_stock=true');
-
+      logger.d(' 📡  API Call: GET /articles?is_low_stock=true');
       final response = await apiClient.get(
         ApiEndpoints.articles,
         queryParameters: {'is_low_stock': true},
       );
-
-      logger.i('✅ API Success: Articles stock bas récupérés');
-
-      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      logger.i(' ✅  API Success: Articles stock bas récupérés');
       final data = response.data as Map<String, dynamic>;
       final results = data['results'] as List;
-
       return results.map((json) => ArticleModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -209,16 +184,11 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<List<ArticleModel>> getExpiringSoonArticles() async {
     try {
-      logger.d('📡 API Call: GET /articles/expiring-soon');
-
+      logger.d(' 📡  API Call: GET /articles/expiring-soon');
       final response = await apiClient.get(
         '${ApiEndpoints.articles}expiring-soon/',
       );
-
-      logger.i('✅ API Success: Articles péremption proche récupérés');
-
-      // Cette route pourrait retourner soit une liste directe, soit paginé
-      // On gère les deux cas
+      logger.i(' ✅  API Success: Articles péremption proche récupérés');
       if (response.data is List) {
         final results = response.data as List;
         return results.map((json) => ArticleModel.fromJson(json)).toList();
@@ -228,7 +198,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         return results.map((json) => ArticleModel.fromJson(json)).toList();
       }
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -236,116 +206,153 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   // ==================== ARTICLES - CRUD ====================
 
   @override
-  Future<ArticleModel> createArticle(
+  Future<ArticleDetailModel> createArticle(
       Map<String, dynamic> data,
       String? imagePath,
       ) async {
     try {
-      logger.d('📡 API Call: POST /articles (création)');
-      logger.d('   Data: $data');
+      logger.d(' 📡  API Call: POST /articles (création)');
+      final Map<String, dynamic> formDataMap = {};
 
-      dynamic requestData = data;
+      // 1. Ajouter les paires clé-valeur simples
+      data.forEach((key, value) {
+        if (key != 'images_data' && key != 'additional_barcodes_data') {
+          if (value != null) {
+            formDataMap[key] = value;
+          }
+        }
+      });
 
-      if (imagePath != null && imagePath.isNotEmpty) {
-        requestData = FormData.fromMap({
-          ...data,
-          'image': await MultipartFile.fromFile(
-            imagePath,
-            filename: imagePath.split('/').last,
-          ),
-        });
-        logger.d('   Image: ${imagePath.split('/').last}');
+      // 2. Traiter les listes
+      // On filtre la liste pour n'envoyer que les métadonnées des images SECONDAIRES.
+      if (data['images_data'] != null) {
+        final List<dynamic> secondaryImages = (data['images_data'] as List)
+            .where((img) => !(img['is_primary'] as bool? ?? false))
+            .toList();
+        if (secondaryImages.isNotEmpty) {
+          formDataMap['images_data'] = jsonEncode(secondaryImages);
+          logger.d('   Images secondaires envoyées: ${secondaryImages.length}');
+        }
+      }
+      if (data['additional_barcodes_data'] != null &&
+          (data['additional_barcodes_data'] as List).isNotEmpty) {
+        formDataMap['additional_barcodes_data'] =
+            jsonEncode(data['additional_barcodes_data']);
       }
 
+      // 3. Ajouter le fichier de l'image principale s'il existe
+      if (imagePath != null && imagePath.isNotEmpty) {
+        formDataMap['image'] = await MultipartFile.fromFile(
+          imagePath,
+          filename: imagePath.split(RegExp(r'[/\\]')).last,
+        );
+        logger.d('   Image principale envoyée: ${formDataMap['image'].filename}');
+      }
+
+      final formData = FormData.fromMap(formDataMap);
       final response = await apiClient.post(
         ApiEndpoints.articles,
-        data: requestData,
+        data: formData,
       );
 
-      logger.i('✅ API Success: Article créé');
-
-      return ArticleModel.fromJson(response.data);
+      logger.i(' ✅  API Success: Article créé');
+      return ArticleDetailModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error createArticle: ${e.message}');
+      logger.e(' ❌  API Error createArticle: ${e.response?.data ?? e.message}');
       throw _handleDioError(e);
+    } catch (e) {
+      logger.e(' ❌  Erreur inattendue dans createArticle: $e');
+      rethrow;
     }
   }
 
   @override
-  Future<ArticleModel> updateArticle(
+  Future<ArticleDetailModel> updateArticle(
       String id,
       Map<String, dynamic> data,
       String? imagePath,
       ) async {
     try {
-      logger.d('📡 API Call: PUT /articles/$id/ (mise à jour)');
-      logger.d('   Data: $data');
+      logger.d(' 📡  API Call: PATCH /articles/$id/ (mise à jour)');
+      final Map<String, dynamic> formDataMap = {};
 
-      dynamic requestData = data;
+      data.forEach((key, value) {
+        if (key != 'images_data' && key != 'additional_barcodes_data') {
+          if (value != null) {
+            formDataMap[key] = value;
+          }
+        }
+      });
 
-      if (imagePath != null && imagePath.isNotEmpty) {
-        requestData = FormData.fromMap({
-          ...data,
-          'image': await MultipartFile.fromFile(
-            imagePath,
-            filename: imagePath.split('/').last,
-          ),
-        });
-        logger.d('   Nouvelle image: ${imagePath.split('/').last}');
+      // On applique la même logique de filtrage ici.
+      if (data['images_data'] != null) {
+        final List<dynamic> secondaryImages = (data['images_data'] as List)
+            .where((img) => !(img['is_primary'] as bool? ?? false))
+            .toList();
+        if (secondaryImages.isNotEmpty) {
+          formDataMap['images_data'] = jsonEncode(secondaryImages);
+          logger.d('   Images secondaires envoyées: ${secondaryImages.length}');
+        }
+      }
+      if (data['additional_barcodes_data'] != null) {
+        formDataMap['additional_barcodes_data'] =
+            jsonEncode(data['additional_barcodes_data']);
       }
 
-      final response = await apiClient.put(
+      if (imagePath != null && imagePath.isNotEmpty) {
+        formDataMap['image'] = await MultipartFile.fromFile(
+          imagePath,
+          filename: imagePath.split(RegExp(r'[/\\]')).last,
+        );
+        logger.d('   Nouvelle image principale: ${formDataMap['image'].filename}');
+      }
+
+      final formData = FormData.fromMap(formDataMap);
+      final response = await apiClient.patch(
         '${ApiEndpoints.articles}$id/',
-        data: requestData,
+        data: formData,
       );
 
-      logger.i('✅ API Success: Article $id mis à jour');
-
-      return ArticleModel.fromJson(response.data);
+      logger.i(' ✅  API Success: Article $id mis à jour');
+      return ArticleDetailModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error updateArticle: ${e.message}');
+      logger.e(' ❌  API Error updateArticle: ${e.response?.data ?? e.message}');
       throw _handleDioError(e);
+    } catch (e) {
+      logger.e(' ❌  Erreur inattendue dans updateArticle: $e');
+      rethrow;
     }
   }
 
   @override
   Future<void> deleteArticle(String id) async {
     try {
-      logger.d('📡 API Call: DELETE /articles/$id/');
-
+      logger.d(' 📡  API Call: DELETE /articles/$id/');
       await apiClient.delete('${ApiEndpoints.articles}$id/');
-
-      logger.i('✅ API Success: Article $id supprimé');
+      logger.i(' ✅  API Success: Article $id supprimé');
     } on DioException catch (e) {
-      logger.e('❌ API Error deleteArticle: ${e.message}');
+      logger.e(' ❌  API Error deleteArticle: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   // ==================== CATEGORIES ====================
-
   @override
   Future<List<CategoryModel>> getCategories({bool? isActive}) async {
     try {
-      logger.d('📡 API Call: GET /categories');
-
+      logger.d(' 📡  API Call: GET /categories');
       final queryParams = <String, dynamic>{};
       if (isActive != null) queryParams['is_active'] = isActive;
-
       final response = await apiClient.get(
         ApiEndpoints.categories,
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-
-      logger.i('✅ API Success: Catégories récupérées');
-
-      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      logger.i(' ✅  API Success: Catégories récupérées');
       final data = response.data as Map<String, dynamic>;
       final results = data['results'] as List;
-
       return results.map((json) => CategoryModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -353,15 +360,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<CategoryModel> getCategoryById(String id) async {
     try {
-      logger.d('📡 API Call: GET /categories/$id');
-
+      logger.d(' 📡  API Call: GET /categories/$id');
       final response = await apiClient.get('${ApiEndpoints.categories}$id/');
-
-      logger.i('✅ API Success: Catégorie $id récupérée');
-
+      logger.i(' ✅  API Success: Catégorie $id récupérée');
       return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -369,39 +373,34 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<CategoryModel> createCategory(Map<String, dynamic> data) async {
     try {
-      logger.d('📡 API Call: POST /categories');
+      logger.d(' 📡  API Call: POST /categories');
       logger.d('   Data: $data');
-
       final response = await apiClient.post(
         ApiEndpoints.categories,
         data: data,
       );
-
-      logger.i('✅ API Success: Catégorie créée');
-
+      logger.i(' ✅  API Success: Catégorie créée');
       return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
-  Future<CategoryModel> updateCategory(String id, Map<String, dynamic> data) async {
+  Future<CategoryModel> updateCategory(
+      String id, Map<String, dynamic> data) async {
     try {
-      logger.d('📡 API Call: PUT /categories/$id');
+      logger.d(' 📡  API Call: PUT /categories/$id');
       logger.d('   Data: $data');
-
       final response = await apiClient.put(
         '${ApiEndpoints.categories}$id/',
         data: data,
       );
-
-      logger.i('✅ API Success: Catégorie mise à jour');
-
+      logger.i(' ✅  API Success: Catégorie mise à jour');
       return CategoryModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -409,41 +408,32 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<void> deleteCategory(String id) async {
     try {
-      logger.d('📡 API Call: DELETE /categories/$id');
-
+      logger.d(' 📡  API Call: DELETE /categories/$id');
       await apiClient.delete('${ApiEndpoints.categories}$id/');
-
-      logger.i('✅ API Success: Catégorie supprimée');
+      logger.i(' ✅  API Success: Catégorie supprimée');
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   // ==================== BRANDS ====================
-
   @override
   Future<List<BrandModel>> getBrands({bool? isActive}) async {
     try {
-      logger.d('📡 API Call: GET /brands');
-
+      logger.d(' 📡  API Call: GET /brands');
       final queryParams = <String, dynamic>{};
       if (isActive != null) queryParams['is_active'] = isActive;
-
       final response = await apiClient.get(
         ApiEndpoints.brands,
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-
-      logger.i('✅ API Success: Marques récupérées');
-
-      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      logger.i(' ✅  API Success: Marques récupérées');
       final data = response.data as Map<String, dynamic>;
       final results = data['results'] as List;
-
       return results.map((json) => BrandModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -451,27 +441,23 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<BrandModel> getBrandById(String id) async {
     try {
-      logger.d('📡 API Call: GET /brands/$id');
-
+      logger.d(' 📡  API Call: GET /brands/$id');
       final response = await apiClient.get('${ApiEndpoints.brands}$id/');
-
-      logger.i('✅ API Success: Marque $id récupérée');
-
+      logger.i(' ✅  API Success: Marque $id récupérée');
       return BrandModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
-  Future<BrandModel> createBrand(Map<String, dynamic> data, String? logoPath) async {
+  Future<BrandModel> createBrand(
+      Map<String, dynamic> data, String? logoPath) async {
     try {
-      logger.d('📡 API Call: POST /brands');
-
+      logger.d(' 📡  API Call: POST /brands');
       dynamic requestData;
       if (logoPath != null && logoPath.isNotEmpty) {
-        // Upload avec FormData
         final formData = FormData.fromMap({
           ...data,
           'logo': await MultipartFile.fromFile(logoPath),
@@ -480,26 +466,23 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       } else {
         requestData = data;
       }
-
       final response = await apiClient.post(
         ApiEndpoints.brands,
         data: requestData,
       );
-
-      logger.i('✅ API Success: Marque créée');
-
+      logger.i(' ✅  API Success: Marque créée');
       return BrandModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
-  Future<BrandModel> updateBrand(String id, Map<String, dynamic> data, String? logoPath) async {
+  Future<BrandModel> updateBrand(
+      String id, Map<String, dynamic> data, String? logoPath) async {
     try {
-      logger.d('📡 API Call: PUT /brands/$id');
-
+      logger.d(' 📡  API Call: PUT /brands/$id');
       dynamic requestData;
       if (logoPath != null && logoPath.isNotEmpty) {
         final formData = FormData.fromMap({
@@ -510,17 +493,14 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       } else {
         requestData = data;
       }
-
       final response = await apiClient.put(
         '${ApiEndpoints.brands}$id/',
         data: requestData,
       );
-
-      logger.i('✅ API Success: Marque mise à jour');
-
+      logger.i(' ✅  API Success: Marque mise à jour');
       return BrandModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -528,41 +508,32 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<void> deleteBrand(String id) async {
     try {
-      logger.d('📡 API Call: DELETE /brands/$id');
-
+      logger.d(' 📡  API Call: DELETE /brands/$id');
       await apiClient.delete('${ApiEndpoints.brands}$id/');
-
-      logger.i('✅ API Success: Marque supprimée');
+      logger.i(' ✅  API Success: Marque supprimée');
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   // ==================== UNITS OF MEASURE ====================
-
   @override
   Future<List<UnitOfMeasureModel>> getUnitsOfMeasure({bool? isActive}) async {
     try {
-      logger.d('📡 API Call: GET /units-of-measure');
-
+      logger.d(' 📡  API Call: GET /units-of-measure');
       final queryParams = <String, dynamic>{};
       if (isActive != null) queryParams['is_active'] = isActive;
-
       final response = await apiClient.get(
         ApiEndpoints.units,
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-
-      logger.i('✅ API Success: Unités de mesure récupérées');
-
-      // ✅ CORRECTION : Accéder à results dans la réponse paginée
+      logger.i(' ✅  API Success: Unités de mesure récupérées');
       final data = response.data as Map<String, dynamic>;
       final results = data['results'] as List;
-
       return results.map((json) => UnitOfMeasureModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -570,53 +541,46 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<UnitOfMeasureModel> getUnitOfMeasureById(String id) async {
     try {
-      logger.d('📡 API Call: GET /units/$id');
-
+      logger.d(' 📡  API Call: GET /units/$id');
       final response = await apiClient.get('${ApiEndpoints.units}$id/');
-
-      logger.i('✅ API Success: Unité $id récupérée');
-
+      logger.i(' ✅  API Success: Unité $id récupérée');
       return UnitOfMeasureModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
-  Future<UnitOfMeasureModel> createUnitOfMeasure(Map<String, dynamic> data) async {
+  Future<UnitOfMeasureModel> createUnitOfMeasure(
+      Map<String, dynamic> data) async {
     try {
-      logger.d('📡 API Call: POST /units');
-
+      logger.d(' 📡  API Call: POST /units');
       final response = await apiClient.post(
         ApiEndpoints.units,
         data: data,
       );
-
-      logger.i('✅ API Success: Unité créée');
-
+      logger.i(' ✅  API Success: Unité créée');
       return UnitOfMeasureModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   @override
-  Future<UnitOfMeasureModel> updateUnitOfMeasure(String id, Map<String, dynamic> data) async {
+  Future<UnitOfMeasureModel> updateUnitOfMeasure(
+      String id, Map<String, dynamic> data) async {
     try {
-      logger.d('📡 API Call: PUT /units/$id');
-
+      logger.d(' 📡  API Call: PUT /units/$id');
       final response = await apiClient.put(
         '${ApiEndpoints.units}$id/',
         data: data,
       );
-
-      logger.i('✅ API Success: Unité mise à jour');
-
+      logger.i(' ✅  API Success: Unité mise à jour');
       return UnitOfMeasureModel.fromJson(response.data);
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
@@ -624,19 +588,16 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<void> deleteUnitOfMeasure(String id) async {
     try {
-      logger.d('📡 API Call: DELETE /units/$id');
-
+      logger.d(' 📡  API Call: DELETE /units/$id');
       await apiClient.delete('${ApiEndpoints.units}$id/');
-
-      logger.i('✅ API Success: Unité supprimée');
+      logger.i(' ✅  API Success: Unité supprimée');
     } on DioException catch (e) {
-      logger.e('❌ API Error: ${e.message}');
+      logger.e(' ❌  API Error: ${e.message}');
       throw _handleDioError(e);
     }
   }
 
   // ==================== GESTION DES ERREURS ====================
-
   Exception _handleDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -645,13 +606,11 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         return Exception(
           'Délai d\'attente dépassé. Vérifiez votre connexion.',
         );
-
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
         final message = error.response?.data?['detail'] ??
             error.response?.data?['message'] ??
             'Erreur serveur';
-
         switch (statusCode) {
           case 400:
             return Exception('Requête invalide: $message');
@@ -668,10 +627,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
           default:
             return Exception('Erreur HTTP $statusCode: $message');
         }
-
       case DioExceptionType.cancel:
         return Exception('Requête annulée');
-
       case DioExceptionType.unknown:
         if (error.message?.contains('SocketException') ?? false) {
           return Exception(
@@ -679,10 +636,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
           );
         }
         return Exception('Erreur inconnue: ${error.message}');
-
       default:
         return Exception('Erreur réseau: ${error.message}');
     }
   }
-
 }

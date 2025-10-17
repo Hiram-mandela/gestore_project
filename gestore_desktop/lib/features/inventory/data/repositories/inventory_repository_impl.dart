@@ -152,46 +152,54 @@ class InventoryRepositoryImpl implements InventoryRepository {
   // ⭐ CORRECTION: Signatures cohérentes
 
   @override
-  Future<(ArticleEntity?, String?)> createArticle(
+// ⭐ ÉTAPE 1: Mettre à jour la signature pour retourner ArticleDetailEntity
+  Future<(ArticleDetailEntity?, String?)> createArticle(
       Map<String, dynamic> data,
       String? imagePath,
       ) async {
     try {
-      logger.d('📦 Repository: Création article "${data['name']}"');
+      logger.d(' 📦  Repository: Création article "${data['name']}"');
       logger.d('   Code: ${data['code']}');
       logger.d('   Prix vente: ${data['selling_price']} FCFA');
 
-      final articleModel = await remoteDataSource.createArticle(data, imagePath);
-      final articleEntity = articleModel.toEntity();
+      // ⭐ ÉTAPE 2: La datasource retourne maintenant un ArticleDetailModel
+      final articleDetailModel = await remoteDataSource.createArticle(data, imagePath);
 
-      logger.i('✅ Repository: Article "${articleEntity.name}" créé avec succès');
-      return (articleEntity, null);
+      // ⭐ ÉTAPE 3: Convertir en ArticleDetailEntity et retourner
+      final articleDetailEntity = articleDetailModel.toEntity();
+
+      logger.i(' ✅  Repository: Article "${articleDetailEntity.name}" créé avec succès');
+      return (articleDetailEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
-      logger.e('❌ Repository: Erreur création article: $errorMessage');
+      logger.e(' ❌  Repository: Erreur création article: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }
 
   @override
-  Future<(ArticleEntity?, String?)> updateArticle(
+// ⭐ ÉTAPE 1: Mettre à jour la signature pour retourner ArticleDetailEntity
+  Future<(ArticleDetailEntity?, String?)> updateArticle(
       String id,
       Map<String, dynamic> data,
       String? imagePath,
       ) async {
     try {
-      logger.d('📦 Repository: Mise à jour article "${data['name']}" (ID: $id)');
+      logger.d(' 📦  Repository: Mise à jour article "${data['name']}" (ID: $id)');
       logger.d('   Code: ${data['code']}');
       logger.d('   Prix vente: ${data['selling_price']} FCFA');
 
-      final articleModel = await remoteDataSource.updateArticle(id, data, imagePath);
-      final articleEntity = articleModel.toEntity();
+      // ⭐ ÉTAPE 2: La datasource retourne maintenant un ArticleDetailModel
+      final articleDetailModel = await remoteDataSource.updateArticle(id, data, imagePath);
 
-      logger.i('✅ Repository: Article "${articleEntity.name}" mis à jour');
-      return (articleEntity, null);
+      // ⭐ ÉTAPE 3: Convertir en ArticleDetailEntity et retourner
+      final articleDetailEntity = articleDetailModel.toEntity();
+
+      logger.i(' ✅  Repository: Article "${articleDetailEntity.name}" mis à jour');
+      return (articleDetailEntity, null);
     } catch (e) {
       final errorMessage = e.toString();
-      logger.e('❌ Repository: Erreur mise à jour article: $errorMessage');
+      logger.e(' ❌  Repository: Erreur mise à jour article: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }

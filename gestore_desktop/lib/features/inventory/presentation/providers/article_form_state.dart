@@ -5,7 +5,9 @@
 // ========================================
 
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/article_entity.dart';
+
+import '../../domain/entities/article_detail_entity.dart';
+//import '../../domain/entities/article_entity.dart';
 
 /// Mode du formulaire
 enum ArticleFormMode {
@@ -114,7 +116,7 @@ class ArticleFormSubmitting extends ArticleFormState {
 
 /// État de succès
 class ArticleFormSuccess extends ArticleFormState {
-  final ArticleEntity article;
+  final ArticleDetailEntity article;
   final String message;
 
   const ArticleFormSuccess({

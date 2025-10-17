@@ -1,20 +1,21 @@
 // ========================================
 // lib/features/inventory/domain/usecases/create_article_usecase.dart
 // Use case pour créer un article
-// VERSION 2.0 - Support complet de tous les champs
+// VERSION 2.1 - CORRECTION: Noms de champs backend cohérents
 // ========================================
 
 import 'package:injectable/injectable.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/article_entity.dart';
+//import '../entities/article_entity.dart';
+import '../entities/article_detail_entity.dart';
 import '../repositories/inventory_repository.dart';
 
-/// Paramètres pour la création d'un article (VERSION 2.0 - 40+ champs)
+/// Paramètres pour la création d'un article (VERSION 2.1 - 40+ champs)
 class CreateArticleParams {
   // ==================== SECTION 1 : INFORMATIONS DE BASE ====================
   final String name;
   final String description;
-  final String shortDescription; // ⭐ NOUVEAU
+  final String shortDescription;
   final String code;
   final String articleType;
   final String? barcode;
@@ -27,7 +28,7 @@ class CreateArticleParams {
   final String? categoryId;
   final String? brandId;
   final String? unitOfMeasureId;
-  final String? mainSupplierId; // ⭐ NOUVEAU
+  final String? mainSupplierId;
 
   // ==================== SECTION 3 : GESTION DE STOCK ====================
   final bool manageStock;
@@ -48,14 +49,14 @@ class CreateArticleParams {
   final double? length;
   final double? width;
   final double? height;
-  final String? parentArticleId; // ⭐ NOUVEAU
-  final String? variantAttributes; // ⭐ NOUVEAU
+  final String? parentArticleId;
+  final String? variantAttributes;
   final String? imagePath;
   final bool isActive;
 
   // ==================== DONNÉES COMPLEXES ====================
-  final List<Map<String, dynamic>>? images; // ⭐ NOUVEAU
-  final List<Map<String, dynamic>>? additionalBarcodes; // ⭐ NOUVEAU
+  final List<Map<String, dynamic>>? images;
+  final List<Map<String, dynamic>>? additionalBarcodes;
 
   const CreateArticleParams({
     // Section 1
@@ -139,7 +140,8 @@ class CreateArticleParams {
     return null;
   }
 
-  /// Convertit les paramètres en Map pour l'API
+  /// ✅ CORRECTION: Convertit les paramètres en Map pour l'API
+  /// Utilise les noms de champs corrects attendus par le backend
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{
       // Section 1
@@ -148,7 +150,7 @@ class CreateArticleParams {
       'article_type': articleType,
     };
 
-    // Ajouter les champs optionnels seulement s'ils ne sont pas vides
+    // Ajouter les champs optionnels
     if (description.isNotEmpty) data['description'] = description.trim();
     if (shortDescription.isNotEmpty) data['short_description'] = shortDescription.trim();
     if (barcode != null && barcode!.isNotEmpty) data['barcode'] = barcode;
@@ -161,17 +163,22 @@ class CreateArticleParams {
     if (tags != null && tags!.isNotEmpty) data['tags'] = tags;
     if (notes != null && notes!.isNotEmpty) data['notes'] = notes;
 
-    // Section 2
-    if (categoryId != null && categoryId!.isNotEmpty) data['category'] = categoryId;
-    if (brandId != null && brandId!.isNotEmpty) data['brand'] = brandId;
+    // ⭐ CORRECTION CRITIQUE: Section 2 - Relations avec suffixe _id
+    // Le backend attend category_id, brand_id, unit_of_measure_id, main_supplier_id
+    if (categoryId != null && categoryId!.isNotEmpty) {
+      data['category_id'] = categoryId; // ✅ CORRIGÉ: category -> category_id
+    }
+    if (brandId != null && brandId!.isNotEmpty) {
+      data['brand_id'] = brandId; // ✅ CORRIGÉ: brand -> brand_id
+    }
     if (unitOfMeasureId != null && unitOfMeasureId!.isNotEmpty) {
-      data['unit_of_measure'] = unitOfMeasureId;
+      data['unit_of_measure_id'] = unitOfMeasureId; // ✅ CORRIGÉ: unit_of_measure -> unit_of_measure_id
     }
     if (mainSupplierId != null && mainSupplierId!.isNotEmpty) {
-      data['main_supplier'] = mainSupplierId;
+      data['main_supplier_id'] = mainSupplierId; // ✅ CORRIGÉ: main_supplier -> main_supplier_id
     }
 
-    // Section 3
+    // Section 3 - Gestion de stock
     data['manage_stock'] = manageStock;
     if (minStockLevel != null) data['min_stock_level'] = minStockLevel;
     if (maxStockLevel != null) data['max_stock_level'] = maxStockLevel;
@@ -181,29 +188,30 @@ class CreateArticleParams {
     data['is_purchasable'] = isPurchasable;
     data['allow_negative_stock'] = allowNegativeStock;
 
-    // Section 4
+    // Section 4 - Prix
     data['purchase_price'] = purchasePrice.toStringAsFixed(2);
     data['selling_price'] = sellingPrice.toStringAsFixed(2);
 
-    // Section 5
+    // Section 5 - Métadonnées
     if (weight != null && weight! > 0) data['weight'] = weight!.toStringAsFixed(2);
     if (length != null && length! > 0) data['length'] = length!.toStringAsFixed(1);
     if (width != null && width! > 0) data['width'] = width!.toStringAsFixed(1);
     if (height != null && height! > 0) data['height'] = height!.toStringAsFixed(1);
     if (parentArticleId != null && parentArticleId!.isNotEmpty) {
-      data['parent_article'] = parentArticleId;
+      data['parent_article_id'] = parentArticleId; // ✅ Cohérence avec suffixe _id
     }
     if (variantAttributes != null && variantAttributes!.isNotEmpty) {
       data['variant_attributes'] = variantAttributes;
     }
     data['is_active'] = isActive;
 
-    // Données complexes
+    // ⭐ CORRECTION: Données complexes avec les bons noms de champs backend
+    // Le backend attend 'images_data' et 'additional_barcodes_data' (write-only)
     if (images != null && images!.isNotEmpty) {
-      data['images'] = images;
+      data['images_data'] = images; // ✅ CORRIGÉ: images -> images_data
     }
     if (additionalBarcodes != null && additionalBarcodes!.isNotEmpty) {
-      data['additional_barcodes'] = additionalBarcodes;
+      data['additional_barcodes_data'] = additionalBarcodes; // ✅ CORRIGÉ: additional_barcodes -> additional_barcodes_data
     }
 
     return data;
@@ -212,21 +220,20 @@ class CreateArticleParams {
 
 /// Use case pour créer un article
 @lazySingleton
-class CreateArticleUseCase implements UseCase<ArticleEntity, CreateArticleParams> {
+class CreateArticleUseCase implements UseCase<ArticleDetailEntity, CreateArticleParams> {
   final InventoryRepository repository;
 
   CreateArticleUseCase({required this.repository});
 
   @override
-  Future<(ArticleEntity?, String?)> call(CreateArticleParams params) async {
+  Future<(ArticleDetailEntity?, String?)> call(CreateArticleParams params) async {
     // Validation
     final validationError = params.validate();
     if (validationError != null) {
       return (null, validationError);
     }
 
-    // ⭐ CORRECTION: Appel repository avec params.toJson() et params.imagePath
-    // Au lieu de passer params directement
+    // Appel repository avec params.toJson() et params.imagePath
     return await repository.createArticle(
       params.toJson(),
       params.imagePath,

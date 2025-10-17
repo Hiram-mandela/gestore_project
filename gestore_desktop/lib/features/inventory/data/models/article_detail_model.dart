@@ -1,9 +1,8 @@
 // ========================================
 // lib/features/inventory/data/models/article_detail_model.dart
 // Model complet pour le détail d'un article
-// VERSION 2.0 - Support de tous les champs de l'API
+// VERSION 2.2 - FIX: Parsing robuste des dates pour éviter les crashs
 // ========================================
-
 import '../../domain/entities/article_detail_entity.dart';
 import '../../domain/entities/article_entity.dart';
 import 'category_model.dart';
@@ -132,15 +131,15 @@ class ArticleDetailModel {
     required this.marginPercent,
     this.allBarcodes = '',
     this.variantsCount = 0,
-    this.createdBy = '',
+    this.createdBy,
     required this.createdAt,
-    this.updatedBy = '',
+    this.updatedBy,
     required this.updatedAt,
     this.syncStatus,
     required this.needsSync,
   });
 
-  /// Convertit le JSON de l'API en Model
+  /// ✅ FIX: Convertit le JSON de l'API en Model avec gestion robuste des null
   factory ArticleDetailModel.fromJson(Map<String, dynamic> json) {
     return ArticleDetailModel(
       id: json['id'] as String,
@@ -152,11 +151,8 @@ class ArticleDetailModel {
       barcode: json['barcode'] as String?,
       internalReference: json['internal_reference'] as String?,
       supplierReference: json['supplier_reference'] as String?,
-
-      // ⭐ CORRECTION: tags peut être String, List ou null
       tags: _parseStringOrList(json['tags']),
       notes: json['notes'] as String?,
-
       // Classification
       category: json['category'] != null
           ? CategoryModel.fromJson(json['category'] as Map<String, dynamic>)
@@ -165,77 +161,76 @@ class ArticleDetailModel {
           ? BrandModel.fromJson(json['brand'] as Map<String, dynamic>)
           : null,
       unitOfMeasure: json['unit_of_measure'] != null
-          ? UnitOfMeasureModel.fromJson(json['unit_of_measure'] as Map<String, dynamic>)
+          ? UnitOfMeasureModel.fromJson(
+          json['unit_of_measure'] as Map<String, dynamic>)
           : null,
       mainSupplier: json['main_supplier'] != null
-          ? SupplierModel.fromJson(json['main_supplier'] as Map<String, dynamic>)
+          ? SupplierModel.fromJson(
+          json['main_supplier'] as Map<String, dynamic>)
           : null,
-
       // Stock
       manageStock: json['manage_stock'] as bool? ?? true,
       minStockLevel: json['min_stock_level'] as int? ?? 0,
       maxStockLevel: json['max_stock_level'] as int? ?? 0,
-      requiresLotTracking: json['requires_lot_tracking'] as bool? ?? false,
-      requiresExpiryDate: json['requires_expiry_date'] as bool? ?? false,
+      requiresLotTracking:
+      json['requires_lot_tracking'] as bool? ?? false,
+      requiresExpiryDate:
+      json['requires_expiry_date'] as bool? ?? false,
       isSellable: json['is_sellable'] as bool? ?? true,
       isPurchasable: json['is_purchasable'] as bool? ?? true,
-      allowNegativeStock: json['allow_negative_stock'] as bool? ?? false,
-
-      // Prix - ⭐ CORRECTION: Parse String ou num
+      allowNegativeStock:
+      json['allow_negative_stock'] as bool? ?? false,
+      // Prix
       purchasePrice: _parsePrice(json['purchase_price']),
       sellingPrice: _parsePrice(json['selling_price']),
-
-      // Dimensions - ⭐ CORRECTION: Parse String ou num
+      // Dimensions
       weight: _parseDouble(json['weight']),
       length: _parseDouble(json['length']),
       width: _parseDouble(json['width']),
       height: _parseDouble(json['height']),
-
       // Variantes
       parentArticle: json['parent_article'] != null
-          ? ArticleModel.fromJson(json['parent_article'] as Map<String, dynamic>)
+          ? ArticleModel.fromJson(
+          json['parent_article'] as Map<String, dynamic>)
           : null,
       variantAttributes: _parseStringOrNull(json['variant_attributes']),
-
       // Images
       image: json['image'] as String?,
       imageUrl: json['image_url'] as String?,
-
       // Statut
       isActive: json['is_active'] as bool? ?? true,
       statusDisplay: json['status_display'] as String? ?? '',
-
-      // Données complexes
+      // Listes
       additionalBarcodes: (json['additional_barcodes'] as List<dynamic>?)
-          ?.map((e) => AdditionalBarcodeModel.fromJson(e as Map<String, dynamic>))
+          ?.map((e) =>
+          AdditionalBarcodeModel.fromJson(e as Map<String, dynamic>))
           .toList() ??
-          [],
+          const [],
       images: (json['images'] as List<dynamic>?)
-          ?.map((e) => ArticleImageModel.fromJson(e as Map<String, dynamic>))
+          ?.map(
+              (e) => ArticleImageModel.fromJson(e as Map<String, dynamic>))
           .toList() ??
-          [],
-      priceHistory: json['price_history'] as List<dynamic>? ?? [],
+          const [],
+      priceHistory: (json['price_history'] as List<dynamic>?) ?? const [],
       variants: (json['variants'] as List<dynamic>?)
           ?.map((e) => ArticleModel.fromJson(e as Map<String, dynamic>))
           .toList() ??
-          [],
-
+          const [],
       // Stock
       currentStock: _parseDouble(json['current_stock']) ?? 0.0,
       availableStock: _parseDouble(json['available_stock']) ?? 0.0,
       reservedStock: _parseDouble(json['reserved_stock']),
       isLowStock: _parseBool(json['is_low_stock']),
-
-      // Calculs - ⭐ CORRECTION: all_barcodes peut être List ou String
       marginPercent: _parseDouble(json['margin_percent']) ?? 0.0,
       allBarcodes: _parseStringOrList(json['all_barcodes']) ?? '',
       variantsCount: _parseInt(json['variants_count']) ?? 0,
-
       // Audit
       createdBy: json['created_by'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      // ⭐ FIX CRITIQUE: Utilisation d'un helper pour parser les dates de manière robuste
+      createdAt: _parseDateTime(json['created_at']),
       updatedBy: json['updated_by'] as String?,
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      // ⭐ FIX CRITIQUE: Utilisation d'un helper pour parser les dates de manière robuste
+      updatedAt: _parseDateTime(json['updated_at']),
       syncStatus: json['sync_status'] as String?,
       needsSync: _parseBool(json['needs_sync']),
     );
@@ -279,7 +274,8 @@ class ArticleDetailModel {
       imageUrl: imageUrl,
       isActive: isActive,
       statusDisplay: statusDisplay,
-      additionalBarcodes: additionalBarcodes.map((e) => e.toEntity()).toList(),
+      additionalBarcodes:
+      additionalBarcodes.map((e) => e.toEntity()).toList(),
       images: images.map((e) => e.toEntity()).toList(),
       priceHistory: priceHistory,
       variants: variants.map((e) => e.toEntity()).toList(),
@@ -301,7 +297,7 @@ class ArticleDetailModel {
 
   // ==================== HELPERS DE PARSING ====================
 
-  /// Parse un prix depuis String, num ou null
+  /// ✅ Parse un prix depuis String, num ou null
   static double _parsePrice(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -313,7 +309,7 @@ class ArticleDetailModel {
     return 0.0;
   }
 
-  /// Parse un double depuis String, num ou null
+  /// ✅ Parse un double depuis String, num ou null
   static double? _parseDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
@@ -326,7 +322,7 @@ class ArticleDetailModel {
     return null;
   }
 
-  /// Parse un int depuis String, num ou null
+  /// ✅ Parse un int depuis String, num ou null
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -338,7 +334,7 @@ class ArticleDetailModel {
     return null;
   }
 
-  /// Parse un bool depuis diverses sources
+  /// ✅ Parse un bool depuis diverses sources
   static bool _parseBool(dynamic value) {
     if (value == null) return false;
     if (value is bool) return value;
@@ -349,7 +345,7 @@ class ArticleDetailModel {
     return false;
   }
 
-  /// Parse String ou null (gère les objets JSON vides)
+  /// ✅ Parse String ou null (gère les objets JSON vides)
   static String? _parseStringOrNull(dynamic value) {
     if (value == null) return null;
     if (value is String) {
@@ -360,21 +356,33 @@ class ArticleDetailModel {
     return value.toString();
   }
 
-  /// ⭐ NOUVEAU: Parse une valeur qui peut être String, List ou null
-  /// Si c'est une List, la convertit en String séparé par des virgules
+  /// ✅ Parse une valeur qui peut être String, List ou null
   static String? _parseStringOrList(dynamic value) {
     if (value == null) return null;
-
     if (value is String) {
       return value.isEmpty ? null : value;
     }
-
     if (value is List) {
       if (value.isEmpty) return null;
-      // Convertir la liste en string séparé par des virgules
       return value.map((e) => e.toString()).join(', ');
     }
-
     return value.toString();
+  }
+
+  /// ⭐ NOUVEAU: Parse un DateTime de manière robuste, avec fallback
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) {
+      try {
+        // L'API renvoie "YYYY-MM-DD HH:MM:SS".
+        // On remplace l'espace par 'T' pour la compatibilité ISO 8601
+        final isoString = value.replaceFirst(' ', 'T');
+        return DateTime.parse(isoString);
+      } catch (e) {
+        // En cas d'échec du parsing, on retourne la date actuelle
+        return DateTime.now();
+      }
+    }
+    // Si la valeur n'est pas un String (ex: null), on retourne aussi la date actuelle
+    return DateTime.now();
   }
 }
