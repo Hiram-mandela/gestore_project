@@ -39,24 +39,29 @@ abstract class InventoryRepository {
   Future<(List<ArticleEntity>?, String?)> getExpiringSoonArticles();
 
   // ==================== CRUD ARTICLES ====================
-  // ⭐ CORRECTION: Signatures cohérentes avec Map + imagePath
 
-  /// Crée un nouvel article
-  /// [data] : Map contenant les données
-  /// [imagePath] : Chemin optionnel de l'image
+  /// Crée un nouvel article avec support multi-images
+  ///
+  /// [data] Les données de l'article
+  /// [primaryImagePath] Chemin local de l'image principale (optionnel)
+  /// [secondaryImagePaths] Liste des chemins locaux des images secondaires (optionnel)
   Future<(ArticleDetailEntity?, String?)> createArticle(
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU
       );
 
-  /// Met à jour un article existant
-  /// [id] : ID de l'article
-  /// [data] : Map contenant les données à mettre à jour
-  /// [imagePath] : Chemin optionnel de la nouvelle image
+  /// Met à jour un article existant avec support multi-images
+  ///
+  /// [id] ID de l'article à mettre à jour
+  /// [data] Les nouvelles données de l'article
+  /// [primaryImagePath] Nouveau chemin de l'image principale (optionnel)
+  /// [secondaryImagePaths] Nouveaux chemins des images secondaires (optionnel)
   Future<(ArticleDetailEntity?, String?)> updateArticle(
       String id,
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU
       );
 
   /// Supprime un article

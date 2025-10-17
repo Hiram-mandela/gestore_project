@@ -149,58 +149,74 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   // ==================== ARTICLES - CRUD ====================
-  // ⭐ CORRECTION: Signatures cohérentes
 
   @override
-// ⭐ ÉTAPE 1: Mettre à jour la signature pour retourner ArticleDetailEntity
   Future<(ArticleDetailEntity?, String?)> createArticle(
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU paramètre
       ) async {
     try {
-      logger.d(' 📦  Repository: Création article "${data['name']}"');
-      logger.d('   Code: ${data['code']}');
-      logger.d('   Prix vente: ${data['selling_price']} FCFA');
+      logger.d(' 🔄  Repository: Création article...');
 
-      // ⭐ ÉTAPE 2: La datasource retourne maintenant un ArticleDetailModel
-      final articleDetailModel = await remoteDataSource.createArticle(data, imagePath);
+      // ⭐ Passer les images secondaires au datasource
+      final articleModel = await remoteDataSource.createArticle(
+        data,
+        primaryImagePath,
+        secondaryImagePaths, // ✅ Nouveau paramètre
+      );
 
-      // ⭐ ÉTAPE 3: Convertir en ArticleDetailEntity et retourner
-      final articleDetailEntity = articleDetailModel.toEntity();
+      final articleEntity = articleModel.toEntity();
 
-      logger.i(' ✅  Repository: Article "${articleDetailEntity.name}" créé avec succès');
-      return (articleDetailEntity, null);
+      logger.i(' ✅  Repository: Article "${articleEntity.name}" créé avec succès');
+
+      // Compter les images
+      final imageCount = articleEntity.images.length;
+      if (imageCount > 0) {
+        logger.i('    📸 $imageCount image(s) uploadée(s)');
+      }
+
+      return (articleEntity, null);
     } catch (e) {
-      final errorMessage = e.toString();
-      logger.e(' ❌  Repository: Erreur création article: $errorMessage');
-      return (null, _extractErrorMessage(errorMessage));
+      final errorMessage = 'Erreur création article: ${e.toString()}';
+      logger.e(' ❌  Repository Error: $errorMessage');
+      return (null, errorMessage);
     }
   }
 
   @override
-// ⭐ ÉTAPE 1: Mettre à jour la signature pour retourner ArticleDetailEntity
   Future<(ArticleDetailEntity?, String?)> updateArticle(
       String id,
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU paramètre
       ) async {
     try {
-      logger.d(' 📦  Repository: Mise à jour article "${data['name']}" (ID: $id)');
-      logger.d('   Code: ${data['code']}');
-      logger.d('   Prix vente: ${data['selling_price']} FCFA');
+      logger.d(' 🔄  Repository: Mise à jour article $id...');
 
-      // ⭐ ÉTAPE 2: La datasource retourne maintenant un ArticleDetailModel
-      final articleDetailModel = await remoteDataSource.updateArticle(id, data, imagePath);
+      // ⭐ Passer les images secondaires au datasource
+      final articleModel = await remoteDataSource.updateArticle(
+        id,
+        data,
+        primaryImagePath,
+        secondaryImagePaths, // ✅ Nouveau paramètre
+      );
 
-      // ⭐ ÉTAPE 3: Convertir en ArticleDetailEntity et retourner
-      final articleDetailEntity = articleDetailModel.toEntity();
+      final articleEntity = articleModel.toEntity();
 
-      logger.i(' ✅  Repository: Article "${articleDetailEntity.name}" mis à jour');
-      return (articleDetailEntity, null);
+      logger.i(' ✅  Repository: Article "${articleEntity.name}" mis à jour');
+
+      // Compter les images
+      final imageCount = articleEntity.images.length;
+      if (imageCount > 0) {
+        logger.i('    📸 $imageCount image(s) au total');
+      }
+
+      return (articleEntity, null);
     } catch (e) {
-      final errorMessage = e.toString();
-      logger.e(' ❌  Repository: Erreur mise à jour article: $errorMessage');
-      return (null, _extractErrorMessage(errorMessage));
+      final errorMessage = 'Erreur mise à jour article: ${e.toString()}';
+      logger.e(' ❌  Repository Error: $errorMessage');
+      return (null, errorMessage);
     }
   }
 

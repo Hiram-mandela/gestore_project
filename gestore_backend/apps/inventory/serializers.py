@@ -375,6 +375,7 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
     """
     Serializer complet pour les articles, gérant toutes les relations,
     l'upload de fichiers (multipart/form-data) et les données imbriquées.
+    VERSION 2.0 - Support upload multi-images avec fichiers
     """
     # --- Champs de base et relations (lecture seule) ---
     article_type = serializers.CharField()
@@ -414,8 +415,22 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
     main_supplier_id = serializers.CharField(write_only=True, required=False, allow_null=True)
     parent_article_id = serializers.CharField(write_only=True, required=False, allow_null=True)
 
+    # Image principale
     image = serializers.ImageField(required=False, allow_null=True, use_url=True)
+    
+    # ⭐ NOUVEAU: Champ pour les fichiers images secondaires
+    secondary_images = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+        help_text="Liste des fichiers images secondaires à uploader"
+    )
+    
+    # Métadonnées des images (alt_text, caption, etc.)
     images_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    
+    # Codes-barres additionnels
     additional_barcodes_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     # --- Relations imbriquées (lecture seule) ---
@@ -445,7 +460,7 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
             'max_stock_level', 'requires_lot_tracking', 'requires_expiry_date',
             'is_sellable', 'is_purchasable', 'allow_negative_stock',
             'parent_article', 'parent_article_id', 'variant_attributes',
-            'image', 'image_url', 'weight', 'length', 'width', 'height',
+            'image', 'image_url', 'secondary_images', 'weight', 'length', 'width', 'height',
             'tags', 'notes', 'is_active', 'status_display',
             'images_data', 'additional_barcodes_data',
             'additional_barcodes', 'images', 'price_history', 'variants',
@@ -463,16 +478,21 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
         return image_url
 
     def create(self, validated_data):
+        """
+        Crée un article avec images multiples et codes-barres
+        VERSION 2.0 - Support upload multi-images avec fichiers
+        """
         with transaction.atomic():
-            # 1. Isoler le fichier image et les données JSON
+            # 1. Extraire les fichiers et données JSON
             main_image_file = validated_data.pop('image', None)
+            secondary_image_files = validated_data.pop('secondary_images', [])
             images_data_str = validated_data.pop('images_data', '[]')
             barcodes_data_str = validated_data.pop('additional_barcodes_data', '[]')
             
             images_data = json.loads(images_data_str) if images_data_str else []
             barcodes_data = json.loads(barcodes_data_str) if barcodes_data_str else []
 
-            # Extraire les IDs de relations
+            # 2. Extraire les IDs de relations
             category_id = validated_data.pop('category_id', None)
             brand_id = validated_data.pop('brand_id', None)
             unit_of_measure_id = validated_data.pop('unit_of_measure_id', None)
@@ -485,15 +505,15 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
             if main_supplier_id: validated_data['main_supplier_id'] = main_supplier_id
             if parent_article_id: validated_data['parent_article_id'] = parent_article_id
             
-            # 2. Créer l'article
+            # 3. Créer l'article
             article = Article.objects.create(**validated_data)
 
-            # 3. Créer les codes-barres
+            # 4. Créer les codes-barres
             if barcodes_data:
                 for item in barcodes_data:
                     ArticleBarcode.objects.create(article=article, **item)
             
-            # 4. ⭐ CORRECTION : Créer l'image principale si un fichier a été envoyé
+            # 5. ⭐ Créer l'image principale si un fichier a été envoyé
             if main_image_file:
                 ArticleImage.objects.create(
                     article=article,
@@ -502,11 +522,26 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
                     order=0
                 )
 
-            # 5. Créer les images secondaires
-            if images_data:
+            # 6. ⭐ NOUVEAU: Créer les images secondaires AVEC fichiers
+            if secondary_image_files:
+                for idx, image_file in enumerate(secondary_image_files, start=1):
+                    # Récupérer les métadonnées correspondantes si elles existent
+                    metadata = {}
+                    if idx - 1 < len(images_data):
+                        metadata = images_data[idx - 1]
+                    
+                    ArticleImage.objects.create(
+                        article=article,
+                        image=image_file,  # ✅ Fichier uploadé
+                        alt_text=metadata.get('alt_text', ''),
+                        caption=metadata.get('caption', ''),
+                        is_primary=False,
+                        order=idx
+                    )
+            elif images_data:
+                # Si pas de fichiers mais des métadonnées, créer quand même (pour compatibilité)
                 for idx, item in enumerate(images_data, start=1):
-                    item.pop('image_path', None)
-                    # S'assurer que is_primary est False pour les images secondaires
+                    item.pop('image_path', None)  # Supprimer le chemin local si présent
                     item['is_primary'] = False
                     item['order'] = idx
                     ArticleImage.objects.create(article=article, **item)
@@ -514,37 +549,78 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
         return article
 
     def update(self, instance, validated_data):
+        """
+        Met à jour un article avec images multiples et codes-barres
+        VERSION 2.0 - Support upload multi-images avec fichiers
+        """
         with transaction.atomic():
             main_image_file = validated_data.pop('image', None)
+            secondary_image_files = validated_data.pop('secondary_images', [])
             images_data_str = validated_data.pop('images_data', None)
             barcodes_data_str = validated_data.pop('additional_barcodes_data', None)
 
+            # Mettre à jour les champs de l'article
             instance = super().update(instance, validated_data)
 
+            # Mettre à jour les codes-barres
             if barcodes_data_str is not None:
                 barcodes_data = json.loads(barcodes_data_str) if barcodes_data_str else []
                 instance.additional_barcodes.all().delete()
                 for item in barcodes_data:
                     ArticleBarcode.objects.create(article=instance, **item)
             
+            # ⭐ Mettre à jour les images
             if images_data_str is not None:
                 images_data = json.loads(images_data_str) if images_data_str else []
+                
+                # Supprimer toutes les anciennes images
                 instance.images.all().delete()
-                for item in images_data:
-                    item.pop('image_path', None)
-                    is_primary = item.pop('is_primary', False)
-                    new_image = ArticleImage.objects.create(article=instance, is_primary=is_primary, **item)
-                    if is_primary and main_image_file:
-                        new_image.image = main_image_file
-                        new_image.save()
+                
+                # Créer l'image principale si fichier fourni
+                if main_image_file:
+                    ArticleImage.objects.create(
+                        article=instance,
+                        image=main_image_file,
+                        is_primary=True,
+                        order=0
+                    )
+                
+                # ⭐ Créer les images secondaires AVEC fichiers
+                if secondary_image_files:
+                    for idx, image_file in enumerate(secondary_image_files, start=1):
+                        metadata = {}
+                        if idx - 1 < len(images_data):
+                            metadata = images_data[idx - 1]
+                        
+                        ArticleImage.objects.create(
+                            article=instance,
+                            image=image_file,
+                            alt_text=metadata.get('alt_text', ''),
+                            caption=metadata.get('caption', ''),
+                            is_primary=False,
+                            order=idx
+                        )
+                elif images_data:
+                    # Si pas de nouveaux fichiers, recréer avec métadonnées
+                    for idx, item in enumerate(images_data, start=1):
+                        item.pop('image_path', None)
+                        item['is_primary'] = False
+                        item['order'] = idx
+                        ArticleImage.objects.create(article=instance, **item)
+            
             elif main_image_file:
+                # Si seulement l'image principale est fournie
                 primary_image = instance.images.filter(is_primary=True).first()
                 if primary_image:
                     primary_image.image = main_image_file
                     primary_image.save()
                 else:
-                    instance.images.all().delete()
-                    ArticleImage.objects.create(article=instance, image=main_image_file, is_primary=True, order=0)
+                    ArticleImage.objects.create(
+                        article=instance,
+                        image=main_image_file,
+                        is_primary=True,
+                        order=0
+                    )
         
         return instance
 
@@ -555,6 +631,7 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
         return obj.get_available_stock()
 
     def get_reserved_stock(self, obj):
+        from django.db.models import Sum
         return obj.stock_entries.aggregate(total=Sum('quantity_reserved'))['total'] or 0
 
     def get_is_low_stock(self, obj):
@@ -568,7 +645,7 @@ class ArticleDetailSerializer(AuditableSerializer, NamedModelSerializer, Activab
 
     def get_variants_count(self, obj):
         return getattr(obj, 'variants_count', 0)
-    
+       
 # ========================
 # EMPLACEMENTS ET STOCKS
 # ========================

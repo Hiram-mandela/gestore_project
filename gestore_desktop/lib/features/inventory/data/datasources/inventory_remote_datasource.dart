@@ -3,7 +3,8 @@
 // DataSource pour les appels API du module inventory
 // VERSION 2.2 - FIX: Gestion correcte de FormData pour l'upload de fichiers
 // ========================================
-import 'dart:convert'; // Import pour jsonEncode
+import 'dart:convert'; // Import pour jsonE
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
@@ -39,8 +40,18 @@ abstract class InventoryRemoteDataSource {
   Future<List<ArticleModel>> getExpiringSoonArticles();
 
   // ==================== ARTICLES - CRUD ====================
-  Future<ArticleDetailModel> createArticle(Map<String, dynamic> data, String? imagePath);
-  Future<ArticleDetailModel> updateArticle(String id, Map<String, dynamic> data, String? imagePath);
+  Future<ArticleDetailModel> createArticle(
+      Map<String, dynamic> data,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU paramètre
+      );
+
+  Future<ArticleDetailModel> updateArticle(
+      String id,
+      Map<String, dynamic> data,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths, // ⭐ NOUVEAU paramètre
+      );
   Future<void> deleteArticle(String id);
 
   // ==================== CATEGORIES ====================
@@ -208,54 +219,131 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   @override
   Future<ArticleDetailModel> createArticle(
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths,
       ) async {
     try {
-      logger.d(' 📡  API Call: POST /articles (création)');
+      logger.d(' 📡  API Call: POST /articles (création avec multi-images)');
       final Map<String, dynamic> formDataMap = {};
 
       // 1. Ajouter toutes les paires clé-valeur simples
       data.forEach((key, value) {
-        if (key != 'images_data' && key != 'additional_barcodes_data') {
+        if (key != 'images_data' &&
+            key != 'additional_barcodes_data' &&
+            key != 'secondary_images') {
           if (value != null) {
             formDataMap[key] = value;
           }
         }
       });
 
-      // 2. Traiter les listes
-      // ⭐ CORRECTION : On filtre la liste pour n'envoyer que les images SECONDAIRES.
-      // L'image principale est déjà gérée par le 'imagePath' et le champ 'image'.
-      if (data['images_data'] != null) {
-        final List<dynamic> secondaryImages = (data['images_data'] as List)
-            .where((img) => !(img['is_primary'] as bool? ?? false))
-            .toList();
-        if (secondaryImages.isNotEmpty) {
-          formDataMap['images_data'] = jsonEncode(secondaryImages);
-        }
-      }
+      // 2. Traiter les codes-barres additionnels
       if (data['additional_barcodes_data'] != null &&
           (data['additional_barcodes_data'] as List).isNotEmpty) {
         formDataMap['additional_barcodes_data'] =
             jsonEncode(data['additional_barcodes_data']);
       }
 
-      // 3. Ajouter le fichier de l'image principale s'il existe
-      if (imagePath != null && imagePath.isNotEmpty) {
-        formDataMap['image'] = await MultipartFile.fromFile(
-          imagePath,
-          filename: imagePath.split(RegExp(r'[/\\]')).last,
-        );
-        logger.d('   Image principale envoyée: ${formDataMap['image'].filename}');
+      // 3. ⭐ Image principale: Upload du fichier
+      if (primaryImagePath != null && primaryImagePath.isNotEmpty) {
+        final file = File(primaryImagePath);
+        if (await file.exists()) {
+          formDataMap['image'] = await MultipartFile.fromFile(
+            primaryImagePath,
+            filename: primaryImagePath.split(RegExp(r'[/\\]')).last,
+          );
+          logger.d('   📸 Image principale uploadée: ${formDataMap['image'].filename}');
+        } else {
+          logger.w('   ⚠️  Fichier image principale introuvable: $primaryImagePath');
+        }
       }
 
+      // 4. ⭐ NOUVEAU: Images secondaires - Upload des fichiers
+      if (secondaryImagePaths != null && secondaryImagePaths.isNotEmpty) {
+        final secondaryFiles = <MultipartFile>[];
+        final metadataList = <Map<String, dynamic>>[];
+
+        // Récupérer les métadonnées depuis data['images_data']
+        List<dynamic> allImagesData = [];
+        if (data['images_data'] != null) {
+          allImagesData = data['images_data'] as List;
+        }
+
+        int fileIndex = 0;
+        for (final imagePath in secondaryImagePaths) {
+          final file = File(imagePath);
+
+          if (await file.exists()) {
+            // Ajouter le fichier
+            final multipartFile = await MultipartFile.fromFile(
+              imagePath,
+              filename: imagePath.split(RegExp(r'[/\\]')).last,
+            );
+            secondaryFiles.add(multipartFile);
+
+            // Récupérer les métadonnées correspondantes
+            Map<String, dynamic> metadata = {
+              'alt_text': '',
+              'caption': '',
+              'order': fileIndex + 1,
+            };
+
+            // Chercher les métadonnées dans allImagesData
+            if (fileIndex < allImagesData.length) {
+              final imgData = allImagesData[fileIndex];
+              if (imgData is Map<String, dynamic>) {
+                metadata['alt_text'] = imgData['alt_text'] ?? '';
+                metadata['caption'] = imgData['caption'] ?? '';
+                metadata['order'] = imgData['order'] ?? (fileIndex + 1);
+              }
+            }
+
+            metadataList.add(metadata);
+            fileIndex++;
+
+            logger.d('   📸 Image secondaire ${fileIndex}: ${multipartFile.filename}');
+          } else {
+            logger.w('   ⚠️  Fichier image secondaire introuvable: $imagePath');
+          }
+        }
+
+        // Ajouter les fichiers et métadonnées au FormData
+        if (secondaryFiles.isNotEmpty) {
+          formDataMap['secondary_images'] = secondaryFiles;
+          formDataMap['images_data'] = jsonEncode(metadataList);
+
+          logger.i('   ✅ ${secondaryFiles.length} images secondaires préparées');
+        }
+      } else {
+        // Pas de fichiers secondaires mais peut-être des métadonnées
+        if (data['images_data'] != null) {
+          final allImages = data['images_data'] as List;
+
+          // Filtrer pour exclure l'image principale
+          final secondaryMetadata = allImages
+              .where((img) => !(img['is_primary'] as bool? ?? false))
+              .map((img) {
+            final cleaned = Map<String, dynamic>.from(img);
+            cleaned.remove('image_path'); // Supprimer le chemin local
+            return cleaned;
+          })
+              .toList();
+
+          if (secondaryMetadata.isNotEmpty) {
+            formDataMap['images_data'] = jsonEncode(secondaryMetadata);
+            logger.w('   ⚠️  ${secondaryMetadata.length} images secondaires créées SANS fichiers');
+          }
+        }
+      }
+
+      // 5. Créer le FormData et envoyer la requête
       final formData = FormData.fromMap(formDataMap);
       final response = await apiClient.post(
         ApiEndpoints.articles,
         data: formData,
       );
 
-      logger.i(' ✅  API Success: Article créé');
+      logger.i(' ✅  API Success: Article créé avec images');
       return ArticleDetailModel.fromJson(response.data);
     } on DioException catch (e) {
       logger.e(' ❌  API Error createArticle: ${e.response?.data ?? e.message}');
@@ -270,40 +358,103 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   Future<ArticleDetailModel> updateArticle(
       String id,
       Map<String, dynamic> data,
-      String? imagePath,
+      String? primaryImagePath,
+      List<String>? secondaryImagePaths,
       ) async {
     try {
-      logger.d(' 📡  API Call: PATCH /articles/$id/ (mise à jour)');
+      logger.d(' 📡  API Call: PATCH /articles/$id/ (mise à jour avec multi-images)');
       final Map<String, dynamic> formDataMap = {};
 
+      // 1. Copier les champs simples
       data.forEach((key, value) {
-        if (key != 'images_data' && key != 'additional_barcodes_data') {
+        if (key != 'images_data' &&
+            key != 'additional_barcodes_data' &&
+            key != 'secondary_images') {
           if (value != null) {
             formDataMap[key] = value;
           }
         }
       });
 
-      // ⭐ CORRECTION : On applique la même logique de filtrage ici.
-      if (data['images_data'] != null) {
-        final List<dynamic> secondaryImages = (data['images_data'] as List)
-            .where((img) => !(img['is_primary'] as bool? ?? false))
-            .toList();
-        if (secondaryImages.isNotEmpty) {
-          formDataMap['images_data'] = jsonEncode(secondaryImages);
-        }
-      }
+      // 2. Codes-barres
       if (data['additional_barcodes_data'] != null) {
         formDataMap['additional_barcodes_data'] =
             jsonEncode(data['additional_barcodes_data']);
       }
 
-      if (imagePath != null && imagePath.isNotEmpty) {
-        formDataMap['image'] = await MultipartFile.fromFile(
-          imagePath,
-          filename: imagePath.split(RegExp(r'[/\\]')).last,
-        );
-        logger.d('   Nouvelle image principale: ${formDataMap['image'].filename}');
+      // 3. Image principale
+      if (primaryImagePath != null && primaryImagePath.isNotEmpty) {
+        final file = File(primaryImagePath);
+        if (await file.exists()) {
+          formDataMap['image'] = await MultipartFile.fromFile(
+            primaryImagePath,
+            filename: primaryImagePath.split(RegExp(r'[/\\]')).last,
+          );
+          logger.d('   📸 Nouvelle image principale: ${formDataMap['image'].filename}');
+        }
+      }
+
+      // 4. ⭐ Images secondaires
+      if (secondaryImagePaths != null && secondaryImagePaths.isNotEmpty) {
+        final secondaryFiles = <MultipartFile>[];
+        final metadataList = <Map<String, dynamic>>[];
+
+        List<dynamic> allImagesData = [];
+        if (data['images_data'] != null) {
+          allImagesData = data['images_data'] as List;
+        }
+
+        int fileIndex = 0;
+        for (final imagePath in secondaryImagePaths) {
+          final file = File(imagePath);
+
+          if (await file.exists()) {
+            final multipartFile = await MultipartFile.fromFile(
+              imagePath,
+              filename: imagePath.split(RegExp(r'[/\\]')).last,
+            );
+            secondaryFiles.add(multipartFile);
+
+            Map<String, dynamic> metadata = {
+              'alt_text': '',
+              'caption': '',
+              'order': fileIndex + 1,
+            };
+
+            if (fileIndex < allImagesData.length) {
+              final imgData = allImagesData[fileIndex];
+              if (imgData is Map<String, dynamic>) {
+                metadata['alt_text'] = imgData['alt_text'] ?? '';
+                metadata['caption'] = imgData['caption'] ?? '';
+                metadata['order'] = imgData['order'] ?? (fileIndex + 1);
+              }
+            }
+
+            metadataList.add(metadata);
+            fileIndex++;
+          }
+        }
+
+        if (secondaryFiles.isNotEmpty) {
+          formDataMap['secondary_images'] = secondaryFiles;
+          formDataMap['images_data'] = jsonEncode(metadataList);
+
+          logger.i('   ✅ ${secondaryFiles.length} images secondaires mises à jour');
+        }
+      } else if (data['images_data'] != null) {
+        final allImages = data['images_data'] as List;
+        final secondaryMetadata = allImages
+            .where((img) => !(img['is_primary'] as bool? ?? false))
+            .map((img) {
+          final cleaned = Map<String, dynamic>.from(img);
+          cleaned.remove('image_path');
+          return cleaned;
+        })
+            .toList();
+
+        if (secondaryMetadata.isNotEmpty) {
+          formDataMap['images_data'] = jsonEncode(secondaryMetadata);
+        }
       }
 
       final formData = FormData.fromMap(formDataMap);

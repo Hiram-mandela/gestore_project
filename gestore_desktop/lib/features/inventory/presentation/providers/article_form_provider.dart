@@ -1,7 +1,7 @@
 // ========================================
 // lib/features/inventory/presentation/providers/article_form_provider.dart
 // Provider Riverpod pour le formulaire article
-// VERSION 3.2 FINALE - Utilisation correcte de CreateArticleParams et UpdateArticleParams
+// VERSION 4.0 FINALE - Support upload multi-images avec fichiers
 // ========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,11 +97,11 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       ))
           .toList();
 
-      // ✅ Conversion correcte des codes-barres additionnels
+      // Conversion correcte des codes-barres additionnels
       final additionalBarcodes = article.additionalBarcodes
           .map((barcode) => AdditionalBarcodeData(
         barcode: barcode.barcode,
-        barcodeType: barcode.barcodeType.value, // ✅ enum -> String
+        barcodeType: barcode.barcodeType.value,
         isPrimary: barcode.isPrimary,
       ))
           .toList();
@@ -111,7 +111,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
         code: article.code,
         description: article.description ?? '',
         shortDescription: article.shortDescription ?? '',
-        articleType: article.articleType.value, // ✅ enum -> String
+        articleType: article.articleType.value,
         barcode: article.barcode ?? '',
         internalReference: article.internalReference ?? '',
         supplierReference: article.supplierReference ?? '',
@@ -362,7 +362,7 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     } catch (e) {
       logger.e('❌ Erreur: $e');
 
-      // ✅ Gestion erreurs API par champ
+      // Gestion erreurs API par champ
       if (e is DioException && e.response?.statusCode == 400) {
         final responseData = e.response?.data;
         if (responseData is Map<String, dynamic>) {
@@ -401,10 +401,14 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
   String _getErrorMessage(dynamic error) {
     if (error is DioException) {
       switch (error.response?.statusCode) {
-        case 400: return 'Données invalides';
-        case 409: return 'Cet article existe déjà';
-        case 404: return 'Article introuvable';
-        case 500: return 'Erreur serveur';
+        case 400:
+          return 'Données invalides';
+        case 409:
+          return 'Cet article existe déjà';
+        case 404:
+          return 'Article introuvable';
+        case 500:
+          return 'Erreur serveur';
       }
     }
     return 'Erreur: $error';
@@ -426,8 +430,14 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
 
   // ==================== CRÉATION / MISE À JOUR ====================
 
-  /// ✅ Crée un article avec CreateArticleParams
+  /// ⭐ Crée un article avec gestion des images multiples
   Future<void> _createArticle(ArticleFormData data) async {
+    // ⭐ Extraire le chemin de l'image principale
+    final primaryImagePath = _extractPrimaryImagePath(data);
+
+    // ⭐ NOUVEAU: Extraire les chemins des images secondaires
+    final secondaryImagePaths = _extractSecondaryImagePaths(data);
+
     final params = CreateArticleParams(
       name: data.name,
       code: data.code,
@@ -459,7 +469,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       height: data.height > 0 ? data.height : null,
       parentArticleId: data.parentArticleId,
       variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
-      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
+      primaryImagePath: primaryImagePath, // ✅ Image principale
+      secondaryImagePaths: secondaryImagePaths, // ⭐ NOUVEAU: Images secondaires
       isActive: data.isActive,
       images: data.images.isNotEmpty ? _prepareImagesForApi(data.images) : null,
       additionalBarcodes: data.additionalBarcodes.isNotEmpty ? _prepareBarcodesForApi(data.additionalBarcodes) : null,
@@ -477,9 +488,13 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     logger.i('✅ Créé: ${article.name}');
   }
 
-  /// ✅ Met à jour un article avec UpdateArticleParams
+  /// ⭐ Met à jour un article avec gestion des images multiples
   Future<void> _updateArticle(ArticleFormData data) async {
     if (articleId == null) throw Exception('ID manquant');
+
+    // ⭐ Extraire les chemins des images
+    final primaryImagePath = _extractPrimaryImagePath(data);
+    final secondaryImagePaths = _extractSecondaryImagePaths(data);
 
     final params = UpdateArticleParams(
       id: articleId!,
@@ -513,7 +528,8 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
       height: data.height > 0 ? data.height : null,
       parentArticleId: data.parentArticleId,
       variantAttributes: data.variantAttributes.isNotEmpty ? data.variantAttributes : null,
-      imagePath: data.imagePath.isNotEmpty ? data.imagePath : null,
+      primaryImagePath: primaryImagePath, // ✅ Image principale
+      secondaryImagePaths: secondaryImagePaths, // ⭐ NOUVEAU: Images secondaires
       isActive: data.isActive,
       images: data.images.isNotEmpty ? _prepareImagesForApi(data.images) : null,
       additionalBarcodes: data.additionalBarcodes.isNotEmpty ? _prepareBarcodesForApi(data.additionalBarcodes) : null,
@@ -531,26 +547,80 @@ class ArticleFormNotifier extends StateNotifier<ArticleFormState> {
     logger.i('✅ Mis à jour: ${article.name}');
   }
 
-  /// Prépare les images pour l'API
+  // ==================== HELPERS POUR IMAGES ====================
+
+  /// ⭐ NOUVELLE MÉTHODE: Extrait le chemin de l'image principale
+  String? _extractPrimaryImagePath(ArticleFormData data) {
+    // 1. Vérifier d'abord data.imagePath (champ dédié à l'image principale)
+    if (data.imagePath.isNotEmpty) {
+      // Si c'est un chemin local (pas une URL http)
+      if (!data.imagePath.startsWith('http')) {
+        logger.d('   📸 Image principale depuis imagePath: ${data.imagePath}');
+        return data.imagePath;
+      }
+    }
+
+    // 2. Sinon chercher dans la liste des images celle marquée comme principale
+    if (data.images.isNotEmpty) {
+      final primaryImage = data.images.firstWhere(
+            (img) => img.isPrimary,
+        orElse: () => data.images.first,
+      );
+
+      if (primaryImage.imagePath.isNotEmpty && !primaryImage.imagePath.startsWith('http')) {
+        logger.d('   📸 Image principale depuis liste: ${primaryImage.imagePath}');
+        return primaryImage.imagePath;
+      }
+    }
+
+    return null;
+  }
+
+  /// ⭐ NOUVELLE MÉTHODE: Extrait les chemins des images secondaires
+  List<String>? _extractSecondaryImagePaths(ArticleFormData data) {
+    if (data.images.isEmpty) return null;
+
+    // Filtrer les images secondaires (non principales) avec des chemins locaux
+    final secondaryPaths = data.images
+        .where((img) =>
+    !img.isPrimary &&
+        img.imagePath.isNotEmpty &&
+        !img.imagePath.startsWith('http') // Exclure les URLs
+    )
+        .map((img) => img.imagePath)
+        .toList();
+
+    if (secondaryPaths.isEmpty) return null;
+
+    logger.d('   📸 ${secondaryPaths.length} images secondaires détectées');
+    return secondaryPaths;
+  }
+
+  /// Prépare les métadonnées des images pour l'API
   List<Map<String, dynamic>> _prepareImagesForApi(List<ArticleImageData> images) {
-    return images.map((img) => {
+    // Ne garder que les images secondaires (l'image principale est gérée séparément)
+    return images
+        .where((img) => !img.isPrimary)
+        .map((img) => {
       if (img.id != null) 'id': img.id,
-      'image_path': img.imagePath,
       'alt_text': img.altText,
       'caption': img.caption,
-      'is_primary': img.isPrimary,
+      'is_primary': false, // Toujours false pour les secondaires
       'order': img.order,
-    }).toList();
+    })
+        .toList();
   }
 
   /// Prépare les codes-barres pour l'API
   List<Map<String, dynamic>> _prepareBarcodesForApi(List<AdditionalBarcodeData> barcodes) {
-    return barcodes.map((barcode) => {
+    return barcodes
+        .map((barcode) => {
       if (barcode.id != null) 'id': barcode.id,
       'barcode': barcode.barcode,
       'barcode_type': barcode.barcodeType,
       'is_primary': barcode.isPrimary,
-    }).toList();
+    })
+        .toList();
   }
 
   /// Réinitialise le formulaire après une erreur
