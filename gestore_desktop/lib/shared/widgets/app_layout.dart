@@ -1,8 +1,8 @@
 // ========================================
 // lib/shared/widgets/app_layout.dart
 // Layout principal avec sidebar navigation
-// VERSION COMPLÈTE - Inventory + Sales + Settings
-// Date: 10 Octobre 2025
+// VERSION COMPLÈTE - Inventory (Articles, Categories, Brands, Units, Locations, Stocks) + Sales + Settings
+// Date: 17 Octobre 2025 - Mise à jour Phase 3 & 4
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -104,7 +104,7 @@ class _Sidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                // Dashboard
+                // ==================== DASHBOARD ====================
                 _MenuItem(
                   icon: Icons.dashboard,
                   label: 'Tableau de bord',
@@ -147,6 +147,22 @@ class _Sidebar extends ConsumerWidget {
                   currentRoute: currentRoute,
                 ),
 
+                // ⭐ NOUVEAU - Emplacements (Phase 3)
+                _MenuItem(
+                  icon: Icons.location_on,
+                  label: 'Emplacements',
+                  route: '/inventory/locations',
+                  currentRoute: currentRoute,
+                ),
+
+                // ⭐ NOUVEAU - Stocks (Phase 4)
+                _MenuItem(
+                  icon: Icons.warehouse,
+                  label: 'Gestion des stocks',
+                  route: '/inventory/stocks',
+                  currentRoute: currentRoute,
+                ),
+
                 const SizedBox(height: 8),
                 const _SectionHeader(title: 'VENTES'),
 
@@ -182,6 +198,7 @@ class _Sidebar extends ConsumerWidget {
                   currentRoute: currentRoute,
                 ),
 
+                // Remises et Promotions
                 _MenuItem(
                   icon: Icons.local_offer,
                   label: 'Remises et Promotions',
@@ -231,10 +248,10 @@ class _Sidebar extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user.fullName,
+                              user.username,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -254,11 +271,11 @@ class _Sidebar extends ConsumerWidget {
 
                 const SizedBox(height: 12),
 
-                // Bouton déconnexion
+                // Bouton de déconnexion
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => _showLogoutDialog(context, ref),
+                    onPressed: () => _handleLogout(context, ref),
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text('Déconnexion'),
                     style: OutlinedButton.styleFrom(
@@ -275,8 +292,8 @@ class _Sidebar extends ConsumerWidget {
     );
   }
 
-  /// Affiche le dialogue de confirmation de déconnexion
-  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+  /// Gère la déconnexion
+  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -392,7 +409,7 @@ class _MenuItem extends StatelessWidget {
     // Exact match
     if (currentRoute == route) return true;
 
-    // Parent route match (ex: /sales/customers correspond à /sales/customers/*)
+    // Parent route match (ex: /inventory/stocks correspond à /inventory/stocks/*)
     if (currentRoute.startsWith('$route/')) return true;
 
     return false;

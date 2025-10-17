@@ -808,7 +808,7 @@ class LocationViewSet(OptimizedModelViewSet):
         """Optimisations pour la liste des emplacements"""
         return queryset.select_related('parent').annotate(
             children_count=Count('children', filter=Q(children__is_active=True)),
-            stocks_count=Count('stock_set', filter=Q(stock_set__quantity_on_hand__gt=0))
+            stocks_count=Count('stock', filter=Q(stock__quantity_on_hand__gt=0))
         )
     
     @action(detail=True, methods=['get'])

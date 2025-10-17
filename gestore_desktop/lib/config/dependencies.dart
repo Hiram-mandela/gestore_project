@@ -15,8 +15,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/network/api_client.dart';
 import '../core/network/network_info.dart';
 import '../core/utils/jwt_helper.dart';
+import '../features/inventory/domain/usecases/location_usecases.dart';
 
 // Environment
+import '../features/inventory/domain/usecases/stock_usecases.dart';
 import 'environment.dart';
 
 // ==================== AUTHENTICATION ====================
@@ -387,7 +389,61 @@ Future<void> configureDependencies() async {
 
   logger.d('    ✓ 5 Use Cases Unités');
 
-  logger.i('✅ Module Inventory configuré (23 services)');
+  // ==================== LOCATIONS ====================
+  logger.d('  → Locations Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetLocationsUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetLocationByIdUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => CreateLocationUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => UpdateLocationUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => DeleteLocationUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetLocationStocksUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  logger.d('    ✓ 6 Use Cases Locations');
+
+  // ==================== STOCKS ====================
+  logger.d('  → Stocks Use Cases...');
+
+  getIt.registerLazySingleton(
+        () => GetStocksUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetStockByIdUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => AdjustStockUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => TransferStockUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetStockValuationUseCase(repository: getIt<InventoryRepository>()),
+  );
+
+  logger.d('    ✓ 5 Use Cases Stocks');
+
+  logger.i('✅ Module Inventory configuré (40 services)');
 
   // ========================================
   // SALES FEATURE - MODULE COMPLET

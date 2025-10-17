@@ -15,6 +15,8 @@ import '../models/article_detail_model.dart';
 import '../models/category_model.dart';
 import '../models/brand_model.dart';
 import '../../../../core/network/paginated_response_model.dart';
+import '../models/location_model.dart';
+import '../models/stock_model.dart';
 import '../models/unit_of_measure_model.dart';
 
 /// DataSource abstraite pour les opérations d'inventaire
@@ -74,6 +76,60 @@ abstract class InventoryRemoteDataSource {
   Future<UnitOfMeasureModel> createUnitOfMeasure(Map<String, dynamic> data);
   Future<UnitOfMeasureModel> updateUnitOfMeasure(String id, Map<String, dynamic> data);
   Future<void> deleteUnitOfMeasure(String id);
+
+
+  // ==================== LOCATIONS ====================
+
+  Future<List<LocationModel>> getLocations({
+    bool? isActive,
+    String? locationType,
+    String? parentId,
+  });
+
+  Future<LocationModel> getLocationById(String id);
+
+  Future<LocationModel> createLocation(Map<String, dynamic> data);
+
+  Future<LocationModel> updateLocation(String id, Map<String, dynamic> data);
+
+  Future<void> deleteLocation(String id);
+
+  /// Récupère les stocks d'un emplacement spécifique
+  Future<List<StockModel>> getLocationStocks(String locationId);
+
+
+  // ==================== STOCKS ====================
+
+  Future<List<StockModel>> getStocks({
+    String? articleId,
+    String? locationId,
+    DateTime? expiryDate,
+  });
+
+  Future<StockModel> getStockById(String id);
+
+  /// Ajustement de stock (inventaire, correction, etc.)
+  Future<Map<String, dynamic>> adjustStock({
+    required String articleId,
+    required String locationId,
+    required double newQuantity,
+    required String reason,
+    String? referenceDocument,
+    String? notes,
+  });
+
+  /// Transfert de stock entre emplacements
+  Future<Map<String, dynamic>> transferStock({
+    required String articleId,
+    required String fromLocationId,
+    required String toLocationId,
+    required double quantity,
+    String? referenceDocument,
+    String? notes,
+  });
+
+  /// Valorisation du stock total
+  Future<Map<String, dynamic>> getStockValuation();
 }
 
 /// Implémentation du DataSource avec Dio
@@ -747,6 +803,270 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     }
   }
 
+  // ==================== LOCATIONS ====================
+
+  @override
+  Future<List<LocationModel>> getLocations({
+    bool? isActive,
+    String? locationType,
+    String? parentId,
+  }) async {
+    try {
+      logger.d('📡 API Call: GET /locations');
+
+      final queryParams = <String, dynamic>{};
+      if (isActive != null) queryParams['is_active'] = isActive;
+      if (locationType != null) queryParams['location_type'] = locationType;
+      if (parentId != null) queryParams['parent'] = parentId;
+
+      final response = await apiClient.get(
+        ApiEndpoints.locations,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      logger.i('✅ API Success: Emplacements récupérés');
+
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
+      return results.map((json) => LocationModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<LocationModel> getLocationById(String id) async {
+    try {
+      logger.d('📡 API Call: GET /locations/$id');
+
+      final response = await apiClient.get('${ApiEndpoints.locations}$id/');
+
+      logger.i('✅ API Success: Emplacement $id récupéré');
+
+      return LocationModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<LocationModel> createLocation(Map<String, dynamic> data) async {
+    try {
+      logger.d('📡 API Call: POST /locations');
+      logger.d('   Data: $data');
+
+      final response = await apiClient.post(
+        ApiEndpoints.locations,
+        data: data,
+      );
+
+      logger.i('✅ API Success: Emplacement créé');
+
+      return LocationModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<LocationModel> updateLocation(String id, Map<String, dynamic> data) async {
+    try {
+      logger.d('📡 API Call: PUT /locations/$id');
+      logger.d('   Data: $data');
+
+      final response = await apiClient.put(
+        '${ApiEndpoints.locations}$id/',
+        data: data,
+      );
+
+      logger.i('✅ API Success: Emplacement mis à jour');
+
+      return LocationModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<void> deleteLocation(String id) async {
+    try {
+      logger.d('📡 API Call: DELETE /locations/$id');
+
+      await apiClient.delete('${ApiEndpoints.locations}$id/');
+
+      logger.i('✅ API Success: Emplacement supprimé');
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<List<StockModel>> getLocationStocks(String locationId) async {
+    try {
+      logger.d('📡 API Call: GET /locations/$locationId/stocks/');
+
+      final response = await apiClient.get(
+        ApiEndpoints.locationStocks(locationId),
+      );
+
+      logger.i('✅ API Success: Stocks de l\'emplacement récupérés');
+
+      final results = response.data as List;
+      return results.map((json) => StockModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  // ==================== IMPLÉMENTATION ====================
+
+  @override
+  Future<List<StockModel>> getStocks({
+    String? articleId,
+    String? locationId,
+    DateTime? expiryDate,
+  }) async {
+    try {
+      logger.d('📡 API Call: GET /stocks');
+
+      final queryParams = <String, dynamic>{};
+      if (articleId != null) queryParams['article'] = articleId;
+      if (locationId != null) queryParams['location'] = locationId;
+      if (expiryDate != null) {
+        queryParams['expiry_date'] = expiryDate.toIso8601String().split('T')[0];
+      }
+
+      final response = await apiClient.get(
+        ApiEndpoints.stocks,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      logger.i('✅ API Success: Stocks récupérés');
+
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
+      return results.map((json) => StockModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<StockModel> getStockById(String id) async {
+    try {
+      logger.d('📡 API Call: GET /stocks/$id');
+
+      final response = await apiClient.get('${ApiEndpoints.stocks}$id/');
+
+      logger.i('✅ API Success: Stock $id récupéré');
+
+      return StockModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> adjustStock({
+    required String articleId,
+    required String locationId,
+    required double newQuantity,
+    required String reason,
+    String? referenceDocument,
+    String? notes,
+  }) async {
+    try {
+      logger.d('📡 API Call: POST /stocks/adjustment/');
+
+      final data = {
+        'article_id': articleId,
+        'location_id': locationId,
+        'new_quantity': newQuantity,
+        'reason': reason,
+        if (referenceDocument != null) 'reference_document': referenceDocument,
+        if (notes != null) 'notes': notes,
+      };
+
+      logger.d('   Data: $data');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.stocks}adjustment/',
+        data: data,
+      );
+
+      logger.i('✅ API Success: Ajustement effectué');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> transferStock({
+    required String articleId,
+    required String fromLocationId,
+    required String toLocationId,
+    required double quantity,
+    String? referenceDocument,
+    String? notes,
+  }) async {
+    try {
+      logger.d('📡 API Call: POST /stocks/transfer/');
+
+      final data = {
+        'article_id': articleId,
+        'from_location_id': fromLocationId,
+        'to_location_id': toLocationId,
+        'quantity': quantity,
+        if (referenceDocument != null) 'reference_document': referenceDocument,
+        if (notes != null) 'notes': notes,
+      };
+
+      logger.d('   Data: $data');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.stocks}transfer/',
+        data: data,
+      );
+
+      logger.i('✅ API Success: Transfert effectué');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getStockValuation() async {
+    try {
+      logger.d('📡 API Call: GET /stocks/valuation/');
+
+      final response = await apiClient.get(
+        '${ApiEndpoints.stocks}valuation/',
+      );
+
+      logger.i('✅ API Success: Valorisation récupérée');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
   // ==================== GESTION DES ERREURS ====================
   Exception _handleDioError(DioException error) {
     switch (error.type) {

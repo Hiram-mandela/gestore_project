@@ -10,6 +10,8 @@ import '../../domain/entities/article_entity.dart';
 import '../../domain/entities/article_detail_entity.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/brand_entity.dart';
+import '../../domain/entities/location_entity.dart';
+import '../../domain/entities/stock_entity.dart';
 import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/entities/paginated_response_entity.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -458,6 +460,257 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur suppression unité: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== LOCATIONS ====================
+
+  @override
+  Future<(List<LocationEntity>?, String?)> getLocations({
+    bool? isActive,
+    String? locationType,
+    String? parentId,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération emplacements');
+
+      final locationsModel = await remoteDataSource.getLocations(
+        isActive: isActive,
+        locationType: locationType,
+        parentId: parentId,
+      );
+
+      final locationsEntity = locationsModel
+          .map((model) => model.toEntity())
+          .toList();
+
+      logger.i('✅ Repository: ${locationsEntity.length} emplacements récupérés');
+
+      return (locationsEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur emplacements: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(LocationEntity?, String?)> getLocationById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération emplacement $id');
+
+      final locationModel = await remoteDataSource.getLocationById(id);
+      final locationEntity = locationModel.toEntity();
+
+      logger.i('✅ Repository: Emplacement ${locationEntity.name} récupéré');
+
+      return (locationEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur emplacement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(LocationEntity?, String?)> createLocation(Map<String, dynamic> data) async {
+    try {
+      logger.d('📦 Repository: Création emplacement "${data['name']}"');
+
+      final locationModel = await remoteDataSource.createLocation(data);
+      final locationEntity = locationModel.toEntity();
+
+      logger.i('✅ Repository: Emplacement "${locationEntity.name}" créé');
+
+      return (locationEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création emplacement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(LocationEntity?, String?)> updateLocation(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Mise à jour emplacement $id');
+
+      final locationModel = await remoteDataSource.updateLocation(id, data);
+      final locationEntity = locationModel.toEntity();
+
+      logger.i('✅ Repository: Emplacement mis à jour');
+
+      return (locationEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mise à jour emplacement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteLocation(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression emplacement $id');
+
+      await remoteDataSource.deleteLocation(id);
+
+      logger.i('✅ Repository: Emplacement supprimé');
+
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression emplacement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(List<StockEntity>?, String?)> getLocationStocks(String locationId) async {
+    try {
+      logger.d('📦 Repository: Récupération stocks emplacement $locationId');
+
+      final stocksModel = await remoteDataSource.getLocationStocks(locationId);
+      final stocksEntity = stocksModel.map((model) => model.toEntity()).toList();
+
+      logger.i('✅ Repository: ${stocksEntity.length} stocks récupérés');
+
+      return (stocksEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur stocks emplacement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== STOCKS ====================
+
+  @override
+  Future<(List<StockEntity>?, String?)> getStocks({
+    String? articleId,
+    String? locationId,
+    DateTime? expiryDate,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération stocks');
+
+      final stocksModel = await remoteDataSource.getStocks(
+        articleId: articleId,
+        locationId: locationId,
+        expiryDate: expiryDate,
+      );
+
+      final stocksEntity = stocksModel
+          .map((model) => model.toEntity())
+          .toList();
+
+      logger.i('✅ Repository: ${stocksEntity.length} stocks récupérés');
+
+      return (stocksEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur stocks: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(StockEntity?, String?)> getStockById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération stock $id');
+
+      final stockModel = await remoteDataSource.getStockById(id);
+      final stockEntity = stockModel.toEntity();
+
+      logger.i('✅ Repository: Stock récupéré');
+
+      return (stockEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur stock: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> adjustStock({
+    required String articleId,
+    required String locationId,
+    required double newQuantity,
+    required String reason,
+    String? referenceDocument,
+    String? notes,
+  }) async {
+    try {
+      logger.d('📦 Repository: Ajustement stock');
+
+      final result = await remoteDataSource.adjustStock(
+        articleId: articleId,
+        locationId: locationId,
+        newQuantity: newQuantity,
+        reason: reason,
+        referenceDocument: referenceDocument,
+        notes: notes,
+      );
+
+      logger.i('✅ Repository: Ajustement effectué');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur ajustement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> transferStock({
+    required String articleId,
+    required String fromLocationId,
+    required String toLocationId,
+    required double quantity,
+    String? referenceDocument,
+    String? notes,
+  }) async {
+    try {
+      logger.d('📦 Repository: Transfert stock');
+
+      final result = await remoteDataSource.transferStock(
+        articleId: articleId,
+        fromLocationId: fromLocationId,
+        toLocationId: toLocationId,
+        quantity: quantity,
+        referenceDocument: referenceDocument,
+        notes: notes,
+      );
+
+      logger.i('✅ Repository: Transfert effectué');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur transfert: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> getStockValuation() async {
+    try {
+      logger.d('📦 Repository: Récupération valorisation stock');
+
+      final result = await remoteDataSource.getStockValuation();
+
+      logger.i('✅ Repository: Valorisation récupérée');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur valorisation: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }

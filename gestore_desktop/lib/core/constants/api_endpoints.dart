@@ -57,16 +57,31 @@ class ApiEndpoints {
   static const String articleVariantsList = '/inventory/article-variants/';
   static String articleVariantDetail(String id) => '/inventory/article-variants/$id/';
 
+  // ==================== LOCATIONS (WAREHOUSES) ====================
+
+  /// Emplacements (Locations dans le backend, mais appelés "warehouses" dans les URLs)
+  static const String locations = '/inventory/locations/';
+  static String locationDetail(String id) => '/inventory/locations/$id/';
+  static String locationStocks(String id) => '/inventory/locations/$id/stocks/';
+
   /// Warehouses
   static const String warehouses = '/inventory/warehouses/';
   static String warehouseDetail(String id) => '/inventory/warehouses/$id/';
   static String warehouseStock(String id) => '/inventory/warehouses/$id/stock/';
 
-  /// Stock
-  static const String stock = '/inventory/stock/';
-  static String stockDetail(String id) => '/inventory/stock/$id/';
-  static const String stockLowStock = '/inventory/stock/low-stock/';
-  static const String stockByWarehouse = '/inventory/stock/by-warehouse/';
+  // ==================== STOCKS ====================
+
+  /// Stocks
+  static const String stocks = '/inventory/stocks/';
+  static String stockDetail(String id) => '/inventory/stocks/$id/';
+
+  /// Opérations sur les stocks
+  static const String stockAdjustment = '/inventory/stocks/adjustment/';
+  static const String stockTransfer = '/inventory/stocks/transfer/';
+  static const String stockValuation = '/inventory/stocks/valuation/';
+  static const String stockAlerts = '/inventory/stocks/alerts/';
+  static const String stockLowStock = '/inventory/stocks/low-stock/';
+  static const String stockByWarehouse = '/inventory/stocks/by-warehouse/';
 
   /// Stock Movements
   static const String stockMovements = '/inventory/stock-movements/';

@@ -8,6 +8,8 @@ import '../entities/article_entity.dart';
 import '../entities/article_detail_entity.dart';
 import '../entities/category_entity.dart';
 import '../entities/brand_entity.dart';
+import '../entities/location_entity.dart';
+import '../entities/stock_entity.dart';
 import '../entities/unit_of_measure_entity.dart';
 import '../entities/paginated_response_entity.dart';
 
@@ -90,4 +92,53 @@ abstract class InventoryRepository {
   Future<(UnitOfMeasureEntity?, String?)> createUnitOfMeasure(Map<String, dynamic> data);
   Future<(UnitOfMeasureEntity?, String?)> updateUnitOfMeasure(String id, Map<String, dynamic> data);
   Future<(void, String?)> deleteUnitOfMeasure(String id);
+
+  // ==================== LOCATIONS - CRUD ====================
+
+  Future<(List<LocationEntity>?, String?)> getLocations({
+    bool? isActive,
+    String? locationType,
+    String? parentId,
+  });
+
+  Future<(LocationEntity?, String?)> getLocationById(String id);
+
+  Future<(LocationEntity?, String?)> createLocation(Map<String, dynamic> data);
+
+  Future<(LocationEntity?, String?)> updateLocation(String id, Map<String, dynamic> data);
+
+  Future<(void, String?)> deleteLocation(String id);
+
+  Future<(List<StockEntity>?, String?)> getLocationStocks(String locationId);
+
+  // ==================== STOCKS - CRUD ====================
+
+  Future<(List<StockEntity>?, String?)> getStocks({
+    String? articleId,
+    String? locationId,
+    DateTime? expiryDate,
+  });
+
+  Future<(StockEntity?, String?)> getStockById(String id);
+
+  Future<(Map<String, dynamic>?, String?)> adjustStock({
+    required String articleId,
+    required String locationId,
+    required double newQuantity,
+    required String reason,
+    String? referenceDocument,
+    String? notes,
+  });
+
+  Future<(Map<String, dynamic>?, String?)> transferStock({
+    required String articleId,
+    required String fromLocationId,
+    required String toLocationId,
+    required double quantity,
+    String? referenceDocument,
+    String? notes,
+  });
+
+  Future<(Map<String, dynamic>?, String?)> getStockValuation();
+
 }

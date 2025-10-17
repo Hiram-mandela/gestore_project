@@ -1,6 +1,6 @@
 // ========================================
-// lib/features/inventory/presentation/pages/stock_adjustment_screen.dart
-// Page d'ajustement de stock
+// lib/features/inventory/presentation/pages/stock_transfer_page.dart
+// Page de transfert de stock entre emplacements
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -10,25 +10,24 @@ import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/stocks_provider.dart';
 import '../providers/stocks_state.dart';
+import '../widgets/location_selector_dialog.dart';
 import '../../domain/entities/article_entity.dart';
 import '../../domain/entities/location_entity.dart';
-import '../widgets/location_selector_dialog.dart';
 
-class StockAdjustmentScreen extends ConsumerStatefulWidget {
-  const StockAdjustmentScreen({super.key});
+class StockTransferScreen extends ConsumerStatefulWidget {
+  const StockTransferScreen({super.key});
 
   @override
-  ConsumerState<StockAdjustmentScreen> createState() =>
-      _StockAdjustmentScreenState();
+  ConsumerState<StockTransferScreen> createState() => _StockTransferScreenState();
 }
 
-class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
+class _StockTransferScreenState extends ConsumerState<StockTransferScreen> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
 
   ArticleEntity? _selectedArticle;
-  String? _selectedLocationId;
-  String? _selectedLocationName;
+  LocationEntity? _fromLocation;
+  LocationEntity? _toLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +51,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajustement de stock'),
+        title: const Text('Transfert de stock'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -77,7 +76,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Ajustez le stock pour corriger les écarts d\'inventaire',
+                          'Transférez du stock d\'un emplacement vers un autre',
                           style: TextStyle(
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
@@ -105,28 +104,115 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Sélection emplacement
+              // Emplacement source
+              Text(
+                'De l\'emplacement',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
               Card(
+                elevation: _fromLocation != null ? 2 : 1,
+                color: _fromLocation != null
+                    ? theme.colorScheme.secondaryContainer
+                    : null,
                 child: ListTile(
-                  leading: const Icon(Icons.location_on),
-                  title: Text(
-                    _selectedLocationName ?? 'Sélectionner un emplacement',
+                  leading: Icon(
+                    Icons.location_on,
+                    color: _fromLocation != null
+                        ? theme.colorScheme.onSecondaryContainer
+                        : null,
                   ),
+                  title: Text(
+                    _fromLocation?.name ?? 'Sélectionner l\'emplacement source',
+                    style: _fromLocation != null
+                        ? TextStyle(
+                      color: theme.colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                    )
+                        : null,
+                  ),
+                  subtitle: _fromLocation != null
+                      ? Text(
+                    _fromLocation!.fullPath,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSecondaryContainer
+                          .withValues(alpha: 0.7),
+                    ),
+                  )
+                      : null,
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: _selectLocation,
+                  onTap: _selectFromLocation,
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Nouvelle quantité
+              // Icône de transfert
+              Center(
+                child: Icon(
+                  Icons.arrow_downward,
+                  size: 32,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Emplacement destination
+              Text(
+                'Vers l\'emplacement',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: _toLocation != null ? 2 : 1,
+                color: _toLocation != null
+                    ? theme.colorScheme.tertiaryContainer
+                    : null,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.location_on,
+                    color: _toLocation != null
+                        ? theme.colorScheme.onTertiaryContainer
+                        : null,
+                  ),
+                  title: Text(
+                    _toLocation?.name ?? 'Sélectionner l\'emplacement cible',
+                    style: _toLocation != null
+                        ? TextStyle(
+                      color: theme.colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.bold,
+                    )
+                        : null,
+                  ),
+                  subtitle: _toLocation != null
+                      ? Text(
+                    _toLocation!.fullPath,
+                    style: TextStyle(
+                      color: theme.colorScheme.onTertiaryContainer
+                          .withValues(alpha: 0.7),
+                    ),
+                  )
+                      : null,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _selectToLocation,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Quantité à transférer
               FormBuilderTextField(
-                name: 'new_quantity',
+                name: 'quantity',
                 decoration: const InputDecoration(
-                  labelText: 'Nouvelle quantité *',
-                  hintText: 'Ex: 100',
+                  labelText: 'Quantité à transférer *',
+                  hintText: 'Ex: 50',
                   prefixIcon: Icon(Icons.numbers),
                 ),
                 keyboardType: TextInputType.number,
@@ -138,47 +224,10 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                     errorText: 'Valeur numérique invalide',
                   ),
                   FormBuilderValidators.min(
-                    0,
+                    0.01,
                     errorText: 'La quantité doit être positive',
                   ),
                 ]),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Raison de l'ajustement
-              FormBuilderDropdown<String>(
-                name: 'reason',
-                decoration: const InputDecoration(
-                  labelText: 'Raison *',
-                  prefixIcon: Icon(Icons.help_outline),
-                ),
-                initialValue: 'inventory',
-                items: const [
-                  DropdownMenuItem(
-                    value: 'inventory',
-                    child: Text('Inventaire'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'damage',
-                    child: Text('Dommage'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'theft',
-                    child: Text('Vol'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'expiry',
-                    child: Text('Péremption'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'correction',
-                    child: Text('Correction'),
-                  ),
-                ],
-                validator: FormBuilderValidators.required(
-                  errorText: 'La raison est obligatoire',
-                ),
               ),
 
               const SizedBox(height: 16),
@@ -188,7 +237,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                 name: 'reference_document',
                 decoration: const InputDecoration(
                   labelText: 'Document de référence',
-                  hintText: 'Ex: INV-2025-001',
+                  hintText: 'Ex: TR-2025-001',
                   prefixIcon: Icon(Icons.description),
                 ),
               ),
@@ -200,7 +249,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                 name: 'notes',
                 decoration: const InputDecoration(
                   labelText: 'Notes',
-                  hintText: 'Notes optionnelles',
+                  hintText: 'Notes optionnelles sur le transfert',
                   prefixIcon: Icon(Icons.notes),
                 ),
                 maxLines: 3,
@@ -219,9 +268,10 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: FilledButton(
+                    child: FilledButton.icon(
                       onPressed: _isLoading ? null : _submitForm,
-                      child: const Text('Ajuster'),
+                      icon: const Icon(Icons.swap_horiz),
+                      label: const Text('Transférer'),
                     ),
                   ),
                 ],
@@ -242,39 +292,58 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
     );
   }
 
-  Future<void> _selectLocation() async {
+  Future<void> _selectFromLocation() async {
     final location = await showDialog<LocationEntity>(
       context: context,
       builder: (context) => LocationSelectorDialog(
+        excludeId: _toLocation?.id,
         onlyActive: true,
       ),
     );
 
     if (location != null && mounted) {
       setState(() {
-        _selectedLocationId = location.id;
-        _selectedLocationName = location.name;
+        _fromLocation = location;
+      });
+    }
+  }
+
+  Future<void> _selectToLocation() async {
+    final location = await showDialog<LocationEntity>(
+      context: context,
+      builder: (context) => LocationSelectorDialog(
+        excludeId: _fromLocation?.id,
+        onlyActive: true,
+      ),
+    );
+
+    if (location != null && mounted) {
+      setState(() {
+        _toLocation = location;
       });
     }
   }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState?.saveAndValidate() ?? false) {
+      // Validations
       if (_selectedArticle == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez sélectionner un article'),
-          ),
-        );
+        _showError('Veuillez sélectionner un article');
         return;
       }
 
-      if (_selectedLocationId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez sélectionner un emplacement'),
-          ),
-        );
+      if (_fromLocation == null) {
+        _showError('Veuillez sélectionner l\'emplacement source');
+        return;
+      }
+
+      if (_toLocation == null) {
+        _showError('Veuillez sélectionner l\'emplacement cible');
+        return;
+      }
+
+      if (_fromLocation!.id == _toLocation!.id) {
+        _showError('Les emplacements source et cible doivent être différents');
         return;
       }
 
@@ -283,11 +352,11 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
       final formData = _formKey.currentState!.value;
 
       try {
-        final success = await ref.read(stocksProvider.notifier).adjustStock(
+        final success = await ref.read(stocksProvider.notifier).transferStock(
           articleId: _selectedArticle!.id,
-          locationId: _selectedLocationId!,
-          newQuantity: double.parse(formData['new_quantity']),
-          reason: formData['reason'],
+          fromLocationId: _fromLocation!.id,
+          toLocationId: _toLocation!.id,
+          quantity: double.parse(formData['quantity']),
           referenceDocument: formData['reference_document'],
           notes: formData['notes'],
         );
@@ -298,14 +367,18 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: $e'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          _showError('Erreur: $e');
         }
       }
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
   }
 }

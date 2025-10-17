@@ -18,6 +18,14 @@ import '../features/inventory/presentation/screens/article_detail_screen.dart';
 import '../features/inventory/presentation/screens/article_form_screen.dart';
 import '../features/inventory/presentation/screens/categories_list_screen.dart';
 import '../features/inventory/presentation/screens/brands_list_screen.dart';
+import '../features/inventory/presentation/screens/location_detail_screen.dart';
+import '../features/inventory/presentation/screens/location_form_screen.dart';
+import '../features/inventory/presentation/screens/locations_list_screen.dart';
+import '../features/inventory/presentation/screens/stock_adjustment_screen.dart';
+import '../features/inventory/presentation/screens/stock_detail_screen.dart';
+import '../features/inventory/presentation/screens/stock_transfer_screen.dart';
+import '../features/inventory/presentation/screens/stock_valuation_screen.dart';
+import '../features/inventory/presentation/screens/stocks_list_screen.dart';
 import '../features/inventory/presentation/screens/units_list_screen.dart';
 import '../features/inventory/presentation/providers/article_form_state.dart';
 import '../features/inventory/presentation/providers/category_state.dart';
@@ -310,6 +318,73 @@ final goRouter = GoRouter(
           ],
         ),
       ],
+    ),
+
+    // ==================== LOCATIONS ====================
+
+    GoRoute(
+      path: '/inventory/locations',
+      name: 'locations',
+      builder: (context, state) => const LocationsListScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/locations/new',
+      name: 'location-create',
+      builder: (context, state) => const LocationFormScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/locations/:id',
+      name: 'location-detail',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return LocationDetailScreen(locationId: id);
+      },
+    ),
+
+    GoRoute(
+      path: '/inventory/locations/:id/edit',
+      name: 'location-edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return LocationFormScreen(locationId: id);
+      },
+    ),
+
+    // ==================== STOCKS ====================
+
+    GoRoute(
+      path: '/inventory/stocks',
+      name: 'stocks',
+      builder: (context, state) => const StocksListScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/stocks/adjustment',
+      name: 'stock-adjustment',
+      builder: (context, state) => const StockAdjustmentScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/stocks/transfer',
+      name: 'stock-transfer',
+      builder: (context, state) => const StockTransferScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/stocks/valuation',
+      name: 'stock-valuation',
+      builder: (context, state) => const StockValuationScreen(),
+    ),
+
+    GoRoute(
+      path: '/inventory/stocks/:id',
+      name: 'stock-detail',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return StockDetailScreen(stockId: id); // À créer si nécessaire
+      },
     ),
 
     // ========================================
