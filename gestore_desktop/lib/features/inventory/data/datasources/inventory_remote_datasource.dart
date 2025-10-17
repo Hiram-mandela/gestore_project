@@ -214,7 +214,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       logger.d(' 📡  API Call: POST /articles (création)');
       final Map<String, dynamic> formDataMap = {};
 
-      // 1. Ajouter les paires clé-valeur simples
+      // 1. Ajouter toutes les paires clé-valeur simples
       data.forEach((key, value) {
         if (key != 'images_data' && key != 'additional_barcodes_data') {
           if (value != null) {
@@ -224,14 +224,14 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       });
 
       // 2. Traiter les listes
-      // On filtre la liste pour n'envoyer que les métadonnées des images SECONDAIRES.
+      // ⭐ CORRECTION : On filtre la liste pour n'envoyer que les images SECONDAIRES.
+      // L'image principale est déjà gérée par le 'imagePath' et le champ 'image'.
       if (data['images_data'] != null) {
         final List<dynamic> secondaryImages = (data['images_data'] as List)
             .where((img) => !(img['is_primary'] as bool? ?? false))
             .toList();
         if (secondaryImages.isNotEmpty) {
           formDataMap['images_data'] = jsonEncode(secondaryImages);
-          logger.d('   Images secondaires envoyées: ${secondaryImages.length}');
         }
       }
       if (data['additional_barcodes_data'] != null &&
@@ -284,14 +284,13 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
         }
       });
 
-      // On applique la même logique de filtrage ici.
+      // ⭐ CORRECTION : On applique la même logique de filtrage ici.
       if (data['images_data'] != null) {
         final List<dynamic> secondaryImages = (data['images_data'] as List)
             .where((img) => !(img['is_primary'] as bool? ?? false))
             .toList();
         if (secondaryImages.isNotEmpty) {
           formDataMap['images_data'] = jsonEncode(secondaryImages);
-          logger.d('   Images secondaires envoyées: ${secondaryImages.length}');
         }
       }
       if (data['additional_barcodes_data'] != null) {
