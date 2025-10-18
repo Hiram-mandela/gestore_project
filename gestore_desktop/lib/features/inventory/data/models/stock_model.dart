@@ -1,6 +1,6 @@
 // ========================================
 // lib/features/inventory/data/models/stock_model.dart
-// Model pour les stocks
+// Model pour les stocks - VERSION CORRIGÉE avec fromEntity
 // Basé sur: apps/inventory/models.py - Stock & apps/inventory/serializers.py - StockSerializer
 // ========================================
 
@@ -111,6 +111,34 @@ class StockModel {
       updatedAt: updatedAt,
       article: article?.toEntity(),
       location: location?.toEntity(),
+    );
+  }
+
+  /// ✅ NOUVELLE MÉTHODE: Crée un Model depuis une Entity
+  factory StockModel.fromEntity(StockEntity entity) {
+    return StockModel(
+      id: entity.id,
+      articleId: entity.articleId,
+      locationId: entity.locationId,
+      lotNumber: entity.lotNumber,
+      expiryDate: entity.expiryDate,
+      quantityOnHand: entity.quantityOnHand,
+      quantityReserved: entity.quantityReserved,
+      quantityAvailable: entity.quantityAvailable,
+      unitCost: entity.unitCost,
+      isExpired: entity.isExpired,
+      daysUntilExpiry: entity.daysUntilExpiry,
+      stockValue: entity.stockValue,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      syncStatus: 'synced',
+      needsSync: false,
+      article: entity.article != null
+          ? ArticleModel.fromEntity(entity.article!)
+          : null,
+      location: entity.location != null
+          ? LocationModel.fromEntity(entity.location!)
+          : null,
     );
   }
 

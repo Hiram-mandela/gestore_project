@@ -18,6 +18,7 @@ import '../core/utils/jwt_helper.dart';
 import '../features/inventory/domain/usecases/location_usecases.dart';
 
 // Environment
+import '../features/inventory/domain/usecases/stock_alert_usecases.dart';
 import '../features/inventory/domain/usecases/stock_usecases.dart';
 import 'environment.dart';
 
@@ -443,7 +444,50 @@ Future<void> configureDependencies() async {
 
   logger.d('    ✓ 5 Use Cases Stocks');
 
-  logger.i('✅ Module Inventory configuré (40 services)');
+  // ==================== STOCK ALERTS ====================
+
+  logger.d('Configuration Stock Alerts Use Cases...');
+
+  // Use Cases
+  getIt.registerLazySingleton(
+        () => GetStockAlertsUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetStockAlertByIdUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => AcknowledgeAlertUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => BulkAcknowledgeAlertsUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => GetAlertsDashboardUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.i('✅ Stock Alerts configurées (5 use cases)');
+
+
+  logger.i('✅ Module Inventory configuré (45 services)');
 
   // ========================================
   // SALES FEATURE - MODULE COMPLET

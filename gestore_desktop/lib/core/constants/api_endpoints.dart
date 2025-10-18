@@ -79,9 +79,17 @@ class ApiEndpoints {
   static const String stockAdjustment = '/inventory/stocks/adjustment/';
   static const String stockTransfer = '/inventory/stocks/transfer/';
   static const String stockValuation = '/inventory/stocks/valuation/';
-  static const String stockAlerts = '/inventory/stocks/alerts/';
   static const String stockLowStock = '/inventory/stocks/low-stock/';
   static const String stockByWarehouse = '/inventory/stocks/by-warehouse/';
+
+  // ==================== STOCK ALERTS ====================
+
+  /// Stock Alerts
+  static const String stockAlerts = '/inventory/alerts/';
+  static String stockAlertDetail(String id) => '/inventory/alerts/$id/';
+  static String stockAlertAcknowledge(String id) => '/inventory/alerts/$id/acknowledge/';
+  static const String stockAlertsBulkAcknowledge = '/inventory/alerts/bulk_acknowledge/';
+  static const String stockAlertsDashboard = '/inventory/alerts/dashboard/';
 
   /// Stock Movements
   static const String stockMovements = '/inventory/stock-movements/';

@@ -9,9 +9,11 @@ import '../entities/article_detail_entity.dart';
 import '../entities/category_entity.dart';
 import '../entities/brand_entity.dart';
 import '../entities/location_entity.dart';
+import '../entities/stock_alert_entity.dart';
 import '../entities/stock_entity.dart';
 import '../entities/unit_of_measure_entity.dart';
 import '../entities/paginated_response_entity.dart';
+import '../usecases/article_bulk_operations_usecases.dart';
 
 /// Repository abstrait pour l'inventaire
 /// Contrat entre Domain Layer et Data Layer
@@ -140,5 +142,46 @@ abstract class InventoryRepository {
   });
 
   Future<(Map<String, dynamic>?, String?)> getStockValuation();
+
+  // ==================== STOCK ALERTS ====================
+
+  /// Récupère les alertes avec filtres
+  Future<(List<StockAlertEntity>?, String?)> getStockAlerts({
+    String? alertType,
+    String? alertLevel,
+    bool? isAcknowledged,
+  });
+
+  /// Récupère une alerte par ID
+  Future<(StockAlertEntity?, String?)> getStockAlertById(String id);
+
+  /// Acquitte une alerte
+  Future<(Map<String, dynamic>?, String?)> acknowledgeAlert(String id);
+
+  /// Acquitte plusieurs alertes
+  Future<(Map<String, dynamic>?, String?)> bulkAcknowledgeAlerts(
+      List<String> alertIds,
+      );
+
+  /// Récupère le dashboard des alertes
+  Future<(Map<String, dynamic>?, String?)> getAlertsDashboard();
+
+  // ==================== BULK OPERATIONS ====================
+
+  /// Opération en masse sur les articles
+  Future<(Map<String, dynamic>?, String?)> bulkUpdateArticles(
+      BulkUpdateArticlesParams params,
+      );
+
+  /// Duplique un article
+  Future<(Map<String, dynamic>?, String?)> duplicateArticle(
+      DuplicateArticleParams params,
+      );
+
+  /// Importe des articles depuis un CSV
+  Future<(Map<String, dynamic>?, String?)> importArticlesCSV(String filePath);
+
+  /// Exporte les articles en CSV
+  Future<(String?, String?)> exportArticlesCSV(ExportArticlesCSVParams params);
 
 }

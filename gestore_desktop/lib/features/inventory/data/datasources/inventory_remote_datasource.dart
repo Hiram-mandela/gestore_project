@@ -10,12 +10,14 @@ import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
+import '../../domain/usecases/article_bulk_operations_usecases.dart';
 import '../models/article_model.dart';
 import '../models/article_detail_model.dart';
 import '../models/category_model.dart';
 import '../models/brand_model.dart';
 import '../../../../core/network/paginated_response_model.dart';
 import '../models/location_model.dart';
+import '../models/stock_alert_model.dart';
 import '../models/stock_model.dart';
 import '../models/unit_of_measure_model.dart';
 
@@ -130,6 +132,47 @@ abstract class InventoryRemoteDataSource {
 
   /// Valorisation du stock total
   Future<Map<String, dynamic>> getStockValuation();
+
+
+  // ==================== STOCK ALERTS ====================
+
+  /// Récupère la liste des alertes avec filtres
+  Future<List<StockAlertModel>> getStockAlerts({
+    String? alertType,
+    String? alertLevel,
+    bool? isAcknowledged,
+  });
+
+  /// Récupère une alerte par son ID
+  Future<StockAlertModel> getStockAlertById(String id);
+
+  /// Acquitte une alerte
+  Future<Map<String, dynamic>> acknowledgeAlert(String id);
+
+  /// Acquitte plusieurs alertes en masse
+  Future<Map<String, dynamic>> bulkAcknowledgeAlerts(List<String> alertIds);
+
+  /// Récupère le dashboard des alertes
+  Future<Map<String, dynamic>> getAlertsDashboard();
+
+  // ==================== BULK OPERATIONS ====================
+
+  /// Opération en masse sur les articles
+  Future<Map<String, dynamic>> bulkUpdateArticles(
+      BulkUpdateArticlesParams params,
+      );
+
+  /// Duplique un article
+  Future<Map<String, dynamic>> duplicateArticle(
+      DuplicateArticleParams params,
+      );
+
+  /// Importe des articles depuis un CSV
+  Future<Map<String, dynamic>> importArticlesCSV(String filePath);
+
+  /// Exporte les articles en CSV
+  Future<String> exportArticlesCSV(ExportArticlesCSVParams params);
+
 }
 
 /// Implémentation du DataSource avec Dio
@@ -1067,6 +1110,218 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       throw _handleDioError(e);
     }
   }
+
+  // ==================== STOCK ALERTS ====================
+
+  @override
+  Future<List<StockAlertModel>> getStockAlerts({
+    String? alertType,
+    String? alertLevel,
+    bool? isAcknowledged,
+  }) async {
+    try {
+      logger.d('📡 API Call: GET /alerts');
+
+      final queryParams = <String, dynamic>{};
+      if (alertType != null) queryParams['alert_type'] = alertType;
+      if (alertLevel != null) queryParams['alert_level'] = alertLevel;
+      if (isAcknowledged != null) queryParams['is_acknowledged'] = isAcknowledged;
+
+      final response = await apiClient.get(
+        ApiEndpoints.stockAlerts,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      logger.i('✅ API Success: Alertes récupérées');
+
+      final data = response.data as Map<String, dynamic>;
+      final results = data['results'] as List;
+
+      return results.map((json) => StockAlertModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<StockAlertModel> getStockAlertById(String id) async {
+    try {
+      logger.d('📡 API Call: GET /alerts/$id');
+
+      final response = await apiClient.get('${ApiEndpoints.stockAlerts}$id/');
+
+      logger.i('✅ API Success: Alerte $id récupérée');
+
+      return StockAlertModel.fromJson(response.data);
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> acknowledgeAlert(String id) async {
+    try {
+      logger.d('📡 API Call: POST /alerts/$id/acknowledge/');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.stockAlerts}$id/acknowledge/',
+      );
+
+      logger.i('✅ API Success: Alerte acquittée');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> bulkAcknowledgeAlerts(List<String> alertIds) async {
+    try {
+      logger.d('📡 API Call: POST /alerts/bulk_acknowledge/');
+      logger.d('   IDs: $alertIds');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.stockAlerts}bulk_acknowledge/',
+        data: {'alert_ids': alertIds},
+      );
+
+      logger.i('✅ API Success: ${alertIds.length} alertes acquittées');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getAlertsDashboard() async {
+    try {
+      logger.d('📡 API Call: GET /alerts/dashboard/');
+
+      final response = await apiClient.get(
+        '${ApiEndpoints.stockAlerts}dashboard/',
+      );
+
+      logger.i('✅ API Success: Dashboard alertes récupéré');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  // ==================== BULK OPERATIONS ====================
+
+  @override
+  Future<Map<String, dynamic>> bulkUpdateArticles(
+      BulkUpdateArticlesParams params,
+      ) async {
+    try {
+      logger.d('📡 API Call: POST /articles/bulk_operations/');
+      logger.d('   Action: ${params.action}');
+      logger.d('   Articles: ${params.articleIds.length}');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.articles}bulk_operations/',
+        data: params.toJson(),
+      );
+
+      logger.i('✅ API Success: Opération en masse effectuée');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> duplicateArticle(
+      DuplicateArticleParams params,
+      ) async {
+    try {
+      logger.d('📡 API Call: POST /articles/${params.articleId}/duplicate/');
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.articles}${params.articleId}/duplicate/',
+        data: params.toJson(),
+      );
+
+      logger.i('✅ API Success: Article dupliqué');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> importArticlesCSV(String filePath) async {
+    try {
+      logger.d('📡 API Call: POST /articles/import_csv/');
+      logger.d('   File: $filePath');
+
+      final fileName = filePath.split('/').last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: fileName,
+        ),
+      });
+
+      final response = await apiClient.post(
+        '${ApiEndpoints.articles}import_csv/',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+        ),
+      );
+
+      logger.i('✅ API Success: Import CSV effectué');
+
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
+  @override
+  Future<String> exportArticlesCSV(ExportArticlesCSVParams params) async {
+    try {
+      logger.d('📡 API Call: GET /articles/export_csv/');
+
+      final response = await apiClient.get(
+        '${ApiEndpoints.articles}export_csv/',
+        queryParameters: params.toQueryParams(),
+        options: Options(
+          responseType: ResponseType.bytes,
+        ),
+      );
+
+      logger.i('✅ API Success: Export CSV effectué');
+
+      // Sauvegarder le fichier
+      final fileName = 'articles_export_${DateTime.now().millisecondsSinceEpoch}.csv';
+
+      // Sur desktop, sauvegarder dans le répertoire de téléchargements
+      // Cette partie dépend de file_picker ou path_provider
+      // Pour l'instant, on retourne juste le nom du fichier
+
+      return fileName;
+    } on DioException catch (e) {
+      logger.e('❌ API Error: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
   // ==================== GESTION DES ERREURS ====================
   Exception _handleDioError(DioException error) {
     switch (error.type) {

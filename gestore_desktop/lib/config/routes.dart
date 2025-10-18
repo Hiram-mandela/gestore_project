@@ -5,6 +5,7 @@
 // Date: 10 Octobre 2025
 // ========================================
 
+import 'package:gestore_desktop/features/inventory/presentation/screens/alerts_dashboard_screen.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/network/connection_mode.dart';
@@ -13,6 +14,8 @@ import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 
 // ==================== INVENTORY ====================
+import '../features/inventory/presentation/screens/alert_detail_screen.dart';
+import '../features/inventory/presentation/screens/alerts_list_screen.dart';
 import '../features/inventory/presentation/screens/articles_list_screen.dart';
 import '../features/inventory/presentation/screens/article_detail_screen.dart';
 import '../features/inventory/presentation/screens/article_form_screen.dart';
@@ -384,6 +387,39 @@ final goRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return StockDetailScreen(stockId: id); // À créer si nécessaire
+      },
+    ),
+
+    // ==================== STOCK ALERTS ====================
+
+    // Dashboard des alertes
+    GoRoute(
+      path: 'alerts/dashboard',
+      name: 'alerts-dashboard',
+      builder: (context, state) => const AlertsDashboardScreen(),
+    ),
+
+    // Liste des alertes
+    GoRoute(
+      path: 'alerts/list',
+      name: 'alerts-list',
+      builder: (context, state) {
+        final queryParams = state.uri.queryParameters;
+        return AlertsListScreen(
+          initialAlertType: queryParams['alertType'],
+          initialAlertLevel: queryParams['alertLevel'],
+          initialIsAcknowledged: queryParams['isAcknowledged'] == 'true',
+        );
+      },
+    ),
+
+    // Détail d'une alerte
+    GoRoute(
+      path: 'alerts/:alertId',
+      name: 'alert-detail',
+      builder: (context, state) {
+        final alertId = state.pathParameters['alertId']!;
+        return AlertDetailScreen(alertId: alertId);
       },
     ),
 

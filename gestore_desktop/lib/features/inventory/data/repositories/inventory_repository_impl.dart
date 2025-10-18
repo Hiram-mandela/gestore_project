@@ -11,10 +11,12 @@ import '../../domain/entities/article_detail_entity.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/brand_entity.dart';
 import '../../domain/entities/location_entity.dart';
+import '../../domain/entities/stock_alert_entity.dart';
 import '../../domain/entities/stock_entity.dart';
 import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/entities/paginated_response_entity.dart';
 import '../../domain/repositories/inventory_repository.dart';
+import '../../domain/usecases/article_bulk_operations_usecases.dart';
 import '../datasources/inventory_remote_datasource.dart';
 
 @LazySingleton(as: InventoryRepository)
@@ -711,6 +713,186 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur valorisation: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== STOCK ALERTS ====================
+
+  @override
+  Future<(List<StockAlertEntity>?, String?)> getStockAlerts({
+    String? alertType,
+    String? alertLevel,
+    bool? isAcknowledged,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération alertes');
+
+      final alertsModel = await remoteDataSource.getStockAlerts(
+        alertType: alertType,
+        alertLevel: alertLevel,
+        isAcknowledged: isAcknowledged,
+      );
+
+      final alertsEntity = alertsModel
+          .map((model) => model.toEntity())
+          .toList();
+
+      logger.i('✅ Repository: ${alertsEntity.length} alertes récupérées');
+
+      return (alertsEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur alertes: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(StockAlertEntity?, String?)> getStockAlertById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération alerte $id');
+
+      final alertModel = await remoteDataSource.getStockAlertById(id);
+      final alertEntity = alertModel.toEntity();
+
+      logger.i('✅ Repository: Alerte récupérée');
+
+      return (alertEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur alerte: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> acknowledgeAlert(String id) async {
+    try {
+      logger.d('📦 Repository: Acquittement alerte $id');
+
+      final result = await remoteDataSource.acknowledgeAlert(id);
+
+      logger.i('✅ Repository: Alerte acquittée');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur acquittement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> bulkAcknowledgeAlerts(
+      List<String> alertIds,
+      ) async {
+    try {
+      logger.d('📦 Repository: Acquittement masse ${alertIds.length} alertes');
+
+      final result = await remoteDataSource.bulkAcknowledgeAlerts(alertIds);
+
+      logger.i('✅ Repository: Alertes acquittées en masse');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur acquittement masse: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> getAlertsDashboard() async {
+    try {
+      logger.d('📦 Repository: Récupération dashboard alertes');
+
+      final dashboard = await remoteDataSource.getAlertsDashboard();
+
+      logger.i('✅ Repository: Dashboard récupéré');
+
+      return (dashboard, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur dashboard: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== BULK OPERATIONS ====================
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> bulkUpdateArticles(
+      BulkUpdateArticlesParams params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Opération en masse sur ${params.articleIds.length} articles');
+
+      final result = await remoteDataSource.bulkUpdateArticles(params);
+
+      logger.i('✅ Repository: Opération effectuée');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur bulk update: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> duplicateArticle(
+      DuplicateArticleParams params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Duplication article ${params.articleId}');
+
+      final result = await remoteDataSource.duplicateArticle(params);
+
+      logger.i('✅ Repository: Article dupliqué');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur duplication: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> importArticlesCSV(
+      String filePath,
+      ) async {
+    try {
+      logger.d('📦 Repository: Import CSV $filePath');
+
+      final result = await remoteDataSource.importArticlesCSV(filePath);
+
+      logger.i('✅ Repository: Import effectué');
+
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur import CSV: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(String?, String?)> exportArticlesCSV(
+      ExportArticlesCSVParams params,
+      ) async {
+    try {
+      logger.d('📦 Repository: Export CSV');
+
+      final fileName = await remoteDataSource.exportArticlesCSV(params);
+
+      logger.i('✅ Repository: Export effectué - $fileName');
+
+      return (fileName, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur export CSV: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }

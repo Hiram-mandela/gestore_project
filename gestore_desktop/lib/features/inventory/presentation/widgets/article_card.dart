@@ -1,12 +1,12 @@
 // ========================================
 // lib/features/inventory/presentation/widgets/article_card.dart
+// VERSION PHASE 2 - Support des opérations en masse
 //
-// MODIFICATIONS APPORTÉES (Refonte GESTORE - Vue Liste) :
-// - Renommage de ArticleCard en ArticleListCard pour plus de clarté.
-// - Remplacement de Card par un Container stylisé avec les couleurs et bordures GESTORE.
-// - Application de la palette AppColors pour les textes, badges et icônes.
-// - Uniformisation des "chips" (catégorie, marque) et badges (marge) pour un design épuré.
-// - Amélioration de la lisibilité et de la hiérarchie de l'information.
+// NOUVEAUTÉS :
+// - Support de la sélection multiple avec checkbox
+// - Menu d'actions contextuelles (dupliquer, modifier, supprimer)
+// - Indication visuelle de la sélection (bordure colorée)
+// - Mode désactivé en mode sélection
 // ========================================
 
 import 'package:flutter/material.dart';
@@ -17,34 +17,73 @@ import 'stock_badge.dart';
 /// Carte pour afficher un article dans une liste (vue détaillée)
 class ArticleListCard extends StatelessWidget {
   final ArticleEntity article;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
+  // NOUVEAUX PARAMÈTRES Phase 2
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelected;
+  final List<PopupMenuEntry<String>>? actions;
 
   const ArticleListCard({
     super.key,
     required this.article,
-    required this.onTap,
+    this.onTap,
+    this.isSelected = false,
+    this.onSelected,
+    this.actions,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Désactiver le tap si en mode sélection
+    final effectiveOnTap = onSelected != null ? null : onTap;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [AppColors.subtleShadow()],
+        // Bordure colorée si sélectionné
+        border: Border.all(
+          color: isSelected ? AppColors.primary : AppColors.border,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          if (isSelected)
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          else
+            AppColors.subtleShadow(),
+        ],
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: effectiveOnTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // NOUVEAU: Checkbox de sélection
+              if (onSelected != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Checkbox(
+                    value: isSelected,
+                    onChanged: onSelected,
+                    activeColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
               // Image de l'article
               _buildArticleImage(),
               const SizedBox(width: 12),
+
               // Informations de l'article
               Expanded(
                 child: Column(
@@ -117,18 +156,39 @@ class ArticleListCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Indicateurs à droite (Marge, Inactif)
+
+              // Indicateurs à droite + Menu actions
               Padding(
                 padding: const EdgeInsets.only(left: 8.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // Menu d'actions contextuelles (3 points)
+                    if (actions != null && actions!.isNotEmpty && onSelected == null)
+                      PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        tooltip: 'Actions',
+                        itemBuilder: (context) => actions!,
+                        offset: const Offset(0, 40),
+                      )
+                    else if (onSelected == null)
+                      const SizedBox(width: 20), // Espace pour alignement
+
+                    const Spacer(),
+
+                    // Badge de marge
                     _buildMarginBadge(),
+
+                    // Badge inactif
                     if (!article.isActive) ...[
                       const SizedBox(height: 8),
                       _buildInactiveBadge(),
-                    ]
+                    ],
                   ],
                 ),
               ),
@@ -153,7 +213,9 @@ class ArticleListCard extends StatelessWidget {
           errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+            return const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            );
           },
         )
             : _buildPlaceholderImage(),
@@ -163,7 +225,11 @@ class ArticleListCard extends StatelessWidget {
 
   Widget _buildPlaceholderImage() {
     return const Center(
-      child: Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.border),
+      child: Icon(
+        Icons.inventory_2_outlined,
+        size: 40,
+        color: AppColors.border,
+      ),
     );
   }
 
