@@ -20,7 +20,9 @@ import '../features/inventory/domain/usecases/location_usecases.dart';
 
 // Environment
 import '../features/inventory/domain/usecases/stock_alert_usecases.dart';
+import '../features/inventory/domain/usecases/stock_movement_usecases.dart';
 import '../features/inventory/domain/usecases/stock_usecases.dart';
+import '../features/inventory/domain/usecases/unit_conversion_usecases.dart';
 import 'environment.dart';
 
 // ==================== AUTHENTICATION ====================
@@ -487,6 +489,11 @@ Future<void> configureDependencies() async {
 
   logger.i('✅ Stock Alerts configurées (5 use cases)');
 
+  logger.d('    ✓ 3 Use Cases - Stock Movements ✨');
+  getIt.registerLazySingleton(() => GetStockMovementsUseCase(getIt()));
+  getIt.registerLazySingleton(() => GetStockMovementByIdUseCase(getIt()));
+  getIt.registerLazySingleton(() => GetMovementsSummaryUseCase(getIt()));
+
   // 🆕 ==================== PHASE 2: OPÉRATIONS EN MASSE ====================
   logger.d('  → Bulk Operations Use Cases (PHASE 2)...');
 
@@ -520,8 +527,16 @@ Future<void> configureDependencies() async {
 
   logger.d('    ✓ 4 Use Cases Bulk Operations (PHASE 2) ✨');
 
+  // Use Cases - Unit Conversions ⭐ NOUVEAU (6 use cases)
+  getIt.registerLazySingleton(() => GetUnitConversionsUseCase(getIt()));
+  getIt.registerLazySingleton(() => GetUnitConversionByIdUseCase(getIt()));
+  getIt.registerLazySingleton(() => CreateUnitConversionUseCase(getIt()));
+  getIt.registerLazySingleton(() => UpdateUnitConversionUseCase(getIt()));
+  getIt.registerLazySingleton(() => DeleteUnitConversionUseCase(getIt()));
+  getIt.registerLazySingleton(() => CalculateConversionUseCase(getIt()));
 
-  logger.i('✅ Module Inventory configuré (49 services)');
+
+  logger.i('✅ Module Inventory configuré (56 services)');
 
   // ========================================
   // SALES FEATURE - MODULE COMPLET

@@ -13,10 +13,14 @@ import '../../domain/entities/brand_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/stock_alert_entity.dart';
 import '../../domain/entities/stock_entity.dart';
+import '../../domain/entities/stock_movement_entity.dart';
+import '../../domain/entities/unit_conversion_entity.dart';
 import '../../domain/entities/unit_of_measure_entity.dart';
 import '../../domain/entities/paginated_response_entity.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../../domain/usecases/article_bulk_operations_usecases.dart';
+import '../../domain/usecases/stock_movement_usecases.dart';
+import '../../domain/usecases/unit_conversion_usecases.dart';
 import '../datasources/inventory_remote_datasource.dart';
 
 @LazySingleton(as: InventoryRepository)
@@ -893,6 +897,217 @@ class InventoryRepositoryImpl implements InventoryRepository {
     } catch (e) {
       final errorMessage = e.toString();
       logger.e('❌ Repository: Erreur export CSV: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== UNIT CONVERSIONS ====================
+
+  @override
+  Future<(List<UnitConversionEntity>?, String?)> getUnitConversions({
+    String? fromUnitId,
+    String? toUnitId,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération conversions unités');
+
+      final conversionsModel = await remoteDataSource.getUnitConversions(
+        fromUnitId: fromUnitId,
+        toUnitId: toUnitId,
+      );
+
+      final conversionsEntity =
+      conversionsModel.map((model) => model.toEntity()).toList();
+
+      logger.i('✅ Repository: ${conversionsEntity.length} conversions récupérées');
+      return (conversionsEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur conversions: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitConversionEntity?, String?)> getUnitConversionById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération conversion $id');
+
+      final conversionModel = await remoteDataSource.getUnitConversionById(id);
+      final conversionEntity = conversionModel.toEntity();
+
+      logger.i('✅ Repository: Conversion ${conversionEntity.conversionDisplay} récupérée');
+      return (conversionEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur conversion: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitConversionEntity?, String?)> createUnitConversion(
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Création conversion');
+
+      final conversionModel = await remoteDataSource.createUnitConversion(data);
+      final conversionEntity = conversionModel.toEntity();
+
+      logger.i('✅ Repository: Conversion créée: ${conversionEntity.conversionDisplay}');
+      return (conversionEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur création: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(UnitConversionEntity?, String?)> updateUnitConversion(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('📦 Repository: Modification conversion $id');
+
+      final conversionModel =
+      await remoteDataSource.updateUnitConversion(id, data);
+      final conversionEntity = conversionModel.toEntity();
+
+      logger.i('✅ Repository: Conversion modifiée: ${conversionEntity.conversionDisplay}');
+      return (conversionEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur modification: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(void, String?)> deleteUnitConversion(String id) async {
+    try {
+      logger.d('📦 Repository: Suppression conversion $id');
+
+      await remoteDataSource.deleteUnitConversion(id);
+
+      logger.i('✅ Repository: Conversion supprimée');
+      return (null, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur suppression: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(ConversionResult?, String?)> calculateConversion({
+    required String fromUnitId,
+    required String toUnitId,
+    required double quantity,
+  }) async {
+    try {
+      logger.d('📦 Repository: Calcul conversion $quantity');
+
+      final resultData = await remoteDataSource.calculateConversion(
+        fromUnitId: fromUnitId,
+        toUnitId: toUnitId,
+        quantity: quantity,
+      );
+
+      final result = ConversionResult.fromJson(resultData);
+
+      logger.i('✅ Repository: Calcul effectué: ${result.displayText}');
+      return (result, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur calcul: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  // ==================== STOCK MOVEMENTS ====================
+
+  @override
+  Future<(PaginatedResponseEntity<StockMovementEntity>?, String?)> getStockMovements({
+    int page = 1,
+    int pageSize = 20,
+    String? movementType,
+    String? reason,
+    String? articleId,
+    String? locationId,
+    String? dateFrom,
+    String? dateTo,
+    String? search,
+    String? ordering = '-created_at',
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération mouvements page $page');
+
+      final responseModel = await remoteDataSource.getStockMovements(
+        page: page,
+        pageSize: pageSize,
+        movementType: movementType,
+        reason: reason,
+        articleId: articleId,
+        locationId: locationId,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        search: search,
+        ordering: ordering,
+      );
+
+      final responseEntity = responseModel.toEntity(
+            (movementModel) => movementModel.toEntity(),
+      );
+
+      logger.i('✅ Repository: ${responseEntity.count} mouvements récupérés');
+      return (responseEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mouvements: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(StockMovementEntity?, String?)> getStockMovementById(String id) async {
+    try {
+      logger.d('📦 Repository: Récupération mouvement $id');
+
+      final movementModel = await remoteDataSource.getStockMovementById(id);
+      final movementEntity = movementModel.toEntity();
+
+      logger.i('✅ Repository: Mouvement ${movementEntity.id} récupéré');
+      return (movementEntity, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur mouvement: $errorMessage');
+      return (null, _extractErrorMessage(errorMessage));
+    }
+  }
+
+  @override
+  Future<(MovementsSummary?, String?)> getMovementsSummary({
+    String? dateFrom,
+    String? dateTo,
+  }) async {
+    try {
+      logger.d('📦 Repository: Récupération résumé mouvements');
+
+      final summaryData = await remoteDataSource.getMovementsSummary(
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+      );
+
+      final summary = MovementsSummary.fromJson(summaryData);
+
+      logger.i('✅ Repository: Résumé récupéré: ${summary.totalMovements} mouvements');
+      return (summary, null);
+    } catch (e) {
+      final errorMessage = e.toString();
+      logger.e('❌ Repository: Erreur résumé: $errorMessage');
       return (null, _extractErrorMessage(errorMessage));
     }
   }

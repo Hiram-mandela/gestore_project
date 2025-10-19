@@ -19,6 +19,8 @@ import '../../../../core/network/paginated_response_model.dart';
 import '../models/location_model.dart';
 import '../models/stock_alert_model.dart';
 import '../models/stock_model.dart';
+import '../models/stock_movement_model.dart';
+import '../models/unit_conversion_model.dart';
 import '../models/unit_of_measure_model.dart';
 
 /// DataSource abstraite pour les opérations d'inventaire
@@ -172,6 +174,40 @@ abstract class InventoryRemoteDataSource {
 
   /// Exporte les articles en CSV
   Future<String> exportArticlesCSV(ExportArticlesCSVParams params);
+
+  // ==================== UNIT CONVERSIONS ====================
+  Future<List<UnitConversionModel>> getUnitConversions({
+    String? fromUnitId,
+    String? toUnitId,
+  });
+  Future<UnitConversionModel> getUnitConversionById(String id);
+  Future<UnitConversionModel> createUnitConversion(Map<String, dynamic> data);
+  Future<UnitConversionModel> updateUnitConversion(String id, Map<String, dynamic> data);
+  Future<void> deleteUnitConversion(String id);
+  Future<Map<String, dynamic>> calculateConversion({
+    required String fromUnitId,
+    required String toUnitId,
+    required double quantity,
+  });
+
+  // ==================== STOCK MOVEMENTS ====================
+  Future<PaginatedResponseModel<StockMovementModel>> getStockMovements({
+    int page = 1,
+    int pageSize = 20,
+    String? movementType,
+    String? reason,
+    String? articleId,
+    String? locationId,
+    String? dateFrom,
+    String? dateTo,
+    String? search,
+    String? ordering,
+  });
+  Future<StockMovementModel> getStockMovementById(String id);
+  Future<Map<String, dynamic>> getMovementsSummary({
+    String? dateFrom,
+    String? dateTo,
+  });
 
 }
 
@@ -1319,6 +1355,275 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     } on DioException catch (e) {
       logger.e('❌ API Error: ${e.message}');
       throw _handleDioError(e);
+    }
+  }
+
+
+  // ==================== UNIT CONVERSIONS ====================
+
+  @override
+  Future<List<UnitConversionModel>> getUnitConversions({
+    String? fromUnitId,
+    String? toUnitId,
+  }) async {
+    try {
+      logger.d('🌐 DataSource: Récupération conversions unités');
+
+      final queryParams = <String, dynamic>{};
+      if (fromUnitId != null) queryParams['from_unit'] = fromUnitId;
+      if (toUnitId != null) queryParams['to_unit'] = toUnitId;
+
+      final response = await apiClient.get(
+        ApiEndpoints.unitConversions,
+        queryParameters: queryParams,
+      );
+
+      // ⭐ CORRECTION: L'API retourne une réponse paginée
+      final Map<String, dynamic> responseData = response.data as Map<String, dynamic>;
+      final List<dynamic> results = responseData['results'] as List<dynamic>;
+
+      final conversions = results
+          .map((json) => UnitConversionModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      logger.i('✅ DataSource: ${conversions.length} conversions récupérées');
+      return conversions;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio conversions: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur conversions: $e');
+      throw Exception('Erreur lors de la récupération des conversions: $e');
+    }
+  }
+
+  @override
+  Future<UnitConversionModel> getUnitConversionById(String id) async {
+    try {
+      logger.d('🌐 DataSource: Récupération conversion $id');
+
+      final response = await apiClient.get(
+        ApiEndpoints.unitConversionDetail(id),
+      );
+
+      final conversion = UnitConversionModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      logger.i('✅ DataSource: Conversion ${conversion.conversionDisplay} récupérée');
+      return conversion;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio conversion: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur conversion: $e');
+      throw Exception('Erreur lors de la récupération de la conversion: $e');
+    }
+  }
+
+  @override
+  Future<UnitConversionModel> createUnitConversion(Map<String, dynamic> data) async {
+    try {
+      logger.d('🌐 DataSource: Création conversion');
+
+      final response = await apiClient.post(
+        ApiEndpoints.unitConversions,
+        data: data,
+      );
+
+      final conversion = UnitConversionModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      logger.i('✅ DataSource: Conversion créée: ${conversion.conversionDisplay}');
+      return conversion;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio création: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur création: $e');
+      throw Exception('Erreur lors de la création de la conversion: $e');
+    }
+  }
+
+  @override
+  Future<UnitConversionModel> updateUnitConversion(
+      String id,
+      Map<String, dynamic> data,
+      ) async {
+    try {
+      logger.d('🌐 DataSource: Modification conversion $id');
+
+      final response = await apiClient.patch(
+        ApiEndpoints.unitConversionDetail(id),
+        data: data,
+      );
+
+      final conversion = UnitConversionModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      logger.i('✅ DataSource: Conversion modifiée: ${conversion.conversionDisplay}');
+      return conversion;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio modification: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur modification: $e');
+      throw Exception('Erreur lors de la modification de la conversion: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteUnitConversion(String id) async {
+    try {
+      logger.d('🌐 DataSource: Suppression conversion $id');
+
+      await apiClient.delete(
+        ApiEndpoints.unitConversionDetail(id),
+      );
+
+      logger.i('✅ DataSource: Conversion supprimée');
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio suppression: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur suppression: $e');
+      throw Exception('Erreur lors de la suppression de la conversion: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> calculateConversion({
+    required String fromUnitId,
+    required String toUnitId,
+    required double quantity,
+  }) async {
+    try {
+      logger.d('🌐 DataSource: Calcul conversion $quantity');
+
+      final response = await apiClient.post(
+        ApiEndpoints.calculateConversion,
+        data: {
+          'from_unit_id': fromUnitId,
+          'to_unit_id': toUnitId,
+          'quantity': quantity,
+        },
+      );
+
+      logger.i('✅ DataSource: Calcul effectué');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio calcul: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur calcul: $e');
+      throw Exception('Erreur lors du calcul de conversion: $e');
+    }
+  }
+
+  // ==================== STOCK MOVEMENTS ====================
+
+  @override
+  Future<PaginatedResponseModel<StockMovementModel>> getStockMovements({
+    int page = 1,
+    int pageSize = 20,
+    String? movementType,
+    String? reason,
+    String? articleId,
+    String? locationId,
+    String? dateFrom,
+    String? dateTo,
+    String? search,
+    String? ordering = '-created_at',
+  }) async {
+    try {
+      logger.d('🌐 DataSource: Récupération mouvements page $page');
+
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'page_size': pageSize,
+      };
+
+      if (movementType != null) queryParams['movement_type'] = movementType;
+      if (reason != null) queryParams['reason'] = reason;
+      if (articleId != null) queryParams['article'] = articleId;
+      if (locationId != null) queryParams['stock__location'] = locationId;
+      if (dateFrom != null) queryParams['date_from'] = dateFrom;
+      if (dateTo != null) queryParams['date_to'] = dateTo;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (ordering != null) queryParams['ordering'] = ordering;
+
+      final response = await apiClient.get(
+        ApiEndpoints.stockMovements,
+        queryParameters: queryParams,
+      );
+
+      final paginatedResponse = PaginatedResponseModel<StockMovementModel>.fromJson(
+        response.data as Map<String, dynamic>,
+            (json) => StockMovementModel.fromJson(json),
+      );
+
+      logger.i('✅ DataSource: ${paginatedResponse.count} mouvements récupérés');
+      return paginatedResponse;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio mouvements: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur mouvements: $e');
+      throw Exception('Erreur lors de la récupération des mouvements: $e');
+    }
+  }
+
+  @override
+  Future<StockMovementModel> getStockMovementById(String id) async {
+    try {
+      logger.d('🌐 DataSource: Récupération mouvement $id');
+
+      final response = await apiClient.get(
+        ApiEndpoints.stockMovementDetail(id),
+      );
+
+      final movement = StockMovementModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      logger.i('✅ DataSource: Mouvement ${movement.id} récupéré');
+      return movement;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio mouvement: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur mouvement: $e');
+      throw Exception('Erreur lors de la récupération du mouvement: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getMovementsSummary({
+    String? dateFrom,
+    String? dateTo,
+  }) async {
+    try {
+      logger.d('🌐 DataSource: Récupération résumé mouvements');
+
+      final queryParams = <String, dynamic>{};
+      if (dateFrom != null) queryParams['date_from'] = dateFrom;
+      if (dateTo != null) queryParams['date_to'] = dateTo;
+
+      final response = await apiClient.get(
+        ApiEndpoints.stockMovementsSummary,
+        queryParameters: queryParams,
+      );
+
+      logger.i('✅ DataSource: Résumé récupéré');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      logger.e('❌ DataSource: Erreur Dio résumé: ${e.message}');
+      throw _handleDioError(e);
+    } catch (e) {
+      logger.e('❌ DataSource: Erreur résumé: $e');
+      throw Exception('Erreur lors de la récupération du résumé: $e');
     }
   }
 

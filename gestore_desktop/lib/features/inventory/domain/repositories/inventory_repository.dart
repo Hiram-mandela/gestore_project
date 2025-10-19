@@ -11,9 +11,13 @@ import '../entities/brand_entity.dart';
 import '../entities/location_entity.dart';
 import '../entities/stock_alert_entity.dart';
 import '../entities/stock_entity.dart';
+import '../entities/stock_movement_entity.dart';
+import '../entities/unit_conversion_entity.dart';
 import '../entities/unit_of_measure_entity.dart';
 import '../entities/paginated_response_entity.dart';
 import '../usecases/article_bulk_operations_usecases.dart';
+import '../usecases/stock_movement_usecases.dart';
+import '../usecases/unit_conversion_usecases.dart';
 
 /// Repository abstrait pour l'inventaire
 /// Contrat entre Domain Layer et Data Layer
@@ -183,5 +187,39 @@ abstract class InventoryRepository {
 
   /// Exporte les articles en CSV
   Future<(String?, String?)> exportArticlesCSV(ExportArticlesCSVParams params);
+
+  // ==================== UNIT CONVERSIONS ====================
+  Future<(List<UnitConversionEntity>?, String?)> getUnitConversions({
+    String? fromUnitId,
+    String? toUnitId,
+  });
+  Future<(UnitConversionEntity?, String?)> getUnitConversionById(String id);
+  Future<(UnitConversionEntity?, String?)> createUnitConversion(Map<String, dynamic> data);
+  Future<(UnitConversionEntity?, String?)> updateUnitConversion(String id, Map<String, dynamic> data);
+  Future<(void, String?)> deleteUnitConversion(String id);
+  Future<(ConversionResult?, String?)> calculateConversion({
+    required String fromUnitId,
+    required String toUnitId,
+    required double quantity,
+  });
+
+  // ==================== STOCK MOVEMENTS ====================
+  Future<(PaginatedResponseEntity<StockMovementEntity>?, String?)> getStockMovements({
+    int page = 1,
+    int pageSize = 20,
+    String? movementType,
+    String? reason,
+    String? articleId,
+    String? locationId,
+    String? dateFrom,
+    String? dateTo,
+    String? search,
+    String? ordering,
+  });
+  Future<(StockMovementEntity?, String?)> getStockMovementById(String id);
+  Future<(MovementsSummary?, String?)> getMovementsSummary({
+    String? dateFrom,
+    String? dateTo,
+  });
 
 }

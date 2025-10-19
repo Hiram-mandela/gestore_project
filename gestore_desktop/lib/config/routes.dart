@@ -4,7 +4,7 @@
 // VERSION MISE À JOUR - AppLayout appliqué partout sauf PosScreen/Login/Splash
 // Date: 18 Octobre 2025
 // ========================================
-import 'package:gestore_desktop/features/inventory/presentation/screens/alerts_dashboard_screen.dart';
+
 import 'package:go_router/go_router.dart';
 import '../core/network/connection_mode.dart';
 import '../features/authentication/presentation/screens/login_screen.dart';
@@ -12,6 +12,7 @@ import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 // ==================== INVENTORY ====================
 import '../features/inventory/presentation/screens/alert_detail_screen.dart';
+import '../features/inventory/presentation/screens/alerts_dashboard_screen.dart';
 import '../features/inventory/presentation/screens/alerts_list_screen.dart';
 import '../features/inventory/presentation/screens/articles_list_screen.dart';
 import '../features/inventory/presentation/screens/article_detail_screen.dart';
@@ -21,11 +22,16 @@ import '../features/inventory/presentation/screens/brands_list_screen.dart';
 import '../features/inventory/presentation/screens/location_detail_screen.dart';
 import '../features/inventory/presentation/screens/location_form_screen.dart';
 import '../features/inventory/presentation/screens/locations_list_screen.dart';
+import '../features/inventory/presentation/screens/movement_detail_screen.dart';
+import '../features/inventory/presentation/screens/movements_dashboard_screen.dart';
+import '../features/inventory/presentation/screens/movements_list_screen.dart';
 import '../features/inventory/presentation/screens/stock_adjustment_screen.dart';
 import '../features/inventory/presentation/screens/stock_detail_screen.dart';
 import '../features/inventory/presentation/screens/stock_transfer_screen.dart';
 import '../features/inventory/presentation/screens/stock_valuation_screen.dart';
 import '../features/inventory/presentation/screens/stocks_list_screen.dart';
+import '../features/inventory/presentation/screens/unit_conversion_form_screen.dart';
+import '../features/inventory/presentation/screens/unit_conversions_list_screen.dart';
 import '../features/inventory/presentation/screens/units_list_screen.dart';
 import '../features/inventory/presentation/providers/article_form_state.dart';
 import '../features/inventory/presentation/providers/category_state.dart';
@@ -311,6 +317,40 @@ final goRouter = GoRouter(
         ),
       ],
     ),
+    // ========================================
+    // INVENTORY - UNIT CONVERSIONS ROUTES
+    // ========================================
+    GoRoute(
+      path: '/inventory/unit-conversions',
+      name: 'unit-conversions',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const UnitConversionsListScreen(),
+      ),
+      routes: [
+        // Créer une conversion
+        GoRoute(
+          path: 'new',
+          name: 'unit-conversion-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const UnitConversionFormScreen(),
+          ),
+        ),
+        // Modifier une conversion
+        GoRoute(
+          path: ':id/edit',
+          name: 'unit-conversion-edit',
+          builder: (context, state) {
+            final conversionId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: UnitConversionFormScreen(conversionId: conversionId),
+            );
+          },
+        ),
+      ],
+    ),
     // ==================== LOCATIONS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
       path: '/inventory/locations',
@@ -434,6 +474,40 @@ final goRouter = GoRouter(
           child: AlertDetailScreen(alertId: alertId),
         );
       },
+    ),
+    // ========================================
+    // INVENTORY - STOCK MOVEMENTS ROUTES (PHASE 5)
+    // ========================================
+    GoRoute(
+      path: '/inventory/movements',
+      name: 'movements',
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const MovementsListScreen(),
+      ),
+      routes: [
+        // Dashboard des mouvements
+        GoRoute(
+          path: 'dashboard',
+          name: 'movements-dashboard',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const MovementsDashboardScreen(),
+          ),
+        ),
+        // Détail d'un mouvement
+        GoRoute(
+          path: ':id',
+          name: 'movement-detail',
+          builder: (context, state) {
+            final movementId = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: MovementDetailScreen(movementId: movementId),
+            );
+          },
+        ),
+      ],
     ),
     // ========================================
     // SALES - CUSTOMERS ROUTES

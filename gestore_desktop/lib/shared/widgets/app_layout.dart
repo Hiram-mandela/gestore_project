@@ -1,8 +1,8 @@
 // ========================================
 // lib/shared/widgets/app_layout.dart
 // Layout principal avec sidebar navigation
-// VERSION CORRIGÉE - Remplacement de MaterialStateProperty par WidgetStateProperty
-// Date: 18 Octobre 2025
+// VERSION COMPLÈTE AVEC PHASES 1 & 5
+// Date: 19 Octobre 2025
 // ========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +25,7 @@ class AppLayout extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: Colors.white, // Fond principal du contenu
+      backgroundColor: Colors.white,
       body: Row(
         children: [
           // Sidebar
@@ -53,10 +53,10 @@ class _Sidebar extends ConsumerWidget {
     return Container(
       width: 260,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB), // Couleur de fond moderne
+        color: const Color(0xFFF9FAFB),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), // Ombre plus douce
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(1, 0),
           ),
@@ -74,7 +74,7 @@ class _Sidebar extends ConsumerWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10), // Plus arrondi
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.store,
@@ -95,21 +95,23 @@ class _Sidebar extends ConsumerWidget {
             ),
           ),
           Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
+
           // Menu items
           Expanded(
             child: ListView(
-              // Espacement augmenté
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               children: [
                 // ==================== DASHBOARD ====================
                 _MenuItem(
-                  icon: Icons.dashboard_outlined, // Icône "outlined"
+                  icon: Icons.dashboard_outlined,
                   label: 'Tableau de bord',
                   route: '/dashboard',
                   currentRoute: currentRoute,
                 ),
+
                 const SizedBox(height: 12),
                 const _SectionHeader(title: 'INVENTAIRE'),
+
                 // Articles
                 _MenuItem(
                   icon: Icons.inventory_2_outlined,
@@ -117,6 +119,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/articles',
                   currentRoute: currentRoute,
                 ),
+
                 // Catégories
                 _MenuItem(
                   icon: Icons.category_outlined,
@@ -124,6 +127,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/categories',
                   currentRoute: currentRoute,
                 ),
+
                 // Marques
                 _MenuItem(
                   icon: Icons.branding_watermark_outlined,
@@ -131,6 +135,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/brands',
                   currentRoute: currentRoute,
                 ),
+
                 // Unités de mesure
                 _MenuItem(
                   icon: Icons.straighten_outlined,
@@ -138,6 +143,15 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/units',
                   currentRoute: currentRoute,
                 ),
+
+                // Conversions d'unités ⭐ NOUVEAU (Phase 1)
+                _MenuItem(
+                  icon: Icons.swap_horiz_outlined,
+                  label: 'Conversions',
+                  route: '/inventory/unit-conversions',
+                  currentRoute: currentRoute,
+                ),
+
                 // Emplacements
                 _MenuItem(
                   icon: Icons.location_on_outlined,
@@ -145,6 +159,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/locations',
                   currentRoute: currentRoute,
                 ),
+
                 // Stocks
                 _MenuItem(
                   icon: Icons.warehouse_outlined,
@@ -152,15 +167,26 @@ class _Sidebar extends ConsumerWidget {
                   route: '/inventory/stocks',
                   currentRoute: currentRoute,
                 ),
+
                 // Alertes
                 _MenuItem(
                   icon: Icons.notifications_active_outlined,
                   label: 'Alertes de Stock',
-                  route: '/inventory/alerts/dashboard', // Point d'entrée
+                  route: '/inventory/alerts/dashboard',
                   currentRoute: currentRoute,
                 ),
+
+                // Mouvements ⭐ NOUVEAU (Phase 5)
+                _MenuItem(
+                  icon: Icons.sync_alt_outlined,
+                  label: 'Mouvements',
+                  route: '/inventory/movements',
+                  currentRoute: currentRoute,
+                ),
+
                 const SizedBox(height: 12),
                 const _SectionHeader(title: 'VENTES'),
+
                 // Point de vente (POS)
                 _MenuItem(
                   icon: Icons.point_of_sale_outlined,
@@ -168,6 +194,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/sales/pos',
                   currentRoute: currentRoute,
                 ),
+
                 // Clients
                 _MenuItem(
                   icon: Icons.people_outline,
@@ -175,6 +202,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/sales/customers',
                   currentRoute: currentRoute,
                 ),
+
                 // Historique des ventes
                 _MenuItem(
                   icon: Icons.history_outlined,
@@ -182,6 +210,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/sales/history',
                   currentRoute: currentRoute,
                 ),
+
                 // Moyens de paiement
                 _MenuItem(
                   icon: Icons.payment_outlined,
@@ -189,6 +218,7 @@ class _Sidebar extends ConsumerWidget {
                   route: '/sales/payment-methods',
                   currentRoute: currentRoute,
                 ),
+
                 // Remises et Promotions
                 _MenuItem(
                   icon: Icons.local_offer_outlined,
@@ -196,8 +226,10 @@ class _Sidebar extends ConsumerWidget {
                   route: '/sales/discounts',
                   currentRoute: currentRoute,
                 ),
+
                 const SizedBox(height: 12),
                 const _SectionHeader(title: 'SYSTÈME'),
+
                 // Paramètres
                 _MenuItem(
                   icon: Icons.settings_outlined,
@@ -208,10 +240,11 @@ class _Sidebar extends ConsumerWidget {
               ],
             ),
           ),
+
           // User info et déconnexion
           Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
           Container(
-            padding: const EdgeInsets.all(20), // Augmentation du padding
+            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
                 // User info
@@ -256,40 +289,17 @@ class _Sidebar extends ConsumerWidget {
                       ),
                     ],
                   ),
-                const SizedBox(height: 16),
-                // Bouton de déconnexion (Style mis à jour)
+                const SizedBox(height: 12),
+                // Bouton déconnexion
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => _handleLogout(context, ref),
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text('Déconnexion'),
-                    // =========================================================
-                    // CORRECTION: Remplacement de 'styleFrom' par 'style'
-                    // et de 'MaterialStateProperty' par 'WidgetStateProperty'
-                    // =========================================================
-                    style: ButtonStyle(
-                      // Propriétés statiques
-                      foregroundColor: WidgetStateProperty.all(Colors.red.shade700),
-                      side: WidgetStateProperty.all(
-                          BorderSide(color: Colors.red.shade200)),
-                      padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(vertical: 12)),
-                      shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
-
-                      // Propriété dynamique (pour le survol)
-                      overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                            (Set<WidgetState> states) {
-                          if (states.contains(WidgetState.hovered)) {
-                            // Utilisation de .withValues()
-                            return Colors.red.withValues(alpha: 0.05);
-                          }
-                          return null; // Couleur par défaut pour les autres états
-                        },
-                      ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red[700],
+                      side: BorderSide(color: Colors.red[200]!),
                     ),
                   ),
                 ),
@@ -301,13 +311,12 @@ class _Sidebar extends ConsumerWidget {
     );
   }
 
-  /// Gère la déconnexion
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        title: const Text('Confirmer la déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -341,14 +350,13 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // Padding vertical augmenté
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: Colors.grey[500], // Couleur adoucie
+          color: Colors.grey[500],
           letterSpacing: 0.5,
         ),
       ),
@@ -375,56 +383,41 @@ class _MenuItem extends StatelessWidget {
     final isSelected = _isRouteSelected();
 
     return Padding(
-      // Padding horizontal augmenté
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ListTile(
         selected: isSelected,
-        // Couleurs de sélection et de survol
         selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-        // Le paramètre 'hoverColor' attend un Color? statique,
-        // ce qui est correct ici.
         hoverColor: AppColors.primary.withValues(alpha: 0.05),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(7), // Arrondi ajusté
+          borderRadius: BorderRadius.circular(7),
         ),
         leading: Icon(
           icon,
-          size: 20, // Taille d'icône réduite
+          size: 20,
           color: isSelected ? AppColors.primary : Colors.grey[600],
         ),
         title: Text(
           label,
           style: TextStyle(
-            fontSize: 14.5, // Taille de police ajustée
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, // Poids ajusté
-            color: isSelected ? AppColors.primary : Colors.grey[900],
+            fontSize: 14.5,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : Colors.grey[800],
           ),
         ),
         onTap: () {
-          if (route != currentRoute) {
-            context.go(route);
-          }
+          context.go(route);
         },
       ),
     );
   }
 
-  /// Vérifie si la route est sélectionnée (Logique mise à jour)
   bool _isRouteSelected() {
-    // Correspondance exacte
+    // Sélectionné si route exacte
     if (currentRoute == route) return true;
 
-    // Correspondance de route parent
-    // (ex: /inventory/articles correspond à /inventory/articles/*)
-    if (route != '/' && currentRoute.startsWith('$route/')) return true;
-
-    // CAS SPÉCIAL: Gérer les routes d'alertes non-imbriquées
-    // Si le menu pointe vers le dashboard des alertes,
-    // on active aussi pour 'list' et ':alertId'.
-    if (route == '/inventory/alerts/dashboard') {
-      if (currentRoute.startsWith('/inventory/alerts/')) {
-        return true;
-      }
+    // Sélectionné si sous-route
+    if (currentRoute.startsWith(route) && route != '/dashboard') {
+      return true;
     }
 
     return false;

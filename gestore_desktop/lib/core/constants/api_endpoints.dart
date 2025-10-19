@@ -37,7 +37,11 @@ class ApiEndpoints {
   /// Units of Measure
   static const String units = '/inventory/units/';
   static String unitDetail(String id) => '/inventory/units/$id/';
-  static const String unitConversions = '/inventory/unit-conversions/';
+
+  /// Unit conversions endpoints
+  static const String unitConversions = '/inventory/conversions/';
+  static String unitConversionDetail(String id) => '/inventory/conversions/$id/';
+  static const String calculateConversion = '/inventory/conversions/calculate/';
 
   /// Brands
   static const String brands = '/inventory/brands/';
@@ -92,8 +96,9 @@ class ApiEndpoints {
   static const String stockAlertsDashboard = '/inventory/alerts/dashboard/';
 
   /// Stock Movements
-  static const String stockMovements = '/inventory/stock-movements/';
-  static String stockMovementDetail(String id) => '/inventory/stock-movements/$id/';
+  static const String stockMovements = '/inventory/movements/';
+  static String stockMovementDetail(String id) => '/inventory/movements/$id/';
+  static const String stockMovementsSummary = '/inventory/movements/summary/';
 
   /// Stock Adjustments
   static const String stockAdjustments = '/inventory/stock-adjustments/';
