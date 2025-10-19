@@ -1,18 +1,15 @@
 // ========================================
 // lib/config/routes.dart
 // Configuration complète des routes avec GoRouter
-// VERSION COMPLÈTE - Inventory + Sales + Settings
-// Date: 10 Octobre 2025
+// VERSION MISE À JOUR - AppLayout appliqué partout sauf PosScreen/Login/Splash
+// Date: 18 Octobre 2025
 // ========================================
-
 import 'package:gestore_desktop/features/inventory/presentation/screens/alerts_dashboard_screen.dart';
 import 'package:go_router/go_router.dart';
-
 import '../core/network/connection_mode.dart';
 import '../features/authentication/presentation/screens/login_screen.dart';
 import '../features/authentication/presentation/screens/splash_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
-
 // ==================== INVENTORY ====================
 import '../features/inventory/presentation/screens/alert_detail_screen.dart';
 import '../features/inventory/presentation/screens/alerts_list_screen.dart';
@@ -37,7 +34,6 @@ import '../features/inventory/presentation/providers/unit_state.dart';
 import '../features/inventory/presentation/screens/brand_form_screen.dart';
 import '../features/inventory/presentation/screens/category_form_screen.dart';
 import '../features/inventory/presentation/screens/unit_form_screen.dart';
-
 // ==================== SALES ====================
 import '../features/sales/presentation/screens/discount_form_screen.dart';
 import '../features/sales/presentation/screens/discounts_list_screen.dart';
@@ -48,11 +44,9 @@ import '../features/sales/presentation/screens/customers_screen.dart';
 import '../features/sales/presentation/screens/customer_form_screen.dart';
 import '../features/sales/presentation/screens/sales_history_screen.dart';
 import '../features/sales/presentation/screens/sale_detail_screen.dart';
-
 // ==================== SETTINGS ====================
 import '../features/settings/presentation/screens/connection_config_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
-
 // ==================== SHARED ====================
 import '../shared/widgets/app_layout.dart';
 
@@ -64,14 +58,12 @@ final goRouter = GoRouter(
     // ========================================
     // ROUTES PUBLIQUES (sans layout)
     // ========================================
-
     // Splash Screen (route initiale)
     GoRoute(
       path: '/',
       name: 'splash',
       builder: (context, state) => const SplashScreen(),
     ),
-
     // Login Screen
     GoRoute(
       path: '/login',
@@ -80,9 +72,18 @@ final goRouter = GoRouter(
     ),
 
     // ========================================
+    // SALES - POS (POINT OF SALE) ROUTE
+    // Demandé SANS AppLayout
+    // ========================================
+    GoRoute(
+      path: '/sales/pos',
+      name: 'pos',
+      builder: (context, state) => const PosScreen(),
+    ),
+
+    // ========================================
     // ROUTES PROTÉGÉES (avec layout)
     // ========================================
-
     // Dashboard
     GoRoute(
       path: '/dashboard',
@@ -92,11 +93,9 @@ final goRouter = GoRouter(
         child: const DashboardScreen(),
       ),
     ),
-
     // ========================================
     // INVENTORY - ARTICLES ROUTES
     // ========================================
-
     GoRoute(
       path: '/inventory/articles',
       name: 'articles',
@@ -116,7 +115,6 @@ final goRouter = GoRouter(
             ),
           ),
         ),
-
         // Détail article
         GoRoute(
           path: ':id',
@@ -148,11 +146,9 @@ final goRouter = GoRouter(
         ),
       ],
     ),
-
     // ========================================
     // INVENTORY - CATEGORIES ROUTES
     // ========================================
-
     GoRoute(
       path: '/inventory/categories',
       name: 'categories',
@@ -172,7 +168,6 @@ final goRouter = GoRouter(
             ),
           ),
         ),
-
         // Détail/Édition catégorie
         GoRoute(
           path: ':id',
@@ -206,11 +201,9 @@ final goRouter = GoRouter(
         ),
       ],
     ),
-
     // ========================================
     // INVENTORY - BRANDS ROUTES
     // ========================================
-
     GoRoute(
       path: '/inventory/brands',
       name: 'brands',
@@ -230,7 +223,6 @@ final goRouter = GoRouter(
             ),
           ),
         ),
-
         // Détail/Édition marque
         GoRoute(
           path: ':id',
@@ -264,11 +256,9 @@ final goRouter = GoRouter(
         ),
       ],
     ),
-
     // ========================================
     // INVENTORY - UNITS OF MEASURE ROUTES
     // ========================================
-
     GoRoute(
       path: '/inventory/units',
       name: 'units',
@@ -288,7 +278,6 @@ final goRouter = GoRouter(
             ),
           ),
         ),
-
         // Détail/Édition unité
         GoRoute(
           path: ':id',
@@ -322,124 +311,133 @@ final goRouter = GoRouter(
         ),
       ],
     ),
-
-    // ==================== LOCATIONS ====================
-
+    // ==================== LOCATIONS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
       path: '/inventory/locations',
       name: 'locations',
-      builder: (context, state) => const LocationsListScreen(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const LocationsListScreen(),
+      ),
+      routes: [
+        GoRoute(
+          path: 'new',
+          name: 'location-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const LocationFormScreen(),
+          ),
+        ),
+        GoRoute(
+          path: ':id',
+          name: 'location-detail',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: LocationDetailScreen(locationId: id),
+            );
+          },
+          routes: [
+            GoRoute(
+              path: 'edit',
+              name: 'location-edit',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return AppLayout(
+                  currentRoute: state.matchedLocation,
+                  child: LocationFormScreen(locationId: id),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
     ),
-
-    GoRoute(
-      path: '/inventory/locations/new',
-      name: 'location-create',
-      builder: (context, state) => const LocationFormScreen(),
-    ),
-
-    GoRoute(
-      path: '/inventory/locations/:id',
-      name: 'location-detail',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return LocationDetailScreen(locationId: id);
-      },
-    ),
-
-    GoRoute(
-      path: '/inventory/locations/:id/edit',
-      name: 'location-edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return LocationFormScreen(locationId: id);
-      },
-    ),
-
-    // ==================== STOCKS ====================
-
+    // ==================== STOCKS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
       path: '/inventory/stocks',
       name: 'stocks',
-      builder: (context, state) => const StocksListScreen(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const StocksListScreen(),
+      ),
+      routes: [
+        GoRoute(
+          path: 'adjustment',
+          name: 'stock-adjustment',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const StockAdjustmentScreen(),
+          ),
+        ),
+        GoRoute(
+          path: 'transfer',
+          name: 'stock-transfer',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const StockTransferScreen(),
+          ),
+        ),
+        GoRoute(
+          path: 'valuation',
+          name: 'stock-valuation',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const StockValuationScreen(),
+          ),
+        ),
+        GoRoute(
+          path: ':id',
+          name: 'stock-detail',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: StockDetailScreen(stockId: id), // À créer si nécessaire
+            );
+          },
+        ),
+      ],
     ),
-
+    // ==================== STOCK ALERTS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
-      path: '/inventory/stocks/adjustment',
-      name: 'stock-adjustment',
-      builder: (context, state) => const StockAdjustmentScreen(),
-    ),
-
-    GoRoute(
-      path: '/inventory/stocks/transfer',
-      name: 'stock-transfer',
-      builder: (context, state) => const StockTransferScreen(),
-    ),
-
-    GoRoute(
-      path: '/inventory/stocks/valuation',
-      name: 'stock-valuation',
-      builder: (context, state) => const StockValuationScreen(),
-    ),
-
-    GoRoute(
-      path: '/inventory/stocks/:id',
-      name: 'stock-detail',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return StockDetailScreen(stockId: id); // À créer si nécessaire
-      },
-    ),
-
-    // ==================== STOCK ALERTS ====================
-
-    // Dashboard des alertes
-    GoRoute(
-      path: 'alerts/dashboard',
+      path: '/inventory/alerts/dashboard',
       name: 'alerts-dashboard',
-      builder: (context, state) => const AlertsDashboardScreen(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const AlertsDashboardScreen(),
+      ),
     ),
-
-    // Liste des alertes
     GoRoute(
-      path: 'alerts/list',
+      path: '/inventory/alerts/list',
       name: 'alerts-list',
       builder: (context, state) {
         final queryParams = state.uri.queryParameters;
-        return AlertsListScreen(
-          initialAlertType: queryParams['alertType'],
-          initialAlertLevel: queryParams['alertLevel'],
-          initialIsAcknowledged: queryParams['isAcknowledged'] == 'true',
+        return AppLayout(
+          currentRoute: state.matchedLocation,
+          child: AlertsListScreen(
+            initialAlertType: queryParams['alertType'],
+            initialAlertLevel: queryParams['alertLevel'],
+            initialIsAcknowledged: queryParams['isAcknowledged'] == 'true',
+          ),
         );
       },
     ),
-
-    // Détail d'une alerte
     GoRoute(
-      path: 'alerts/:alertId',
+      path: '/inventory/alerts/:alertId',
       name: 'alert-detail',
       builder: (context, state) {
         final alertId = state.pathParameters['alertId']!;
-        return AlertDetailScreen(alertId: alertId);
+        return AppLayout(
+          currentRoute: state.matchedLocation,
+          child: AlertDetailScreen(alertId: alertId),
+        );
       },
     ),
-
-    // ========================================
-    // SALES - POS (POINT OF SALE) ROUTE
-    // ========================================
-
-    GoRoute(
-      path: '/sales/pos',
-      name: 'pos',
-      builder: (context, state) => AppLayout(
-        currentRoute: state.matchedLocation,
-        child: const PosScreen(),
-      ),
-    ),
-
     // ========================================
     // SALES - CUSTOMERS ROUTES
     // ========================================
-
     GoRoute(
       path: '/sales/customers',
       name: 'customers',
@@ -454,11 +452,9 @@ final goRouter = GoRouter(
           name: 'customer-create',
           builder: (context, state) => AppLayout(
             currentRoute: state.matchedLocation,
-            child: const CustomerFormScreen(
-            ),
+            child: const CustomerFormScreen(),
           ),
         ),
-
         // Détail/Édition client
         GoRoute(
           path: ':id',
@@ -491,11 +487,9 @@ final goRouter = GoRouter(
         ),
       ],
     ),
-
     // ========================================
     // SALES - SALES HISTORY ROUTES
     // ========================================
-
     GoRoute(
       path: '/sales/history',
       name: 'sales-history',
@@ -510,59 +504,79 @@ final goRouter = GoRouter(
           name: 'sale-detail',
           builder: (context, state) {
             final saleId = state.pathParameters['id']!;
-            return SaleDetailScreen(saleId: saleId);
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: SaleDetailScreen(saleId: saleId),
+            );
           },
         ),
       ],
     ),
-
-    // Liste des moyens de paiement
+    // ==================== PAYMENT METHODS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
       path: '/sales/payment-methods',
       name: 'payment-methods',
-      builder: (context, state) => const PaymentMethodsListScreen(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const PaymentMethodsListScreen(),
+      ),
+      routes: [
+        // Nouveau moyen de paiement
+        GoRoute(
+          path: 'new',
+          name: 'payment-method-new',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const PaymentMethodFormScreen(),
+          ),
+        ),
+        // Modifier un moyen de paiement
+        GoRoute(
+          path: ':id',
+          name: 'payment-method-edit',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: PaymentMethodFormScreen(paymentMethodId: id),
+            );
+          },
+        ),
+      ],
     ),
-
-    // Nouveau moyen de paiement
-    GoRoute(
-      path: '/sales/payment-methods/new',
-      name: 'payment-method-new',
-      builder: (context, state) => const PaymentMethodFormScreen(),
-    ),
-
-    // Modifier un moyen de paiement
-    GoRoute(
-      path: '/sales/payment-methods/:id',
-      name: 'payment-method-edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return PaymentMethodFormScreen(paymentMethodId: id);
-      },
-    ),
-
+    // ==================== DISCOUNTS (MISE À JOUR AVEC LAYOUT) ====================
     GoRoute(
       path: '/sales/discounts',
       name: 'discounts-list',
-      builder: (context, state) => const DiscountsListScreen(),
+      builder: (context, state) => AppLayout(
+        currentRoute: state.matchedLocation,
+        child: const DiscountsListScreen(),
+      ),
+      routes: [
+        GoRoute(
+          path: 'new',
+          name: 'discount-create',
+          builder: (context, state) => AppLayout(
+            currentRoute: state.matchedLocation,
+            child: const DiscountFormScreen(),
+          ),
+        ),
+        GoRoute(
+          path: ':id',
+          name: 'discount-edit',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AppLayout(
+              currentRoute: state.matchedLocation,
+              child: DiscountFormScreen(discountId: id),
+            );
+          },
+        ),
+      ],
     ),
-    GoRoute(
-      path: '/sales/discounts/new',
-      name: 'discount-create',
-      builder: (context, state) => const DiscountFormScreen(),
-    ),
-    GoRoute(
-      path: '/sales/discounts/:id',
-      name: 'discount-edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return DiscountFormScreen(discountId: id);
-      },
-    ),
-
     // ========================================
     // SETTINGS ROUTES
     // ========================================
-
     GoRoute(
       path: '/settings',
       name: 'settings',

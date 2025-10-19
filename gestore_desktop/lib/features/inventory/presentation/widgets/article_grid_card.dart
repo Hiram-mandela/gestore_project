@@ -6,9 +6,9 @@
 // - Design vertical et compact, optimisé pour une grille à 2 colonnes
 // - Met l'accent sur l'image de l'article
 // - Support de la sélection multiple (optionnel)
+// - NOUVEAU: Menu d'actions contextuelles (dupliquer, modifier, etc.)
 // - Applique le style GESTORE
 // ========================================
-
 import 'package:flutter/material.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../domain/entities/article_entity.dart';
@@ -23,12 +23,16 @@ class ArticleGridCard extends StatelessWidget {
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
 
+  // NOUVEAU: Support actions contextuelles
+  final List<PopupMenuEntry<String>>? actions;
+
   const ArticleGridCard({
     super.key,
     required this.article,
     this.onTap,
     this.isSelected = false,
     this.onSelected,
+    this.actions, // Ajout du paramètre
   });
 
   @override
@@ -68,11 +72,10 @@ class ArticleGridCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   _buildArticleImage(),
-
                   // Overlay inactif
                   if (!article.isActive) _buildInactiveOverlay(),
 
-                  // PHASE 2: Checkbox de sélection en overlay
+                  // PHASE 2: Checkbox de sélection en overlay (TOP-LEFT)
                   if (onSelected != null)
                     Positioned(
                       top: 8,
@@ -98,10 +101,39 @@ class ArticleGridCard extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                  // NOUVEAU: Menu d'actions contextuelles (TOP-RIGHT)
+                  // S'affiche uniquement si on N'EST PAS en mode sélection
+                  if (onSelected == null && actions != null && actions!.isNotEmpty)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2), //
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            size: 20,
+                            color: AppColors.textSecondary, //
+                          ),
+                          tooltip: 'Actions', //
+                          itemBuilder: (context) => actions!, //
+                          offset: const Offset(0, 40), //
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-
             // Contenu
             Padding(
               padding: const EdgeInsets.all(10),
@@ -120,7 +152,6 @@ class ArticleGridCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-
                   // Code
                   Text(
                     article.code,
@@ -130,7 +161,6 @@ class ArticleGridCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-
                   // Prix et Stock
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -157,9 +187,7 @@ class ArticleGridCard extends StatelessWidget {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 6),
-
                   // Catégorie
                   _buildCategoryChip(),
                 ],
@@ -178,7 +206,8 @@ class ArticleGridCard extends StatelessWidget {
           ? Image.network(
         article.imageUrl!,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildPlaceholderImage(),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Center(
@@ -238,7 +267,6 @@ class ArticleGridCard extends StatelessWidget {
 
   Widget _buildCategoryChip() {
     final color = _parseColor(article.categoryColor);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

@@ -3,7 +3,6 @@
 // Model pour les emplacements de stockage
 // Basé sur le backend: apps/inventory/models.py - Location
 // ========================================
-
 import '../../domain/entities/location_entity.dart';
 
 class LocationModel {
@@ -86,6 +85,29 @@ class LocationModel {
       fullPath: fullPath,
       createdAt: createdAt,
       updatedAt: updatedAt,
+    );
+  }
+
+  /// Crée un Model depuis une Entity
+  factory LocationModel.fromEntity(LocationEntity entity) {
+    return LocationModel(
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      code: entity.code,
+      locationType: entity.locationType.name,
+      parentId: entity.parentId,
+      parentName: entity.parentName,
+      barcode: entity.barcode,
+      isActive: entity.isActive,
+      statusDisplay: entity.statusDisplay,
+      childrenCount: entity.childrenCount,
+      stocksCount: entity.stocksCount,
+      fullPath: entity.fullPath,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      syncStatus: 'synced',
+      needsSync: false,
     );
   }
 

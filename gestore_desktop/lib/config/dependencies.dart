@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/network/api_client.dart';
 import '../core/network/network_info.dart';
 import '../core/utils/jwt_helper.dart';
+import '../features/inventory/domain/usecases/article_bulk_operations_usecases.dart';
 import '../features/inventory/domain/usecases/location_usecases.dart';
 
 // Environment
@@ -486,8 +487,41 @@ Future<void> configureDependencies() async {
 
   logger.i('✅ Stock Alerts configurées (5 use cases)');
 
+  // 🆕 ==================== PHASE 2: OPÉRATIONS EN MASSE ====================
+  logger.d('  → Bulk Operations Use Cases (PHASE 2)...');
 
-  logger.i('✅ Module Inventory configuré (45 services)');
+  getIt.registerLazySingleton(
+        () => BulkUpdateArticlesUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => DuplicateArticleUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => ImportArticlesCSVUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  getIt.registerLazySingleton(
+        () => ExportArticlesCSVUseCase(
+      repository: getIt<InventoryRepository>(),
+      logger: getIt<Logger>(),
+    ),
+  );
+
+  logger.d('    ✓ 4 Use Cases Bulk Operations (PHASE 2) ✨');
+
+
+  logger.i('✅ Module Inventory configuré (49 services)');
 
   // ========================================
   // SALES FEATURE - MODULE COMPLET

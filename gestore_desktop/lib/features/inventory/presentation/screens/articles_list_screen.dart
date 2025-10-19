@@ -9,7 +9,6 @@
 // - Duplication d'articles
 // - Menu contextuel par article
 // ========================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +53,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   @override
   void initState() {
     super.initState();
-
     // Initialiser les use cases
     _bulkUpdateUseCase = getIt<BulkUpdateArticlesUseCase>();
     _duplicateUseCase = getIt<DuplicateArticleUseCase>();
@@ -67,7 +65,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       ref.read(categoriesProvider.notifier).loadCategories(isActive: true);
       ref.read(brandsProvider.notifier).loadBrands(isActive: true);
     });
-
     _scrollController.addListener(_onScroll);
   }
 
@@ -83,7 +80,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.position.pixels;
     final delta = 200.0;
-
     if (currentScroll >= maxScroll - delta) {
       final state = ref.read(articlesProvider);
       if (state is InventoryLoaded && state.hasMore) {
@@ -100,7 +96,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   @override
   Widget build(BuildContext context) {
     final articlesState = ref.watch(articlesProvider);
-
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: Column(
@@ -134,7 +129,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         },
       );
     }
-
     return FloatingActionButton(
       onPressed: () => context.pushNamed('article-create'),
       backgroundColor: AppColors.primary,
@@ -181,10 +175,10 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
                   ],
                 ),
               ),
-
               // PHASE 2: Bouton Import/Export
               PopupMenuButton<String>(
-                icon: const Icon(Icons.import_export, color: AppColors.textSecondary),
+                icon: const Icon(Icons.import_export,
+                    color: AppColors.textSecondary),
                 tooltip: 'Import/Export',
                 onSelected: (value) {
                   if (value == 'import') {
@@ -216,11 +210,11 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
                   ),
                 ],
               ),
-
               // PHASE 2: Bouton mode sélection
               if (!_selectionMode)
                 IconButton(
-                  icon: const Icon(Icons.checklist, color: AppColors.textSecondary),
+                  icon: const Icon(Icons.checklist,
+                      color: AppColors.textSecondary),
                   tooltip: 'Mode sélection',
                   onPressed: () {
                     setState(() {
@@ -229,7 +223,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
                     });
                   },
                 ),
-
               // Bouton annuler sélection
               if (_selectionMode)
                 IconButton(
@@ -242,21 +235,22 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
                     });
                   },
                 ),
-
               // Bouton Filtres
               IconButton(
                 onPressed: _showFiltersSheet,
-                icon: const Icon(Icons.filter_list, color: AppColors.textSecondary),
+                icon:
+                const Icon(Icons.filter_list, color: AppColors.textSecondary),
                 tooltip: 'Filtres',
               ),
-
               // Bouton Grille/Liste
               IconButton(
                 onPressed: () {
                   setState(() => _isGridView = !_isGridView);
                 },
                 icon: Icon(
-                  _isGridView ? Icons.view_list_outlined : Icons.grid_view_outlined,
+                  _isGridView
+                      ? Icons.view_list_outlined
+                      : Icons.grid_view_outlined,
                   color: AppColors.textSecondary,
                 ),
                 tooltip: _isGridView ? 'Afficher en liste' : 'Afficher en grille',
@@ -289,7 +283,8 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   Widget _buildBody(InventoryState state) {
     if (state is InventoryInitial) {
       return const Center(
-        child: Text('Prêt à charger...', style: TextStyle(color: AppColors.textTertiary)),
+        child: Text('Prêt à charger...',
+            style: TextStyle(color: AppColors.textTertiary)),
       );
     }
     if (state is InventoryLoading) {
@@ -299,7 +294,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       final articles = (state is InventoryLoaded)
           ? state.articles
           : (state as InventoryLoadingMore).currentArticles;
-
       if (articles.isEmpty) {
         return _buildEmptyState();
       }
@@ -322,6 +316,9 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     );
   }
 
+  // ===================================
+  // MÉTHODE _buildGridView MISE À JOUR
+  // ===================================
   Widget _buildGridView(List<dynamic> articles, bool isLoadingMore) {
     return GridView.builder(
       controller: _scrollController,
@@ -338,13 +335,33 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         final article = articles[index];
+        final isSelected = _selectedArticles.contains(article.id);
 
-        // En mode grille, pas de sélection multiple pour simplifier
         return ArticleGridCard(
           article: article,
+          isSelected: isSelected, // AJOUTÉ : Gère l'état de sélection
+
+          // AJOUTÉ : Passe le menu d'actions
+          actions: _selectionMode ? null : _buildArticleActions(article.id),
+
+          // AJOUTÉ : Gère le callback de sélection
+          onSelected: _selectionMode
+              ? (selected) {
+            setState(() {
+              if (selected == true) {
+                _selectedArticles.add(article.id);
+              } else {
+                _selectedArticles.remove(article.id);
+              }
+            });
+          }
+              : null,
+
+          // Navigation : désactiver en mode sélection
           onTap: _selectionMode
               ? null
-              : () => context.pushNamed('article-detail', pathParameters: {'id': article.id}),
+              : () => context.pushNamed('article-detail',
+              pathParameters: {'id': article.id}),
         );
       },
     );
@@ -363,10 +380,8 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-
         final article = articles[index];
         final isSelected = _selectedArticles.contains(article.id);
-
         return ArticleListCard(
           article: article,
           isSelected: isSelected,
@@ -385,11 +400,10 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           // Navigation : désactiver en mode sélection
           onTap: _selectionMode
               ? null
-              : () => context.pushNamed('article-detail', pathParameters: {'id': article.id}),
+              : () => context.pushNamed('article-detail',
+              pathParameters: {'id': article.id}),
           // Menu d'actions contextuelles
-          actions: _selectionMode
-              ? null
-              : _buildArticleActions(article.id),
+          actions: _selectionMode ? null : _buildArticleActions(article.id),
         );
       },
     );
@@ -426,7 +440,8 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         onTap: () {
           Future.delayed(
             const Duration(milliseconds: 100),
-                () => context.pushNamed('article-edit', pathParameters: {'id': articleId}),
+                () => context
+                .pushNamed('article-edit', pathParameters: {'id': articleId}),
           );
         },
       ),
@@ -460,7 +475,8 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 80, color: AppColors.border),
+            const Icon(Icons.inventory_2_outlined,
+                size: 80, color: AppColors.border),
             const SizedBox(height: 16),
             const Text(
               'Aucun article trouvé',
@@ -537,13 +553,11 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   // ========================================
   // PHASE 2: MÉTHODES D'OPÉRATIONS EN MASSE
   // ========================================
-
   Future<void> _bulkActivate() async {
     final params = BulkUpdateArticlesParams(
       articleIds: _selectedArticles.toList(),
       action: 'activate',
     );
-
     await _executeBulkOperation(params, 'Articles activés');
   }
 
@@ -552,7 +566,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       articleIds: _selectedArticles.toList(),
       action: 'deactivate',
     );
-
     await _executeBulkOperation(params, 'Articles désactivés');
   }
 
@@ -581,19 +594,16 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
         ],
       ),
     );
-
     if (confirmed != true) return;
-
     final params = BulkUpdateArticlesParams(
       articleIds: _selectedArticles.toList(),
       action: 'delete',
     );
-
     await _executeBulkOperation(params, 'Articles supprimés');
   }
 
   Future<void> _bulkChangeCategory() async {
-    // TODO: Afficher dialog de sélection de catégorie
+    //  TODO: Afficher dialog de sélection de catégorie
     // puis appeler _executeBulkOperation avec action: 'update_category'
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -606,7 +616,7 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   }
 
   Future<void> _bulkChangeSupplier() async {
-    // TODO: Afficher dialog de sélection de fournisseur
+    //  TODO: Afficher dialog de sélection de fournisseur
     // puis appeler _executeBulkOperation avec action: 'update_supplier'
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -623,7 +633,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       String successMessage,
       ) async {
     final (result, error) = await _bulkUpdateUseCase(params);
-
     if (error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -633,7 +642,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       );
       return;
     }
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -641,12 +649,10 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           backgroundColor: Colors.green,
         ),
       );
-
       setState(() {
         _selectionMode = false;
         _selectedArticles.clear();
       });
-
       // Recharger la liste
       ref.read(articlesProvider.notifier).loadArticles();
     }
@@ -658,9 +664,7 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       copyImages: true,
       copyBarcodes: false,
     );
-
     final (result, error) = await _duplicateUseCase(params);
-
     if (error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -670,7 +674,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       );
       return;
     }
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -678,12 +681,14 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           backgroundColor: Colors.green,
         ),
       );
-
       // Recharger la liste
       ref.read(articlesProvider.notifier).loadArticles();
     }
   }
 
+  // ===================================
+  // MÉTHODE _confirmDeleteArticle MISE À JOUR
+  // ===================================
   Future<void> _confirmDeleteArticle(String articleId) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -711,7 +716,15 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
     );
 
     if (confirmed == true) {
-      // Utiliser bulk delete pour un seul article
+      // CORRECTION DU BUG :
+      // On s'assure que 'articleId' est le seul dans la liste de sélection
+      // avant d'appeler la suppression en masse.
+      setState(() {
+        _selectedArticles.clear();
+        _selectedArticles.add(articleId);
+      });
+
+      // Utiliser bulk delete qui lira maintenant _selectedArticles (avec 1 seul ID)
       await _bulkDelete();
     }
   }
@@ -731,7 +744,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
   Future<void> _importCSV(String filePath) async {
     final params = ImportArticlesCSVParams(filePath: filePath);
     final (result, error) = await _importCSVUseCase(params);
-
     if (error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -741,12 +753,10 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       );
       return;
     }
-
     if (mounted && result != null) {
       final created = result['created_count'] ?? 0;
       final updated = result['updated_count'] ?? 0;
       final errors = (result['errors'] as List?)?.length ?? 0;
-
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -761,10 +771,11 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('✅ Articles créés : $created'),
-              Text('🔄 Articles mis à jour : $updated'),
+              Text(' ✅  Articles créés : $created'),
+              Text(' 🔄  Articles mis à jour : $updated'),
               if (errors > 0)
-                Text('❌ Erreurs : $errors', style: const TextStyle(color: Colors.red)),
+                Text(' ❌  Erreurs : $errors',
+                    style: const TextStyle(color: Colors.red)),
             ],
           ),
           actions: [
@@ -775,7 +786,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           ],
         ),
       );
-
       // Recharger la liste
       ref.read(articlesProvider.notifier).loadArticles();
     }
@@ -810,9 +820,7 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       isActive: isActive,
       isLowStock: isLowStock,
     );
-
     final (fileName, error) = await _exportCSVUseCase(params);
-
     if (error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -822,7 +830,6 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
       );
       return;
     }
-
     if (mounted && fileName != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -831,7 +838,7 @@ class _ArticlesListScreenState extends ConsumerState<ArticlesListScreen> {
           action: SnackBarAction(
             label: 'Ouvrir',
             onPressed: () {
-              // TODO: Ouvrir le fichier avec l'application par défaut
+              //  TODO: Ouvrir le fichier avec l'application par défaut
             },
           ),
         ),

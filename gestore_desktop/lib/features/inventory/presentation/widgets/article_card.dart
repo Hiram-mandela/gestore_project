@@ -161,7 +161,8 @@ class ArticleListCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 8.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min, // FIX: Utiliser min au lieu de max
+                  mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     // Menu d'actions contextuelles (3 points)
@@ -177,9 +178,7 @@ class ArticleListCard extends StatelessWidget {
                         offset: const Offset(0, 40),
                       )
                     else if (onSelected == null)
-                      const SizedBox(width: 20), // Espace pour alignement
-
-                    const Spacer(),
+                      const SizedBox(width: 20, height: 48), // Hauteur fixe pour alignement
 
                     // Badge de marge
                     _buildMarginBadge(),
