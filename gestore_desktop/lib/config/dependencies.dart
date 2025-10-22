@@ -19,10 +19,6 @@ import '../features/inventory/domain/usecases/article_bulk_operations_usecases.d
 import '../features/inventory/domain/usecases/location_usecases.dart';
 
 // Environment
-import '../features/inventory/domain/usecases/stock_alert_usecases.dart';
-import '../features/inventory/domain/usecases/stock_movement_usecases.dart';
-import '../features/inventory/domain/usecases/stock_usecases.dart';
-import '../features/inventory/domain/usecases/unit_conversion_usecases.dart';
 import 'environment.dart';
 
 // ==================== AUTHENTICATION ====================
@@ -71,6 +67,13 @@ import '../features/inventory/domain/usecases/brand_usecases.dart';
 
 // Use Cases - Unités de mesure
 import '../features/inventory/domain/usecases/unit_usecases.dart';
+import '../features/inventory/domain/usecases/unit_conversion_usecases.dart';
+
+// Use Cases - Stock
+import '../features/inventory/domain/usecases/stock_alert_usecases.dart';
+import '../features/inventory/domain/usecases/stock_movement_usecases.dart';
+import '../features/inventory/domain/usecases/stock_usecases.dart';
+
 
 // ==================== SALES ====================
 // Data Layer

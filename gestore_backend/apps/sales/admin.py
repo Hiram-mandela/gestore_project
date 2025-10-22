@@ -56,7 +56,7 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
-    list_display = ['name', 'payment_type', 'requires_authorization', 'max_amount', 'fee_percentage', 'is_active']
+    list_display = ['name', 'payment_type', 'account_number', 'requires_authorization', 'max_amount', 'fee_percentage', 'is_active']
     list_filter = ['payment_type', 'is_active', 'requires_authorization']
     search_fields = ['name']
     ordering = ['payment_type', 'name']

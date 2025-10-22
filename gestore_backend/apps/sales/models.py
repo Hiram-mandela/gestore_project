@@ -1,8 +1,9 @@
 # apps/sales/models.py
 
 """
-Modèles de gestion des ventes pour GESTORE
+Modèles de gestion des ventes pour GESTORE - VERSION MULTI-MAGASINS
 Système complet de point de vente, transactions et paiements
+MODIFICATION MAJEURE : Ajout du champ location pour tracer le magasin de chaque vente
 """
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -10,6 +11,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from apps.core.models import BaseModel, AuditableModel, NamedModel, ActivableModel
 from apps.inventory.models import Article
+from decimal import Decimal
 
 User = get_user_model()
 
@@ -110,7 +112,6 @@ class Customer(BaseModel, NamedModel, ActivableModel):
     
     loyalty_points = models.IntegerField(
         default=0,
-        validators=[MinValueValidator(0)],
         verbose_name="Points fidélité"
     )
     
@@ -137,67 +138,58 @@ class Customer(BaseModel, NamedModel, ActivableModel):
     preferred_payment_method = models.CharField(
         max_length=20,
         blank=True,
-        verbose_name="Mode de paiement préféré"
+        verbose_name="Moyen de paiement préféré"
     )
     
     marketing_consent = models.BooleanField(
         default=False,
         verbose_name="Consent marketing",
-        help_text="Accepte de recevoir des communications marketing"
+        help_text="A consenti à recevoir des communications marketing"
     )
     
     def save(self, *args, **kwargs):
         if not self.customer_code:
-            # Générer le code client automatiquement
-            last_customer = Customer.objects.filter(
-                customer_code__isnull=False
-            ).order_by('customer_code').last()
+            last_customer = Customer.objects.order_by('customer_code').last()
             
             if last_customer and last_customer.customer_code:
                 try:
-                    last_number = int(last_customer.customer_code.replace('CLI', ''))
-                    self.customer_code = f'CLI{last_number + 1:06d}'
-                except ValueError:
-                    self.customer_code = 'CLI000001'
+                    last_number = int(last_customer.customer_code[3:])
+                    new_number = last_number + 1
+                except (ValueError, IndexError):
+                    new_number = 1
             else:
-                self.customer_code = 'CLI000001'
+                new_number = 1
+            
+            self.customer_code = f"CLI{new_number:06d}"
         
         super().save(*args, **kwargs)
     
     def get_full_name(self):
         """Retourne le nom complet du client"""
         if self.customer_type == 'company':
-            return self.company_name or self.name
-        return f"{self.first_name} {self.last_name}".strip() or self.name
+            return self.company_name
+        return f"{self.first_name} {self.last_name}".strip() or self.customer_code
     
-    def add_loyalty_points(self, points):
-        """Ajoute des points de fidélité"""
-        self.loyalty_points += points
-        self.save(update_fields=['loyalty_points'])
-    
-    def can_use_loyalty_points(self, points):
-        """Vérifie si le client peut utiliser des points"""
-        return self.loyalty_points >= points
-
     class Meta:
         db_table = 'sales_customer'
         verbose_name = 'Client'
         verbose_name_plural = 'Clients'
-        ordering = ['last_name', 'first_name', 'company_name']
+        ordering = ['customer_code']
 
 
 class PaymentMethod(BaseModel, NamedModel, ActivableModel):
     """
-    Moyens de paiement acceptés
+    Méthodes de paiement disponibles
     """
     PAYMENT_TYPES = [
         ('cash', 'Espèces'),
         ('card', 'Carte bancaire'),
         ('mobile_money', 'Mobile Money'),
         ('check', 'Chèque'),
-        ('credit', 'Crédit'),
-        ('voucher', 'Bon d\'achat'),
+        ('bank_transfer', 'Virement bancaire'),
         ('loyalty_points', 'Points fidélité'),
+        ('voucher', 'Bon d\'achat'),
+        ('other', 'Autre'),
     ]
     
     payment_type = models.CharField(
@@ -206,11 +198,23 @@ class PaymentMethod(BaseModel, NamedModel, ActivableModel):
         verbose_name="Type de paiement"
     )
     
-    # Configuration
+    requires_reference = models.BooleanField(
+        default=False,
+        verbose_name="Référence requise",
+        help_text="Nécessite une référence de transaction"
+    )
+    
     requires_authorization = models.BooleanField(
         default=False,
-        verbose_name="Nécessite autorisation",
-        help_text="Nécessite une autorisation de supervision"
+        verbose_name="Autorisation requise",
+        help_text="Nécessite une autorisation managériale"
+    )
+    
+    account_number = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Numéro de compte",
+        help_text="Numéro de compte comptable associé"
     )
     
     max_amount = models.DecimalField(
@@ -218,8 +222,9 @@ class PaymentMethod(BaseModel, NamedModel, ActivableModel):
         decimal_places=2,
         null=True,
         blank=True,
+        validators=[MinValueValidator(0)],
         verbose_name="Montant maximum",
-        help_text="Montant maximum autorisé pour ce mode de paiement"
+        help_text="Montant maximum autorisé pour cette méthode de paiement"
     )
     
     fee_percentage = models.DecimalField(
@@ -228,29 +233,30 @@ class PaymentMethod(BaseModel, NamedModel, ActivableModel):
         default=0.00,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         verbose_name="Frais (%)",
-        help_text="Pourcentage de frais pour ce mode de paiement"
-    )
-    
-    # Configuration technique
-    integration_config = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name="Configuration intégration",
-        help_text="Configuration technique pour l'intégration"
+        help_text="Pourcentage de frais appliqué sur cette méthode de paiement"
     )
 
     class Meta:
         db_table = 'sales_payment_method'
-        verbose_name = 'Moyen de paiement'
-        verbose_name_plural = 'Moyens de paiement'
-        ordering = ['payment_type', 'name']
+        verbose_name = 'Méthode de paiement'
+        verbose_name_plural = 'Méthodes de paiement'
+        ordering = ['name']
 
 
 class Sale(AuditableModel):
     """
-    Vente/Transaction principale
-    Représente une transaction complète
+    Vente / Transaction
+    Modèle principal pour enregistrer les ventes au POS
+    
+    MODIFICATION MAJEURE v1.8 : Ajout du champ location pour tracer le magasin
     """
+    SALE_TYPES = [
+        ('regular', 'Vente normale'),
+        ('return', 'Retour'),
+        ('exchange', 'Échange'),
+        ('quote', 'Devis'),
+    ]
+    
     SALE_STATUS = [
         ('draft', 'Brouillon'),
         ('pending', 'En attente'),
@@ -260,14 +266,6 @@ class Sale(AuditableModel):
         ('partially_refunded', 'Partiellement remboursée'),
     ]
     
-    SALE_TYPES = [
-        ('regular', 'Vente normale'),
-        ('return', 'Retour'),
-        ('exchange', 'Échange'),
-        ('quote', 'Devis'),
-    ]
-    
-    # Identification
     sale_number = models.CharField(
         max_length=30,
         unique=True,
@@ -287,6 +285,16 @@ class Sale(AuditableModel):
         choices=SALE_STATUS,
         default='draft',
         verbose_name="Statut"
+    )
+    
+    # 🔴 NOUVEAU CHAMP CRITIQUE : MAGASIN OÙ LA VENTE A ÉTÉ EFFECTUÉE
+    location = models.ForeignKey(
+        'inventory.Location',
+        on_delete=models.PROTECT,
+        limit_choices_to={'location_type__in': ['store', 'aisle']},
+        related_name='sales',
+        verbose_name="Point de vente",
+        help_text="Magasin/Emplacement où la vente a été effectuée"
     )
     
     # Client
@@ -426,8 +434,6 @@ class Sale(AuditableModel):
     
     def calculate_totals(self):
         """Recalcule tous les totaux de la vente"""
-        from decimal import Decimal  # Ajouter l'import si nécessaire en haut du fichier
-        
         items = self.items.all()
         
         # Utiliser Decimal pour les sommes
@@ -472,6 +478,7 @@ class Sale(AuditableModel):
             models.Index(fields=['sale_date']),
             models.Index(fields=['customer', 'sale_date']),
             models.Index(fields=['cashier', 'sale_date']),
+            models.Index(fields=['location', 'sale_date']),  # NOUVEL INDEX
         ]
 
 
@@ -577,8 +584,6 @@ class SaleItem(BaseModel):
     )
     
     def save(self, *args, **kwargs):
-        from decimal import Decimal  # Ajouter l'import si nécessaire
-        
         # Copier les informations de l'article
         if self.article:
             self.article_name = self.article.name
@@ -595,7 +600,7 @@ class SaleItem(BaseModel):
         if self.discount_percentage > 0:
             self.discount_amount = gross_amount * (self.discount_percentage / Decimal('100'))
         else:
-            self.discount_amount = Decimal('0.00')  # Initialiser comme Decimal
+            self.discount_amount = Decimal('0.00')
         
         self.line_total = gross_amount - self.discount_amount
         self.tax_amount = self.line_total * (self.tax_rate / Decimal('100'))
@@ -632,7 +637,7 @@ class Payment(AuditableModel):
     payment_method = models.ForeignKey(
         PaymentMethod,
         on_delete=models.PROTECT,
-        verbose_name="Moyen de paiement"
+        verbose_name="Méthode de paiement"
     )
     
     amount = models.DecimalField(
@@ -649,11 +654,12 @@ class Payment(AuditableModel):
         verbose_name="Statut"
     )
     
-    # Informations spécifiques au mode de paiement
-    card_last_digits = models.CharField(
-        max_length=4,
+    # Références externes
+    reference_number = models.CharField(
+        max_length=100,
         blank=True,
-        verbose_name="4 derniers chiffres carte"
+        verbose_name="Numéro de référence",
+        help_text="Référence de transaction externe"
     )
     
     authorization_code = models.CharField(
@@ -662,42 +668,7 @@ class Payment(AuditableModel):
         verbose_name="Code d'autorisation"
     )
     
-    transaction_id = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name="ID transaction externe"
-    )
-    
-    mobile_money_number = models.CharField(
-        max_length=20,
-        blank=True,
-        verbose_name="Numéro Mobile Money"
-    )
-    
-    check_number = models.CharField(
-        max_length=20,
-        blank=True,
-        verbose_name="Numéro de chèque"
-    )
-    
-    # Espèces
-    cash_received = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name="Espèces reçues"
-    )
-    
-    cash_change = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name="Monnaie rendue"
-    )
-    
-    # Métadonnées
+    # Détails supplémentaires
     payment_date = models.DateTimeField(
         default=timezone.now,
         verbose_name="Date de paiement"
@@ -718,19 +689,20 @@ class Payment(AuditableModel):
 class Discount(BaseModel, NamedModel, ActivableModel):
     """
     Remises et promotions
+    Configuration des remises automatiques ou manuelles
     """
     DISCOUNT_TYPES = [
         ('percentage', 'Pourcentage'),
-        ('fixed_amount', 'Montant fixe'),
+        ('fixed', 'Montant fixe'),
         ('buy_x_get_y', 'Achetez X obtenez Y'),
-        ('loyalty_points', 'Points fidélité'),
+        ('bundle', 'Pack promotionnel'),
     ]
     
     DISCOUNT_SCOPES = [
-        ('sale', 'Sur la vente totale'),
-        ('category', 'Sur une catégorie'),
-        ('article', 'Sur un article spécifique'),
-        ('customer', 'Pour un client spécifique'),
+        ('cart', 'Sur le panier'),
+        ('category', 'Sur catégorie'),
+        ('article', 'Sur article'),
+        ('customer', 'Sur client'),
     ]
     
     discount_type = models.CharField(
@@ -842,91 +814,56 @@ class Discount(BaseModel, NamedModel, ActivableModel):
         verbose_name="Utilisations actuelles"
     )
     
-    # Autorisation
-    requires_authorization = models.BooleanField(
-        default=False,
-        verbose_name="Nécessite autorisation"
-    )
-    
-    def is_valid(self, customer=None, amount=None):
-        """Vérifie si la remise est valide"""
+    def is_valid(self):
+        """Vérifie si la remise est valide actuellement"""
         now = timezone.now()
-
-        # Vérifier la période de validité
+        
+        if not self.is_active:
+            return False
+        
         if self.start_date and now < self.start_date:
             return False
+        
         if self.end_date and now > self.end_date:
             return False
-
-        # Vérifier les utilisations globales
-        if self.max_uses is not None and self.current_uses >= self.max_uses:
+        
+        if self.max_uses and self.current_uses >= self.max_uses:
             return False
-
-        # Vérifier le montant minimum
-        if self.min_amount is not None and (not amount or amount < self.min_amount):
-            return False
-
-        # --- NOUVELLES VÉRIFICATIONS ---
-        # Vérifier si la remise est ciblée sur des clients spécifiques
-        if self.scope == 'customer' and self.target_customers.exists():
-            if not customer or customer not in self.target_customers.all():
-                return False
-
-        # Vérifier les utilisations par client (nécessite une logique de suivi)
-        if self.max_uses_per_customer is not None and customer:
-            # Compter combien de fois ce client a utilisé cette remise
-            uses_by_customer = SaleDiscount.objects.filter(
-                sale__customer=customer,
-                discount=self
-            ).count()
-            if uses_by_customer >= self.max_uses_per_customer:
-                return False
-
+        
         return True
     
     def calculate_discount(self, amount, quantity=1):
         """Calcule le montant de la remise"""
-        from decimal import Decimal
-
-        if not self.is_valid(amount=amount):
+        if not self.is_valid():
             return Decimal('0.00')
-
-        discount = Decimal('0.00')
-
-        if self.discount_type == 'percentage':
-            # S'assurer que percentage_value n'est pas None
-            if self.percentage_value is not None:
-                discount = amount * (self.percentage_value / Decimal('100'))
         
-        elif self.discount_type == 'fixed_amount':
-            # S'assurer que fixed_value n'est pas None
-            if self.fixed_value is not None:
-                discount = self.fixed_value
-
-        # --- LOGIQUE AJOUTÉE ---
-        # Note: 'buy_x_get_y' et 'loyalty_points' nécessiteraient une logique plus complexe,
-        # souvent au niveau du panier. Ici, nous les initialisons simplement.
-        elif self.discount_type == 'buy_x_get_y':
-            # La logique réelle devrait être gérée dans la vue du panier/checkout
-            # car elle dépend de l'ensemble des articles.
-            discount = Decimal('0.00') # Placeholder
+        # Vérifier conditions minimum
+        if self.min_quantity and quantity < self.min_quantity:
+            return Decimal('0.00')
         
-        elif self.discount_type == 'loyalty_points':
-            # La conversion des points en montant se fait généralement dans la vue.
-            discount = Decimal('0.00') # Placeholder
-
-        # Limiter au montant de la transaction si la remise est supérieure
+        if self.min_amount and amount < self.min_amount:
+            return Decimal('0.00')
+        
+        # Calculer la remise
+        if self.discount_type == 'percentage' and self.percentage_value:
+            discount = amount * (self.percentage_value / Decimal('100'))
+        elif self.discount_type == 'fixed' and self.fixed_value:
+            discount = self.fixed_value
+        else:
+            discount = Decimal('0.00')
+        
+        # Limiter au montant de la transaction
         if discount > amount:
             discount = amount
-
-        # Limiter le montant maximum de la remise si défini
+        
+        # Limiter au montant maximum si défini
         if self.max_amount is not None and discount > self.max_amount:
             discount = self.max_amount
-
+        
         return discount.quantize(Decimal('0.01'))
     
     def increment_usage(self):
-        """Incrémente le compteur d'utilisation de la remise."""
+        """Incrémente le compteur d'utilisation"""
         if self.max_uses is not None:
             self.current_uses = models.F('current_uses') + 1
             self.save(update_fields=['current_uses'])
@@ -1026,3 +963,4 @@ class Receipt(BaseModel):
         db_table = 'sales_receipt'
         verbose_name = 'Ticket de caisse'
         verbose_name_plural = 'Tickets de caisse'
+        

@@ -19,6 +19,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from apps.core.permissions import (
     CanManageUsers, IsOwnerOrReadOnly, RoleBasedPermission
 )
+from apps.core.mixins import MultiStoreContextMixin
 from .models import Role, UserProfile, UserSession, UserAuditLog
 from .serializers import (
     RoleSerializer, UserSerializer, UserCreateSerializer, UserListSerializer,
@@ -547,20 +548,20 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class LoginView(TokenObtainPairView):
+class LoginView(MultiStoreContextMixin, TokenObtainPairView):
     """
-    Vue de connexion personnalisée avec tracking des sessions
+    Vue de connexion personnalisée avec JWT et contexte multi-magasins
+    🔴 MODIFICATION MAJEURE : Retourne assigned_store et available_stores
     """
     serializer_class = LoginSerializer
     
     def post(self, request, *args, **kwargs):
-        """
-        Connexion avec JWT et tracking session
-        """
+        """Connexion avec JWT et contexte magasin"""
         serializer = self.get_serializer(data=request.data)
         
         if serializer.is_valid():
             user = serializer.validated_data['user']
+            store_context = serializer.validated_data['store_context']
             
             # Réinitialiser les tentatives échouées
             if user.failed_login_attempts > 0:
@@ -571,18 +572,17 @@ class LoginView(TokenObtainPairView):
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             
-            # ✅ CORRECTION : Générer un session_key unique pour chaque connexion API
+            # Créer une session de tracking
             api_session_key = f"api_session_{uuid.uuid4().hex[:16]}"
             
-            # Créer une session de tracking
             user_session = UserSession.objects.create(
                 user=user,
-                session_key=api_session_key,  # ✅ Utiliser le session_key généré
+                session_key=api_session_key,
                 ip_address=request.META.get('REMOTE_ADDR', ''),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
             
-            # Mettre à jour les statistiques utilisateur
+            # Mettre à jour les statistiques
             user.last_login = timezone.now()
             user.save()
             
@@ -591,8 +591,6 @@ class LoginView(TokenObtainPairView):
                 profile.last_login_ip = request.META.get('REMOTE_ADDR', '')
                 profile.login_count = F('login_count') + 1
                 profile.save()
-                
-                # CORRECTION CRITIQUE: Recharger le profile pour résoudre F()
                 profile.refresh_from_db()
             
             # Logger la connexion
@@ -606,18 +604,28 @@ class LoginView(TokenObtainPairView):
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
             
-            # Préparer la réponse
+            # 🔴 RÉPONSE AVEC CONTEXTE MULTI-MAGASINS
             response_data = {
-                'access_token': str(access_token),
-                'refresh_token': str(refresh),
-                'user': UserSerializer(user, context={'request': request}).data,
+                'access': str(access_token),
+                'refresh': str(refresh),
+                'user': {
+                    'id': str(user.id),
+                    'username': user.username,
+                    'email': user.email,
+                    'full_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                    'role': user.role.role_type if user.role else None,
+                    'role_name': user.role.name if user.role else None,
+                    'employee_code': user.employee_code,
+                    # 🔴 CONTEXTE MAGASIN
+                    **store_context
+                },
                 'session_id': str(user_session.id)
             }
             
             return Response(response_data, status=status.HTTP_200_OK)
         
         else:
-            # Incrémenter les tentatives échouées si utilisateur trouvé
+            # Incrémenter les tentatives échouées
             username = request.data.get('username')
             if username:
                 try:
@@ -627,6 +635,7 @@ class LoginView(TokenObtainPairView):
                     pass
             
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+
 
 class LogoutView(APIView):
     """

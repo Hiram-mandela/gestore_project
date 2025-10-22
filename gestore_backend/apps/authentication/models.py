@@ -1,6 +1,7 @@
 """
-Modèles d'authentification et de sécurité pour GESTORE - CORRIGÉ
+Modèles d'authentification et de sécurité pour GESTORE - VERSION MULTI-MAGASINS
 Système complet de gestion des utilisateurs, rôles et permissions
+MODIFICATION MAJEURE : Ajout du champ assigned_store pour la gestion multi-magasins
 """
 import uuid
 from django.contrib.auth.models import AbstractUser, Group, Permission
@@ -105,8 +106,12 @@ class Role(BaseModel, NamedModel, ActivableModel):
 
 class User(AbstractUser):
     """
-    Modèle utilisateur personnalisé pour GESTORE
+    Modèle utilisateur personnalisé pour GESTORE avec support multi-magasins
     Étend le modèle User par défaut de Django
+    
+    MODIFICATION MAJEURE v1.8 : Ajout du champ assigned_store pour la gestion multi-magasins
+    - Les employés sont assignés à UN magasin spécifique
+    - Les admins ont assigned_store=NULL pour accès global
     """
     # Remplacer l'ID par UUID
     id = models.UUIDField(
@@ -137,15 +142,27 @@ class User(AbstractUser):
         help_text="Numéro de téléphone"
     )
     
-    # Rôle principal - CORRIGÉ avec related_name
+    # Rôle principal
     role = models.ForeignKey(
         Role,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='users',  # AJOUTÉ: relation inverse explicite
+        related_name='users',
         verbose_name="Rôle principal",
         help_text="Rôle principal de l'utilisateur"
+    )
+    
+    # 🔴 NOUVEAU CHAMP CRITIQUE : MAGASIN DE RATTACHEMENT
+    assigned_store = models.ForeignKey(
+        'inventory.Location',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        limit_choices_to={'location_type': 'store'},
+        related_name='assigned_employees',
+        verbose_name="Magasin de rattachement",
+        help_text="Magasin auquel cet employé est assigné. NULL pour les administrateurs multi-magasins."
     )
     
     # Informations professionnelles
@@ -207,61 +224,51 @@ class User(AbstractUser):
             
             if last_user and last_user.employee_code:
                 try:
-                    last_number = int(last_user.employee_code.replace('EMP', ''))
-                    self.employee_code = f'EMP{last_number + 1:04d}'
-                except ValueError:
-                    self.employee_code = 'EMP0001'
+                    last_number = int(last_user.employee_code[3:])
+                    new_number = last_number + 1
+                except (ValueError, IndexError):
+                    new_number = 1
             else:
-                self.employee_code = 'EMP0001'
+                new_number = 1
+            
+            self.employee_code = f"EMP{new_number:05d}"
         
         super().save(*args, **kwargs)
-        
-        # Créer le profil automatiquement si il n'existe pas
-        try:
-            self.profile
-        except UserProfile.DoesNotExist:
-            UserProfile.objects.create(user=self)
     
     def is_account_locked(self):
         """Vérifie si le compte est verrouillé"""
-        if self.is_locked and self.locked_until:
-            if timezone.now() >= self.locked_until:
-                self.is_locked = False
-                self.locked_until = None
-                self.failed_login_attempts = 0
-                self.save()
-                return False
-            return True
-        return self.is_locked
-    
-    def lock_account(self, duration_minutes=30):
-        """Verrouille le compte pour une durée donnée"""
-        self.is_locked = True
-        self.locked_until = timezone.now() + timezone.timedelta(minutes=duration_minutes)
-        self.save()
-    
-    def unlock_account(self):
-        """Déverrouille le compte"""
-        self.is_locked = False
-        self.locked_until = None
-        self.failed_login_attempts = 0
-        self.save()
+        if not self.is_locked:
+            return False
+        
+        if self.locked_until and timezone.now() > self.locked_until:
+            # Le verrouillage a expiré
+            self.is_locked = False
+            self.locked_until = None
+            self.failed_login_attempts = 0
+            self.save(update_fields=['is_locked', 'locked_until', 'failed_login_attempts'])
+            return False
+        
+        return True
     
     def increment_failed_login(self):
-        """Incrémente le compteur de tentatives échouées"""
+        """Incrémente les tentatives échouées et verrouille si nécessaire"""
         self.failed_login_attempts += 1
-        # Verrouiller après 3 tentatives
-        if self.failed_login_attempts >= 3:
-            self.lock_account()
-        self.save()
+        
+        # Verrouiller après 5 tentatives
+        if self.failed_login_attempts >= 5:
+            self.is_locked = True
+            self.locked_until = timezone.now() + timezone.timedelta(minutes=30)
+        
+        self.save(update_fields=['failed_login_attempts', 'is_locked', 'locked_until'])
     
     def reset_failed_login(self):
-        """Remet à zéro le compteur de tentatives échouées"""
-        self.failed_login_attempts = 0
-        self.save()
+        """Réinitialise les tentatives échouées"""
+        if self.failed_login_attempts > 0:
+            self.failed_login_attempts = 0
+            self.save(update_fields=['failed_login_attempts'])
     
-    def get_permissions(self):
-        """Retourne toutes les permissions de l'utilisateur"""
+    def get_all_permissions(self):
+        """Récupère toutes les permissions de l'utilisateur"""
         permissions = set()
         
         # Permissions du rôle
@@ -292,6 +299,38 @@ class User(AbstractUser):
         }
         
         return module_permissions.get(module, False)
+    
+    def is_multi_store_admin(self):
+        """
+        Vérifie si l'utilisateur est un admin multi-magasins
+        (Admin avec assigned_store = NULL)
+        """
+        return (
+            self.role 
+            and self.role.role_type == 'admin' 
+            and self.assigned_store is None
+        )
+    
+    def get_accessible_stores(self):
+        """
+        Retourne les magasins accessibles pour cet utilisateur
+        - Admin multi-magasins : tous les magasins
+        - Employé : son magasin uniquement
+        """
+        from apps.inventory.models import Location
+        
+        if self.is_multi_store_admin():
+            return Location.objects.filter(
+                location_type='store',
+                is_active=True
+            )
+        elif self.assigned_store:
+            return Location.objects.filter(
+                id=self.assigned_store.id,
+                is_active=True
+            )
+        
+        return Location.objects.none()
     
     class Meta:
         db_table = 'auth_user'
@@ -407,7 +446,7 @@ class UserSession(BaseModel):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='sessions',  # AJOUTÉ: relation inverse explicite
+        related_name='sessions',
         verbose_name="Utilisateur"
     )
     
@@ -470,7 +509,7 @@ class UserAuditLog(BaseModel):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='audit_logs',  # AJOUTÉ: relation inverse explicite
+        related_name='audit_logs',
         verbose_name="Utilisateur"
     )
     
@@ -524,3 +563,5 @@ class UserAuditLog(BaseModel):
         verbose_name = 'Journal d\'audit'
         verbose_name_plural = 'Journaux d\'audit'
         ordering = ['-timestamp']
+
+        

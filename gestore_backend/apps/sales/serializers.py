@@ -16,7 +16,7 @@ from .models import (
     Customer, PaymentMethod, Sale, SaleItem, Payment,
     Discount, SaleDiscount, Receipt
 )
-from apps.inventory.serializers import ArticleListSerializer
+from apps.inventory.serializers import ArticleListSerializer, LocationSerializer
 
 
 # ========================
@@ -133,29 +133,47 @@ class CustomerListSerializer(BaseModelSerializer):
 
 class PaymentMethodSerializer(BaseModelSerializer, NamedModelSerializer, ActivableModelSerializer):
     """
-    Serializer pour les moyens de paiement
+    Serializer pour les méthodes de paiement
+    🔴 INCLUT max_amount et fee_percentage ajoutés par l'utilisateur
     """
     payment_type = serializers.ChoiceField(choices=[
         ('cash', 'Espèces'),
         ('card', 'Carte bancaire'),
         ('mobile_money', 'Mobile Money'),
         ('check', 'Chèque'),
-        ('credit', 'Crédit'),
-        ('voucher', 'Bon d\'achat'),
+        ('bank_transfer', 'Virement bancaire'),
         ('loyalty_points', 'Points fidélité'),
+        ('voucher', 'Bon d\'achat'),
+        ('other', 'Autre'),
     ])
     
+    requires_reference = serializers.BooleanField(default=False)
     requires_authorization = serializers.BooleanField(default=False)
-    max_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
-    fee_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, default=0.00)
-    integration_config = serializers.JSONField(default=dict, required=False)
+    account_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    
+    # 🔴 CHAMPS AJOUTÉS
+    max_amount = serializers.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        required=False, 
+        allow_null=True
+    )
+    fee_percentage = serializers.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0.00
+    )
+    
+    # Champs calculés
+    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     
     class Meta:
         model = PaymentMethod
         fields = [
-            'id', 'name', 'description', 'payment_type', 'requires_authorization',
-            'max_amount', 'fee_percentage', 'integration_config',
-            'is_active', 'status_display', 'created_at', 'updated_at'
+            'id', 'name', 'description', 'payment_type', 'payment_type_display',
+            'requires_reference', 'requires_authorization', 'account_number',
+            'max_amount', 'fee_percentage', 'is_active', 'status_display',
+            'created_at', 'updated_at', 'sync_status', 'needs_sync'
         ]
 
 
@@ -313,6 +331,7 @@ class ReceiptSerializer(BaseModelSerializer):
 class SaleListSerializer(AuditableSerializer):
     """
     Serializer optimisé pour les listes de ventes
+    🔴 MODIFIÉ : Ajout du champ location
     """
     sale_number = serializers.CharField(read_only=True)
     sale_type = serializers.CharField()
@@ -320,6 +339,10 @@ class SaleListSerializer(AuditableSerializer):
     
     customer = CustomerListSerializer(read_only=True)
     cashier = serializers.CharField(source='cashier.get_full_name', read_only=True)
+    
+    # 🔴 NOUVEAU : Informations du magasin
+    location_name = serializers.CharField(source='location.name', read_only=True)
+    location_code = serializers.CharField(source='location.code', read_only=True)
     
     sale_date = serializers.DateTimeField()
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -333,9 +356,12 @@ class SaleListSerializer(AuditableSerializer):
     class Meta:
         model = Sale
         fields = [
-            'id', 'sale_number', 'sale_type', 'status', 'customer', 'cashier',
-            'sale_date', 'total_amount', 'paid_amount', 'items_count',
-            'is_paid', 'balance', 'created_at'
+            'id', 'sale_number', 'sale_type', 'status', 
+            'customer', 'cashier',
+            'location_name', 'location_code',  # 🔴 AJOUTÉS
+            'sale_date', 'total_amount', 'paid_amount', 
+            'items_count', 'is_paid', 'balance', 
+            'created_at'
         ]
     
     def get_items_count(self, obj):
@@ -349,7 +375,7 @@ class SaleListSerializer(AuditableSerializer):
     def get_balance(self, obj):
         """Solde restant à payer"""
         return float(obj.get_balance())
-
+    
 
 class SaleDetailSerializer(AuditableSerializer):
     """
@@ -379,6 +405,9 @@ class SaleDetailSerializer(AuditableSerializer):
     
     cashier = serializers.CharField(source='cashier.get_full_name', read_only=True)
     cashier_id = serializers.CharField(write_only=True)
+
+    location = LocationSerializer(read_only=True)
+    location_id = serializers.CharField(write_only=True, required=False)
     
     # Dates
     sale_date = serializers.DateTimeField(default=timezone.now)
@@ -422,8 +451,8 @@ class SaleDetailSerializer(AuditableSerializer):
         model = Sale
         fields = [
             'id', 'sale_number', 'sale_type', 'status',
-            'customer', 'customer_id', 'cashier', 'cashier_id',
-            'sale_date', 'subtotal', 'discount_amount', 'tax_amount',
+            'customer', 'customer_id', 'cashier', 'cashier_id', 'location', 
+            'location_id', 'sale_date', 'subtotal', 'discount_amount', 'tax_amount',
             'total_amount', 'paid_amount', 'change_amount',
             'loyalty_points_earned', 'loyalty_points_used',
             'original_sale', 'original_sale_id', 'notes', 'customer_notes',

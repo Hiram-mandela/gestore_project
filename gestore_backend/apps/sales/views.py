@@ -241,15 +241,19 @@ class DiscountViewSet(OptimizedModelViewSet):
 # VENTES
 # ========================
 
-class SaleViewSet(OptimizedModelViewSet):
+class SaleViewSet(StoreFilterMixin, OptimizedModelViewSet):
     """
-    ViewSet principal pour les ventes
+    ViewSet COMPLET pour les ventes avec filtrage multi-magasins
+    🔴 MODIFIÉ : Ajout StoreFilterMixin + TOUTES LES ACTIONS
     """
     queryset = Sale.objects.all()
     permission_classes = [CanViewSales]
     
+    # 🔴 CONFIGURATION DU FILTRAGE MULTI-MAGASINS
+    store_filter_field = 'location'  # Filtre sur Sale.location
+    
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'sale_type', 'customer', 'cashier']
+    filterset_fields = ['status', 'sale_type', 'customer', 'cashier', 'location']
     search_fields = ['sale_number', 'customer__customer_code', 'customer__first_name', 'customer__last_name']
     ordering_fields = ['sale_date', 'total_amount', 'created_at']
     ordering = ['-sale_date']
@@ -258,12 +262,20 @@ class SaleViewSet(OptimizedModelViewSet):
         """Serializer selon l'action"""
         if self.action == 'list':
             return SaleListSerializer
+        elif self.action == 'checkout':
+            return CheckoutSerializer
+        elif self.action == 'void':
+            return VoidSaleSerializer
+        elif self.action == 'return_sale':
+            return ReturnSaleSerializer
         return SaleDetailSerializer
     
     def optimize_list_queryset(self, queryset):
         """Optimisations pour la liste"""
         return queryset.select_related(
-            'customer', 'cashier'
+            'customer', 'cashier', 'location'
+        ).prefetch_related(
+            'items__article'
         ).annotate(
             items_count=Count('items')
         )
@@ -271,7 +283,7 @@ class SaleViewSet(OptimizedModelViewSet):
     def optimize_detail_queryset(self, queryset):
         """Optimisations pour le détail"""
         return queryset.select_related(
-            'customer', 'cashier', 'original_sale', 'receipt'
+            'customer', 'cashier', 'location', 'original_sale', 'receipt'
         ).prefetch_related(
             Prefetch('items', queryset=SaleItem.objects.select_related('article')),
             Prefetch('payments', queryset=Payment.objects.select_related('payment_method')),
@@ -279,7 +291,8 @@ class SaleViewSet(OptimizedModelViewSet):
         )
     
     def get_queryset(self):
-        """Filtrage selon les paramètres"""
+        """Filtrage personnalisé + filtrage magasin"""
+        # 🔴 IMPORTANT : Appeler super() pour activer StoreFilterMixin
         queryset = super().get_queryset()
         
         # Filtre par période
@@ -298,12 +311,32 @@ class SaleViewSet(OptimizedModelViewSet):
         
         return queryset
     
+    def perform_create(self, serializer):
+        """
+        Création d'une vente avec assignation automatique du magasin
+        🔴 MODIFIÉ : Le StoreFilterMixin assigne automatiquement le magasin de l'employé
+        """
+        user = self.request.user
+        
+        # Si l'employé n'a pas spécifié de location, assigner son magasin
+        if user.assigned_store and 'location' not in serializer.validated_data:
+            serializer.save(
+                cashier=user,
+                location=user.assigned_store,
+                created_by=user
+            )
+        else:
+            serializer.save(
+                cashier=user,
+                created_by=user
+            )
+    
+    # 🔴 NOTE : Les actions checkout() et quick_sale() sont dans POSViewSet
+    # Elles ont été déplacées car elles relèvent de la logique POS, pas de la gestion des ventes
+    
     @action(detail=True, methods=['post'], permission_classes=[CanVoidTransaction])
     def void(self, request, pk=None):
-        """
-        Annuler une vente
-        Nécessite permission can_void_transactions
-        """
+        """Annuler une vente - Nécessite permission can_void_transactions"""
         sale = self.get_object()
         
         if sale.status in ['cancelled', 'refunded']:
@@ -322,18 +355,16 @@ class SaleViewSet(OptimizedModelViewSet):
             sale.notes = f"{sale.notes}\n\nAnnulée le {timezone.now()}: {serializer.validated_data['reason']}"
             sale.save()
             
-            # Remettre les stocks
+            # Remettre les stocks dans le même magasin
             for item in sale.items.all():
-                # Créer un mouvement de stock inverse
                 stock = Stock.objects.filter(
                     article=item.article,
-                    location__location_type='store'
+                    location=sale.location  # 🔴 Même magasin
                 ).first()
                 
                 if stock:
                     old_quantity = stock.quantity_on_hand
                     stock.quantity_on_hand += item.quantity
-                    stock.quantity_available += item.quantity
                     stock.save()
                     
                     StockMovement.objects.create(
@@ -354,26 +385,130 @@ class SaleViewSet(OptimizedModelViewSet):
             'sale': SaleDetailSerializer(sale, context={'request': request}).data
         })
     
+    @action(detail=True, methods=['post'])
+    def return_sale(self, request, pk=None):
+        """Retourner une vente (créer une vente de retour)"""
+        original_sale = self.get_object()
+        
+        if not original_sale.can_be_returned():
+            return Response(
+                {'error': 'Cette vente ne peut pas être retournée'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = ReturnSaleSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        
+        with transaction.atomic():
+            # Créer la vente de retour
+            return_sale = Sale.objects.create(
+                sale_type='return',
+                status='completed',
+                customer=original_sale.customer,
+                cashier=request.user,
+                location=original_sale.location,  # 🔴 Même magasin
+                original_sale=original_sale,
+                notes=data['reason'],
+                created_by=request.user
+            )
+            
+            # Créer les lignes de retour
+            for item_data in data['items']:
+                original_item = SaleItem.objects.get(id=item_data['sale_item_id'])
+                
+                SaleItem.objects.create(
+                    sale=return_sale,
+                    article=original_item.article,
+                    quantity=-item_data['quantity'],  # Quantité négative
+                    unit_price=original_item.unit_price,
+                    discount_percentage=original_item.discount_percentage
+                )
+            
+            # Calculer les totaux (négatifs)
+            return_sale.calculate_totals()
+            
+            # Remettre en stock
+            for item in return_sale.items.all():
+                stock, created = Stock.objects.get_or_create(
+                    article=item.article,
+                    location=return_sale.location,  # 🔴 Même magasin
+                    defaults={'quantity_on_hand': 0, 'unit_cost': item.article.purchase_price}
+                )
+                
+                old_quantity = stock.quantity_on_hand
+                stock.quantity_on_hand += abs(item.quantity)
+                stock.save()
+                
+                StockMovement.objects.create(
+                    article=item.article,
+                    stock=stock,
+                    movement_type='in',
+                    reason='return_customer',
+                    quantity=abs(item.quantity),
+                    stock_before=old_quantity,
+                    stock_after=stock.quantity_on_hand,
+                    reference_document=return_sale.sale_number,
+                    created_by=request.user
+                )
+            
+            # Créer le paiement de remboursement
+            refund_method = PaymentMethod.objects.filter(
+                payment_type=data['refund_method']
+            ).first()
+            
+            if refund_method:
+                Payment.objects.create(
+                    sale=return_sale,
+                    payment_method=refund_method,
+                    amount=return_sale.total_amount,  # Montant négatif
+                    status='completed',
+                    notes=f"Remboursement vente {original_sale.sale_number}",
+                    created_by=request.user
+                )
+            
+            return_sale.paid_amount = return_sale.total_amount
+            return_sale.save()
+            
+            # Marquer la vente originale
+            original_sale.status = 'refunded'
+            original_sale.save()
+        
+        return Response({
+            'message': 'Retour effectué avec succès',
+            'return_sale': SaleDetailSerializer(return_sale, context={'request': request}).data
+        })
+    
     @action(detail=False, methods=['get'])
     def daily_summary(self, request):
         """
-        Résumé des ventes du jour
+        Résumé des ventes du jour pour le magasin de l'utilisateur
+        🔴 MODIFIÉ : Filtré automatiquement par magasin grâce au Mixin
         """
         today = timezone.now().date()
-        sales = Sale.objects.filter(
+        
+        # Le queryset est déjà filtré par magasin grâce à StoreFilterMixin
+        daily_sales = self.get_queryset().filter(
             sale_date__date=today,
             status='completed'
         )
         
-        summary = sales.aggregate(
+        summary = daily_sales.aggregate(
             total_sales=Count('id'),
             total_revenue=Sum('total_amount'),
             total_items=Sum('items__quantity'),
-            average_basket=Sum('total_amount') / Count('id') if sales.count() > 0 else 0
         )
         
+        # Calcul de la moyenne
+        if daily_sales.count() > 0:
+            summary['average_basket'] = summary['total_revenue'] / daily_sales.count()
+        else:
+            summary['average_basket'] = 0
+        
         # Ventes par caissier
-        by_cashier = sales.values(
+        by_cashier = daily_sales.values(
             'cashier__first_name', 'cashier__last_name'
         ).annotate(
             sales_count=Count('id'),
@@ -382,8 +517,7 @@ class SaleViewSet(OptimizedModelViewSet):
         
         # Moyens de paiement
         by_payment = Payment.objects.filter(
-            sale__sale_date__date=today,
-            sale__status='completed'
+            sale__in=daily_sales
         ).values('payment_method__name').annotate(
             count=Count('id'),
             total=Sum('amount')
@@ -396,6 +530,41 @@ class SaleViewSet(OptimizedModelViewSet):
             'by_payment_method': list(by_payment)
         })
     
+    @action(detail=False, methods=['get'])
+    def session_summary(self, request):
+        """Résumé de la session de caisse en cours"""
+        today = timezone.now().date()
+        
+        # Ventes du caissier aujourd'hui (déjà filtrées par magasin via Mixin)
+        session_sales = self.get_queryset().filter(
+            cashier=request.user,
+            sale_date__date=today,
+            status='completed'
+        )
+        
+        summary = session_sales.aggregate(
+            total_sales=Count('id'),
+            total_revenue=Sum('total_amount'),
+            total_cash=Sum(
+                'payments__amount',
+                filter=Q(payments__payment_method__payment_type='cash')
+            ),
+            total_card=Sum(
+                'payments__amount',
+                filter=Q(payments__payment_method__payment_type='card')
+            ),
+            total_mobile=Sum(
+                'payments__amount',
+                filter=Q(payments__payment_method__payment_type='mobile_money')
+            )
+        )
+        
+        return Response({
+            'cashier': request.user.get_full_name(),
+            'session_date': today,
+            'summary': summary,
+            'sales': SaleListSerializer(session_sales[:20], many=True, context={'request': request}).data
+        })    
 
 # ========================
 # POINT OF SALE (POS)
