@@ -24,6 +24,8 @@ from apps.authentication.views import OptimizedModelViewSet
 # Import des permissions globales (core)
 from apps.core.permissions import CanManageInventory
 
+from apps.core.mixins import StoreFilterMixin
+
 # Import des permissions granulaires spécifiques à inventory
 from .permissions import (
     CanViewInventory,
@@ -789,14 +791,17 @@ class ArticleViewSet(OptimizedModelViewSet):
 # EMPLACEMENTS ET STOCKS
 # ========================
 
-class LocationViewSet(OptimizedModelViewSet):
+class LocationViewSet(StoreFilterMixin, OptimizedModelViewSet):
     """
-    ViewSet pour les emplacements
-    Permissions : Lecture pour tous, modification selon can_manage_inventory
+    ViewSet COMPLET pour les emplacements avec filtrage multi-magasins
+    🔴 MODIFIÉ : Ajout StoreFilterMixin
     """
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     permission_classes = [CanViewInventory]
+    
+    # 🔴 CONFIGURATION DU FILTRAGE
+    store_filter_field = 'id'  # Filtre direct sur Location.id
     
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['is_active', 'location_type', 'parent']
@@ -813,10 +818,7 @@ class LocationViewSet(OptimizedModelViewSet):
     
     @action(detail=True, methods=['get'])
     def stocks(self, request, pk=None):
-        """
-        Stocks dans cet emplacement
-        Accessible à tous (lecture)
-        """
+        """Stocks dans cet emplacement - Accessible à tous (lecture)"""
         location = self.get_object()
         stocks = Stock.objects.filter(
             location=location,
@@ -825,16 +827,19 @@ class LocationViewSet(OptimizedModelViewSet):
         
         serializer = StockSerializer(stocks, many=True, context={'request': request})
         return Response(serializer.data)
+    
 
-
-class StockViewSet(OptimizedModelViewSet):
+class StockViewSet(StoreFilterMixin, OptimizedModelViewSet):
     """
-    ViewSet pour les stocks
-    Permissions granulaires selon les actions
+    ViewSet COMPLET pour les stocks avec filtrage multi-magasins
+    🔴 MODIFIÉ : Ajout StoreFilterMixin + TOUTES LES ACTIONS
     """
     queryset = Stock.objects.all()
     serializer_class = StockSerializer
-    permission_classes = [CanManageStockMovements]  # Gestion des mouvements par défaut
+    permission_classes = [CanManageStockMovements]
+    
+    # 🔴 CONFIGURATION DU FILTRAGE
+    store_filter_field = 'location'  # Filtre sur Stock.location
     
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['article', 'location', 'expiry_date']
@@ -850,7 +855,8 @@ class StockViewSet(OptimizedModelViewSet):
         )
     
     def get_queryset(self):
-        """Filtrage selon les paramètres"""
+        """Filtrage selon les paramètres + filtrage magasin"""
+        # 🔴 IMPORTANT : Appeler super() pour activer StoreFilterMixin
         queryset = super().get_queryset()
         
         # Filtre stock positif uniquement
@@ -880,10 +886,7 @@ class StockViewSet(OptimizedModelViewSet):
     
     @action(detail=False, methods=['post'], permission_classes=[CanAdjustStock])
     def adjustment(self, request):
-        """
-        Ajustement de stock (inventaire)
-        Nécessite : CanAdjustStock (admins/managers uniquement)
-        """
+        """Ajustement de stock (inventaire) - Nécessite : CanAdjustStock"""
         serializer = StockAdjustmentSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -898,6 +901,8 @@ class StockViewSet(OptimizedModelViewSet):
                 {'error': 'Article ou emplacement non trouvé'},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        # 🔴 Le Mixin valide déjà l'accès à la location dans perform_create
         
         # Rechercher ou créer le stock
         stock, created = Stock.objects.get_or_create(
@@ -931,18 +936,15 @@ class StockViewSet(OptimizedModelViewSet):
         
         return Response({
             'message': 'Ajustement effectué avec succès',
-            'old_quantity': old_quantity,
-            'new_quantity': new_quantity,
-            'adjustment': adjustment_quantity,
+            'old_quantity': float(old_quantity),
+            'new_quantity': float(new_quantity),
+            'adjustment': float(adjustment_quantity),
             'stock': StockSerializer(stock, context={'request': request}).data
         })
     
     @action(detail=False, methods=['post'], permission_classes=[CanManageStockMovements])
     def transfer(self, request):
-        """
-        Transfert de stock entre emplacements
-        Nécessite : CanManageStockMovements
-        """
+        """Transfert de stock entre emplacements - Nécessite : CanManageStockMovements"""
         serializer = StockTransferSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1018,17 +1020,15 @@ class StockViewSet(OptimizedModelViewSet):
         
         return Response({
             'message': 'Transfert effectué avec succès',
-            'quantity': data['quantity'],
+            'quantity': float(data['quantity']),
             'from_location': LocationSerializer(from_location).data,
             'to_location': LocationSerializer(to_location).data
         })
     
     @action(detail=False, methods=['get'])
     def alerts(self, request):
-        """
-        Alertes de stock actives
-        Accessible à tous (lecture)
-        """
+        """Alertes de stock actives - Accessible à tous (lecture)"""
+        # 🔴 Le queryset est déjà filtré par magasin grâce au Mixin
         alerts = StockAlert.objects.filter(
             is_acknowledged=False
         ).select_related(
@@ -1040,11 +1040,9 @@ class StockViewSet(OptimizedModelViewSet):
     
     @action(detail=False, methods=['get'])
     def valuation(self, request):
-        """
-        Valorisation du stock
-        Accessible à tous (lecture)
-        """
-        stocks = Stock.objects.filter(quantity_on_hand__gt=0).select_related('article')
+        """Valorisation du stock - Accessible à tous (lecture)"""
+        # 🔴 Le queryset est déjà filtré par magasin grâce au Mixin
+        stocks = self.get_queryset().filter(quantity_on_hand__gt=0).select_related('article')
         
         total_value = stocks.aggregate(
             value=Sum(F('quantity_on_hand') * F('unit_cost'))
@@ -1073,14 +1071,17 @@ class StockViewSet(OptimizedModelViewSet):
         })
 
 
-class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
+class StockMovementViewSet(StoreFilterMixin, viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet en lecture seule pour les mouvements de stock
-    Accessible à tous pour consultation
+    ViewSet COMPLET en lecture seule pour les mouvements de stock
+    🔴 MODIFIÉ : Ajout StoreFilterMixin + TOUTES LES ACTIONS
     """
     queryset = StockMovement.objects.all()
     serializer_class = StockMovementSerializer
-    permission_classes = [CanViewInventory]  # Lecture seule
+    permission_classes = [CanViewInventory]
+    
+    # 🔴 CONFIGURATION DU FILTRAGE
+    store_filter_field = 'stock__location'  # Filtre via relation Stock
     
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['movement_type', 'reason', 'article', 'stock__location']
@@ -1089,7 +1090,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        """Optimisations et filtres"""
+        """Optimisations et filtres + filtrage magasin"""
+        # 🔴 IMPORTANT : Appeler super() pour activer StoreFilterMixin
         queryset = super().get_queryset().select_related(
             'article__category', 'article__brand', 'stock__location', 'created_by'
         )
@@ -1107,10 +1109,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """
-        Résumé des mouvements par période
-        Accessible à tous (lecture)
-        """
+        """Résumé des mouvements par période - Accessible à tous (lecture)"""
+        # 🔴 Le queryset est déjà filtré par magasin grâce au Mixin
         movements = self.filter_queryset(self.get_queryset())
         
         summary = movements.aggregate(
@@ -1133,16 +1133,19 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
             'summary': summary,
             'daily_summary': list(daily_summary)
         })
+    
 
-
-class StockAlertViewSet(OptimizedModelViewSet):
+class StockAlertViewSet(StoreFilterMixin, OptimizedModelViewSet):
     """
-    ViewSet pour les alertes de stock
-    Permissions : Lecture pour tous, acquittement selon can_manage_stock_movements
+    ViewSet COMPLET pour les alertes de stock avec filtrage multi-magasins
+    🔴 MODIFIÉ : Ajout StoreFilterMixin + TOUTES LES ACTIONS
     """
     queryset = StockAlert.objects.all()
     serializer_class = StockAlertSerializer
-    permission_classes = [CanViewInventory]  # Lecture par défaut
+    permission_classes = [CanViewInventory]
+    
+    # 🔴 CONFIGURATION DU FILTRAGE
+    store_filter_field = 'stock__location'  # Filtre via relation Stock
     
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['alert_type', 'alert_level', 'is_acknowledged']
@@ -1158,10 +1161,7 @@ class StockAlertViewSet(OptimizedModelViewSet):
     
     @action(detail=True, methods=['post'], permission_classes=[CanManageStockMovements])
     def acknowledge(self, request, pk=None):
-        """
-        Acquitter une alerte
-        Nécessite : CanManageStockMovements
-        """
+        """Acquitter une alerte - Nécessite : CanManageStockMovements"""
         alert = self.get_object()
         
         if alert.is_acknowledged:
@@ -1183,10 +1183,7 @@ class StockAlertViewSet(OptimizedModelViewSet):
     
     @action(detail=False, methods=['post'], permission_classes=[CanManageStockMovements])
     def bulk_acknowledge(self, request):
-        """
-        Acquitter plusieurs alertes
-        Nécessite : CanManageStockMovements
-        """
+        """Acquitter plusieurs alertes - Nécessite : CanManageStockMovements"""
         alert_ids = request.data.get('alert_ids', [])
         if not alert_ids:
             return Response(
@@ -1194,7 +1191,8 @@ class StockAlertViewSet(OptimizedModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        alerts = StockAlert.objects.filter(
+        # 🔴 Le queryset est déjà filtré par magasin grâce au Mixin
+        alerts = self.get_queryset().filter(
             id__in=alert_ids,
             is_acknowledged=False
         )
@@ -1212,11 +1210,9 @@ class StockAlertViewSet(OptimizedModelViewSet):
     
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
-        """
-        Dashboard des alertes
-        Accessible à tous (lecture)
-        """
-        alerts = StockAlert.objects.filter(is_acknowledged=False)
+        """Dashboard des alertes - Accessible à tous (lecture)"""
+        # 🔴 Le queryset est déjà filtré par magasin grâce au Mixin
+        alerts = self.get_queryset().filter(is_acknowledged=False)
         
         counts = alerts.aggregate(
             total=Count('id'),
@@ -1238,4 +1234,5 @@ class StockAlertViewSet(OptimizedModelViewSet):
             'counts': counts,
             'recent_alerts': StockAlertSerializer(recent_alerts, many=True, context={'request': request}).data
         })
-    
+
+   
