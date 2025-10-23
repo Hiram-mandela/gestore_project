@@ -1,8 +1,8 @@
 // ========================================
 // lib/shared/widgets/app_layout.dart
 // Layout principal avec sidebar navigation
-// VERSION COMPLÈTE AVEC PHASES 1 & 5
-// Date: 19 Octobre 2025
+// VERSION COMPLÈTE CORRIGÉE - Intégration StoreSelector + Toutes les routes
+// Date: 23 Octobre 2025
 // ========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/authentication/presentation/providers/auth_provider.dart';
 import '../../features/authentication/presentation/providers/auth_state.dart';
 import '../constants/app_colors.dart';
+import 'store_selector.dart';
 
 /// Layout principal de l'application avec sidebar
 class AppLayout extends ConsumerWidget {
@@ -94,6 +95,16 @@ class _Sidebar extends ConsumerWidget {
               ],
             ),
           ),
+
+          // 🔴 NOUVEAU: Store Selector
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: StoreSelector(
+              // Désactiver pendant une transaction POS
+              isDisabled: _isInTransaction(currentRoute),
+            ),
+          ),
+
           Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
 
           // Menu items
@@ -144,7 +155,7 @@ class _Sidebar extends ConsumerWidget {
                   currentRoute: currentRoute,
                 ),
 
-                // Conversions d'unités ⭐ NOUVEAU (Phase 1)
+                // Conversions d'unités
                 _MenuItem(
                   icon: Icons.swap_horiz_outlined,
                   label: 'Conversions',
@@ -163,31 +174,39 @@ class _Sidebar extends ConsumerWidget {
                 // Stocks
                 _MenuItem(
                   icon: Icons.warehouse_outlined,
-                  label: 'Gestion des stocks',
+                  label: 'Stocks',
                   route: '/inventory/stocks',
                   currentRoute: currentRoute,
                 ),
 
-                // Alertes
+                // Mouvements de stock
                 _MenuItem(
-                  icon: Icons.notifications_active_outlined,
-                  label: 'Alertes de Stock',
-                  route: '/inventory/alerts/dashboard',
+                  icon: Icons.swap_vert_outlined,
+                  label: 'Mouvements',
+                  route: '/inventory/movements',
                   currentRoute: currentRoute,
                 ),
 
-                // Mouvements ⭐ NOUVEAU (Phase 5)
+                // Alertes de stock
                 _MenuItem(
-                  icon: Icons.sync_alt_outlined,
-                  label: 'Mouvements',
-                  route: '/inventory/movements',
+                  icon: Icons.notifications_active_outlined,
+                  label: 'Alertes',
+                  route: '/inventory/alerts',
+                  currentRoute: currentRoute,
+                ),
+
+                // Fournisseurs
+                _MenuItem(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Fournisseurs',
+                  route: '/inventory/suppliers',
                   currentRoute: currentRoute,
                 ),
 
                 const SizedBox(height: 12),
                 const _SectionHeader(title: 'VENTES'),
 
-                // Point de vente (POS)
+                // Point de vente
                 _MenuItem(
                   icon: Icons.point_of_sale_outlined,
                   label: 'Point de vente',
@@ -311,6 +330,13 @@ class _Sidebar extends ConsumerWidget {
     );
   }
 
+  // 🔴 NOUVELLE MÉTHODE: Détecte si une transaction est en cours
+  bool _isInTransaction(String route) {
+    // Désactiver le changement de magasin pendant qu'on est sur la page POS
+    // pour éviter les incohérences pendant une vente en cours
+    return route.startsWith('/sales/pos');
+  }
+
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -404,22 +430,17 @@ class _MenuItem extends StatelessWidget {
             color: isSelected ? AppColors.primary : Colors.grey[800],
           ),
         ),
-        onTap: () {
-          context.go(route);
-        },
+        onTap: () => context.go(route),
       ),
     );
   }
 
   bool _isRouteSelected() {
-    // Sélectionné si route exacte
-    if (currentRoute == route) return true;
-
-    // Sélectionné si sous-route
-    if (currentRoute.startsWith(route) && route != '/dashboard') {
-      return true;
+    // Dashboard: exact match ou root
+    if (route == '/dashboard') {
+      return currentRoute == '/dashboard' || currentRoute == '/';
     }
-
-    return false;
+    // Autres routes: préfixe
+    return currentRoute.startsWith(route);
   }
 }

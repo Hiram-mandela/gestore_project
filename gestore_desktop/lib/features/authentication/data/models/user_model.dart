@@ -1,12 +1,15 @@
 // ========================================
 // features/authentication/data/models/user_model.dart
-// VERSION CORRIGÉE COMPLÈTE
+// VERSION MISE À JOUR - Support multi-magasins
+// Date: 23 Octobre 2025
 // ========================================
 import '../../domain/entities/user_entity.dart';
 import 'role_model.dart';
 import 'user_profile_model.dart';
+import 'store_info_model.dart';
 
 /// Modèle utilisateur avec TOUS les champs du backend
+/// VERSION MULTI-MAGASINS: Ajout assignedStoreModel, isMultiStoreAdmin, availableStoresModels
 class UserModel extends UserEntity {
   final RoleModel? roleModel;
   final UserProfileModel? profileModel;
@@ -23,6 +26,10 @@ class UserModel extends UserEntity {
   final bool isOnline;
   final List<String> permissionsSummary;
   final String? lastLoginFormatted;
+
+  // 🔴 NOUVEAUX CHAMPS MULTI-MAGASINS (Data Layer)
+  final StoreInfoModel? assignedStoreModel;
+  final List<StoreInfoModel> availableStoresModels;
 
   const UserModel({
     required super.id,
@@ -49,11 +56,18 @@ class UserModel extends UserEntity {
     required this.isOnline,
     required this.permissionsSummary,
     this.lastLoginFormatted,
+    // 🔴 Nouveaux paramètres
+    this.assignedStoreModel,
+    required super.isMultiStoreAdmin,
+    this.availableStoresModels = const [],
   }) : super(
     role: roleModel,
     profile: profileModel,
+    assignedStore: assignedStoreModel,
+    availableStores: availableStoresModels,
   );
 
+  /// Parsing JSON depuis l'API backend
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
@@ -94,9 +108,20 @@ class UserModel extends UserEntity {
           ? List<String>.from(json['permissions_summary'] as List)
           : [],
       lastLoginFormatted: json['last_login_formatted'] as String?,
+      // 🔴 PARSING DES NOUVEAUX CHAMPS MULTI-MAGASINS
+      assignedStoreModel: json['assigned_store'] != null
+          ? StoreInfoModel.fromJson(json['assigned_store'] as Map<String, dynamic>)
+          : null,
+      isMultiStoreAdmin: json['is_multi_store_admin'] as bool? ?? false,
+      availableStoresModels: json['available_stores'] != null
+          ? (json['available_stores'] as List)
+          .map((store) => StoreInfoModel.fromJson(store as Map<String, dynamic>))
+          .toList()
+          : [],
     );
   }
 
+  /// Conversion en JSON pour l'API
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -123,9 +148,14 @@ class UserModel extends UserEntity {
       'is_online': isOnline,
       'permissions_summary': permissionsSummary,
       if (lastLoginFormatted != null) 'last_login_formatted': lastLoginFormatted,
+      // 🔴 SÉRIALISATION DES NOUVEAUX CHAMPS
+      if (assignedStoreModel != null) 'assigned_store': assignedStoreModel!.toJson(),
+      'is_multi_store_admin': isMultiStoreAdmin,
+      'available_stores': availableStoresModels.map((store) => store.toJson()).toList(),
     };
   }
 
+  /// Conversion vers Entity (Domain Layer)
   UserEntity toEntity() => UserEntity(
     id: id,
     username: username,
@@ -140,8 +170,13 @@ class UserModel extends UserEntity {
     profile: profileModel?.toEntity(),
     createdAt: createdAt,
     lastLogin: lastLogin,
+    // 🔴 CONVERSION DES NOUVEAUX CHAMPS
+    assignedStore: assignedStoreModel?.toEntity(),
+    isMultiStoreAdmin: isMultiStoreAdmin,
+    availableStores: availableStoresModels.map((store) => store.toEntity()).toList(),
   );
 
+  /// Factory depuis Entity
   factory UserModel.fromEntity(UserEntity entity) => UserModel(
     id: entity.id,
     username: entity.username,
@@ -152,12 +187,8 @@ class UserModel extends UserEntity {
     isActive: entity.isActive,
     isStaff: entity.isStaff,
     isSuperuser: entity.isSuperuser,
-    roleModel: entity.role != null
-        ? RoleModel.fromEntity(entity.role!)
-        : null,
-    profileModel: entity.profile != null
-        ? UserProfileModel.fromEntity(entity.profile!)
-        : null,
+    roleModel: entity.role != null ? RoleModel.fromEntity(entity.role!) : null,
+    profileModel: entity.profile != null ? UserProfileModel.fromEntity(entity.profile!) : null,
     createdAt: entity.createdAt,
     lastLogin: entity.lastLogin,
     employeeCode: '',
@@ -171,5 +202,11 @@ class UserModel extends UserEntity {
     isOnline: false,
     permissionsSummary: [],
     lastLoginFormatted: null,
+    // 🔴 CONVERSION DES NOUVEAUX CHAMPS
+    assignedStoreModel:
+    entity.assignedStore != null ? StoreInfoModel.fromEntity(entity.assignedStore!) : null,
+    isMultiStoreAdmin: entity.isMultiStoreAdmin,
+    availableStoresModels:
+    entity.availableStores.map((store) => StoreInfoModel.fromEntity(store)).toList(),
   );
 }
