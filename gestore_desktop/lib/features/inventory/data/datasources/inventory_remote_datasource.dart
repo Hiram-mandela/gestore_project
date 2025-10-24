@@ -108,6 +108,7 @@ abstract class InventoryRemoteDataSource {
     String? articleId,
     String? locationId,
     DateTime? expiryDate,
+    String? storeId, // 🔴 NOUVEAU : Filtrage multi-magasins
   });
 
   Future<StockModel> getStockById(String id);
@@ -143,6 +144,7 @@ abstract class InventoryRemoteDataSource {
     String? alertType,
     String? alertLevel,
     bool? isAcknowledged,
+    String? storeId, // 🔴 NOUVEAU : Filtrage multi-magasins
   });
 
   /// Récupère une alerte par son ID
@@ -202,11 +204,13 @@ abstract class InventoryRemoteDataSource {
     String? dateTo,
     String? search,
     String? ordering,
+    String? storeId, // 🔴 NOUVEAU : Filtrage multi-magasins
   });
   Future<StockMovementModel> getStockMovementById(String id);
   Future<Map<String, dynamic>> getMovementsSummary({
     String? dateFrom,
     String? dateTo,
+    String? storeId, // 🔴 NOUVEAU : Filtrage multi-magasins
   });
 
 }
@@ -1011,6 +1015,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     String? articleId,
     String? locationId,
     DateTime? expiryDate,
+    String? storeId, // 🔴 NOUVEAU
   }) async {
     try {
       logger.d('📡 API Call: GET /stocks');
@@ -1021,6 +1026,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (expiryDate != null) {
         queryParams['expiry_date'] = expiryDate.toIso8601String().split('T')[0];
       }
+      // 🔴 NOUVEAU : Ajout du paramètre store_id pour filtrage multi-magasins
+      if (storeId != null) queryParams['store_id'] = storeId;
 
       final response = await apiClient.get(
         ApiEndpoints.stocks,
@@ -1154,6 +1161,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     String? alertType,
     String? alertLevel,
     bool? isAcknowledged,
+    String? storeId, // 🔴 NOUVEAU
   }) async {
     try {
       logger.d('📡 API Call: GET /alerts');
@@ -1162,6 +1170,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (alertType != null) queryParams['alert_type'] = alertType;
       if (alertLevel != null) queryParams['alert_level'] = alertLevel;
       if (isAcknowledged != null) queryParams['is_acknowledged'] = isAcknowledged;
+      // 🔴 NOUVEAU : Ajout du paramètre store_id pour filtrage multi-magasins
+      if (storeId != null) queryParams['store_id'] = storeId;
 
       final response = await apiClient.get(
         ApiEndpoints.stockAlerts,
@@ -1536,6 +1546,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     String? dateTo,
     String? search,
     String? ordering = '-created_at',
+    String? storeId, // 🔴 NOUVEAU
   }) async {
     try {
       logger.d('🌐 DataSource: Récupération mouvements page $page');
@@ -1553,6 +1564,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       if (dateTo != null) queryParams['date_to'] = dateTo;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (ordering != null) queryParams['ordering'] = ordering;
+      // 🔴 NOUVEAU : Ajout du paramètre store_id pour filtrage multi-magasins
+      if (storeId != null) queryParams['store_id'] = storeId;
 
       final response = await apiClient.get(
         ApiEndpoints.stockMovements,
@@ -1603,6 +1616,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   Future<Map<String, dynamic>> getMovementsSummary({
     String? dateFrom,
     String? dateTo,
+    String? storeId, // 🔴 NOUVEAU
   }) async {
     try {
       logger.d('🌐 DataSource: Récupération résumé mouvements');
@@ -1610,10 +1624,12 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       final queryParams = <String, dynamic>{};
       if (dateFrom != null) queryParams['date_from'] = dateFrom;
       if (dateTo != null) queryParams['date_to'] = dateTo;
+      // 🔴 NOUVEAU : Ajout du paramètre store_id pour filtrage multi-magasins
+      if (storeId != null) queryParams['store_id'] = storeId;
 
       final response = await apiClient.get(
         ApiEndpoints.stockMovementsSummary,
-        queryParameters: queryParams,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
       logger.i('✅ DataSource: Résumé récupéré');

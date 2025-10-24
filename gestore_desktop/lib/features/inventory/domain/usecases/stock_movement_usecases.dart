@@ -86,6 +86,7 @@ class GetMovementsSummaryUseCase {
 
 /// Résumé des mouvements de stock
 class MovementsSummary {
+  final String? storeId;  // 🔴 NOUVEAU
   final int totalMovements;
   final int totalIn;
   final int totalOut;
@@ -93,6 +94,7 @@ class MovementsSummary {
   final List<DailySummary> dailySummary;
 
   MovementsSummary({
+    this.storeId,
     required this.totalMovements,
     required this.totalIn,
     required this.totalOut,
@@ -106,6 +108,7 @@ class MovementsSummary {
     final daily = json['daily_summary'] as List<dynamic>;
 
     return MovementsSummary(
+      storeId: summary['store_id'] as String? ?? '',
       totalMovements: summary['total_movements'] as int? ?? 0,
       totalIn: summary['total_in'] as int? ?? 0,
       totalOut: summary['total_out'] as int? ?? 0,

@@ -228,6 +228,7 @@ abstract class InventoryRepository {
   Future<(StockMovementEntity?, String?)> getStockMovementById(String id);
 
   Future<(MovementsSummary?, String?)> getMovementsSummary({
+    String? storeId,  // 🔴 NOUVEAU
     String? dateFrom,
     String? dateTo,
   });
