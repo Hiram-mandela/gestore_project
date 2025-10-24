@@ -1,6 +1,8 @@
 // ========================================
 // lib/features/inventory/domain/usecases/stock_usecases.dart
 // Use cases pour la gestion des stocks
+// 🔴 SESSION 4 - MULTI-MAGASINS : Ajout paramètre storeId
+// Date modification: 24 Octobre 2025
 // ========================================
 
 import '../entities/stock_entity.dart';
@@ -8,17 +10,22 @@ import '../repositories/inventory_repository.dart';
 
 // ==================== GET STOCKS ====================
 
+/// 🔴 MULTI-MAGASINS : Récupère les stocks avec filtrage optionnel par magasin
+/// - storeId null : Backend filtre automatiquement (employés mono-magasin)
+/// - storeId fourni : Backend filtre explicitement sur ce magasin (admins)
 class GetStocksUseCase {
   final InventoryRepository repository;
 
   GetStocksUseCase({required this.repository});
 
   Future<(List<StockEntity>?, String?)> call({
+    String? storeId,  // 🔴 NOUVEAU : Filtrage par magasin
     String? articleId,
     String? locationId,
     DateTime? expiryDate,
   }) {
     return repository.getStocks(
+      storeId: storeId,  // 🔴 NOUVEAU
       articleId: articleId,
       locationId: locationId,
       expiryDate: expiryDate,

@@ -337,13 +337,13 @@ class _MovementsDashboardScreenState
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: summary.netMovement >= 0
+              colors: summary.totalMovements >= 0
                   ? [AppColors.success.withValues(alpha: 0.1), AppColors.success.withValues(alpha: 0.05)]
                   : [AppColors.error.withValues(alpha: 0.1), AppColors.error.withValues(alpha: 0.05)],
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: summary.netMovement >= 0
+              color: summary.totalMovements >= 0
                   ? AppColors.success.withValues(alpha: 0.3)
                   : AppColors.error.withValues(alpha: 0.3),
               width: 2,
@@ -355,8 +355,8 @@ class _MovementsDashboardScreenState
               Row(
                 children: [
                   Icon(
-                    summary.netMovement >= 0 ? Icons.trending_up : Icons.trending_down,
-                    color: summary.netMovement >= 0 ? AppColors.success : AppColors.error,
+                    summary.totalMovements >= 0 ? Icons.trending_up : Icons.trending_down,
+                    color: summary.totalMovements >= 0 ? AppColors.success : AppColors.error,
                     size: 32,
                   ),
                   const SizedBox(width: 12),
@@ -371,11 +371,11 @@ class _MovementsDashboardScreenState
                 ],
               ),
               Text(
-                '${summary.netMovement >= 0 ? '+' : ''}${summary.netMovement}',
+                '${summary.totalMovements >= 0 ? '+' : ''}${summary.totalMovements}',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: summary.netMovement >= 0 ? AppColors.success : AppColors.error,
+                  color: summary.totalMovements >= 0 ? AppColors.success : AppColors.error,
                 ),
               ),
             ],
@@ -430,7 +430,7 @@ class _MovementsDashboardScreenState
   Widget _buildDailyChart(List<DailySummary> dailySummary) {
     // Graphique simple avec barres
     final maxValue = dailySummary
-        .map((d) => d.movementsCount)
+        .map((d) => d.totalMovements)
         .reduce((a, b) => a > b ? a : b)
         .toDouble();
 
@@ -502,8 +502,8 @@ class _MovementsDashboardScreenState
   }
 
   Widget _buildDayBar(DailySummary day, double maxValue) {
-    final inHeight = maxValue > 0 ? (day.inCount / maxValue) * 150 : 0.0;
-    final outHeight = maxValue > 0 ? (day.outCount / maxValue) * 150 : 0.0;
+    final inHeight = maxValue > 0 ? (day.totalIn / maxValue) * 150 : 0.0;
+    final outHeight = maxValue > 0 ? (day.totalOut / maxValue) * 150 : 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -512,7 +512,7 @@ class _MovementsDashboardScreenState
         children: [
           // Tooltip avec détails
           Text(
-            '${day.inCount}/${day.outCount}',
+            '${day.totalIn}/${day.totalOut}',
             style: const TextStyle(
               fontSize: 10,
               color: AppColors.textSecondary,
@@ -547,7 +547,7 @@ class _MovementsDashboardScreenState
 
           // Date
           Text(
-            day.formattedDate.split('/')[0],
+            day.date.split('/')[0],
             style: const TextStyle(
               fontSize: 10,
               color: AppColors.textSecondary,

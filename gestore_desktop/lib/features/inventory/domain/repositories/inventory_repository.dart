@@ -120,6 +120,7 @@ abstract class InventoryRepository {
   // ==================== STOCKS - CRUD ====================
 
   Future<(List<StockEntity>?, String?)> getStocks({
+    String? storeId,  // 🔴 NOUVEAU
     String? articleId,
     String? locationId,
     DateTime? expiryDate,
@@ -149,8 +150,11 @@ abstract class InventoryRepository {
 
   // ==================== STOCK ALERTS ====================
 
-  /// Récupère les alertes avec filtres
+  /// 🔴 MULTI-MAGASINS : Récupère les alertes avec filtrage optionnel par magasin
+  /// - [storeId] null : Backend filtre automatiquement (employés)
+  /// - [storeId] fourni : Backend filtre sur magasin spécifique (admins)
   Future<(List<StockAlertEntity>?, String?)> getStockAlerts({
+    String? storeId,  // 🔴 NOUVEAU
     String? alertType,
     String? alertLevel,
     bool? isAcknowledged,
@@ -204,7 +208,11 @@ abstract class InventoryRepository {
   });
 
   // ==================== STOCK MOVEMENTS ====================
+  /// 🔴 MULTI-MAGASINS : Récupère les mouvements avec filtrage optionnel par magasin
+  /// - [storeId] null : Backend filtre automatiquement (employés)
+  /// - [storeId] fourni : Backend filtre sur magasin spécifique (admins)
   Future<(PaginatedResponseEntity<StockMovementEntity>?, String?)> getStockMovements({
+    String? storeId,  // 🔴 NOUVEAU
     int page = 1,
     int pageSize = 20,
     String? movementType,
@@ -216,10 +224,11 @@ abstract class InventoryRepository {
     String? search,
     String? ordering,
   });
+
   Future<(StockMovementEntity?, String?)> getStockMovementById(String id);
+
   Future<(MovementsSummary?, String?)> getMovementsSummary({
     String? dateFrom,
     String? dateTo,
   });
-
 }

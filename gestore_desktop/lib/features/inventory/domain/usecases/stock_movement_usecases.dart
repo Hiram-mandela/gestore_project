@@ -1,6 +1,8 @@
 // ========================================
 // lib/features/inventory/domain/usecases/stock_movement_usecases.dart
 // Use Cases pour les mouvements de stock
+// 🔴 SESSION 4 - MULTI-MAGASINS : Ajout paramètre storeId
+// Date modification: 24 Octobre 2025
 // ========================================
 
 import 'package:injectable/injectable.dart';
@@ -10,6 +12,9 @@ import '../repositories/inventory_repository.dart';
 
 // ==================== GET STOCK MOVEMENTS ====================
 
+/// 🔴 MULTI-MAGASINS : Récupère les mouvements de stock avec filtrage optionnel par magasin
+/// - storeId null : Backend filtre automatiquement (employés)
+/// - storeId fourni : Backend filtre sur magasin spécifique (admins)
 @injectable
 class GetStockMovementsUseCase {
   final InventoryRepository repository;
@@ -17,6 +22,7 @@ class GetStockMovementsUseCase {
   GetStockMovementsUseCase(this.repository);
 
   Future<(PaginatedResponseEntity<StockMovementEntity>?, String?)> call({
+    String? storeId,  // 🔴 NOUVEAU : Filtrage par magasin
     int page = 1,
     int pageSize = 20,
     String? movementType,
@@ -29,6 +35,7 @@ class GetStockMovementsUseCase {
     String? ordering,
   }) async {
     return await repository.getStockMovements(
+      storeId: storeId,  // 🔴 NOUVEAU
       page: page,
       pageSize: pageSize,
       movementType: movementType,
@@ -75,6 +82,8 @@ class GetMovementsSummaryUseCase {
   }
 }
 
+// ==================== CLASSES DE SUPPORT ====================
+
 /// Résumé des mouvements de stock
 class MovementsSummary {
   final int totalMovements;
@@ -106,46 +115,28 @@ class MovementsSummary {
           .toList(),
     );
   }
-
-  /// Calcule le net (entrées - sorties)
-  int get netMovement => totalIn - totalOut;
-
-  /// Vérifie s'il y a des mouvements
-  bool get hasMovements => totalMovements > 0;
 }
 
 /// Résumé quotidien des mouvements
 class DailySummary {
-  final String day;
-  final int movementsCount;
-  final int inCount;
-  final int outCount;
+  final String date;
+  final int totalMovements;
+  final int totalIn;
+  final int totalOut;
 
   DailySummary({
-    required this.day,
-    required this.movementsCount,
-    required this.inCount,
-    required this.outCount,
+    required this.date,
+    required this.totalMovements,
+    required this.totalIn,
+    required this.totalOut,
   });
 
   factory DailySummary.fromJson(Map<String, dynamic> json) {
     return DailySummary(
-      day: json['day'] as String,
-      movementsCount: json['movements_count'] as int? ?? 0,
-      inCount: json['in_count'] as int? ?? 0,
-      outCount: json['out_count'] as int? ?? 0,
+      date: json['date'] as String,
+      totalMovements: json['total_movements'] as int? ?? 0,
+      totalIn: json['in'] as int? ?? 0,
+      totalOut: json['out'] as int? ?? 0,
     );
-  }
-
-  /// Calcule le net du jour
-  int get netMovement => inCount - outCount;
-
-  /// Parse la date
-  DateTime get date => DateTime.parse(day);
-
-  /// Format de la date
-  String get formattedDate {
-    final dt = date;
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 }
